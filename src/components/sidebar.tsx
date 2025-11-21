@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+// import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -33,11 +33,23 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  // const { data: session } = useSession();
+  
+  // Mock session data ชั่วคราว
+  const session = {
+    user: {
+      name: "Admin User",
+      email: "admin@test.com",
+      role: "ADMIN",
+    },
+  };
+  
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" });
+    // await signOut({ callbackUrl: "/login" });
+    // ปิด logout ชั่วคราว
+    alert("Logout disabled for testing");
   };
 
   return (
