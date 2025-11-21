@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public paths that don't require authentication
+  // Public paths
   const publicPaths = ["/login", "/register"];
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
@@ -13,19 +13,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the token from cookies (NextAuth v5 uses different cookie names)
-  const token = 
+  // Check for session token (NextAuth v5 beta)
+  const token =
     request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value;
 
   const isAuthenticated = !!token;
 
-  // If user is authenticated and tries to access login/register, redirect to dashboard
+  // Redirect authenticated users away from auth pages
   if (isPublicPath && isAuthenticated) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // If user is not authenticated and tries to access protected pages, redirect to login
+  // Redirect unauthenticated users to login
   if (!isPublicPath && !isAuthenticated) {
     const from = encodeURIComponent(pathname + request.nextUrl.search);
     return NextResponse.redirect(new URL(`/login?from=${from}`, request.url));
@@ -36,14 +38,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - api/auth (NextAuth endpoints)
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public files (images, etc)
-     */
     "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$|.*\\.ico$).*)",
   ],
 };
