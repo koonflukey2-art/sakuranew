@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,11 +35,42 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    // Simulate registration (replace with actual API call)
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      // Call registration API
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    // Redirect to login
-    window.location.href = "/login";
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
+        setLoading(false);
+        return;
+      }
+
+      // Auto sign in after successful registration
+      const signInResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        // Registration succeeded but sign in failed, redirect to login
+        router.push("/login");
+        return;
+      }
+
+      // Redirect to dashboard
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError("เกิดข้อผิดพลาดในการสมัครสมาชิก");
+      setLoading(false);
+    }
   };
 
   return (

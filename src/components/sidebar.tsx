@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +33,12 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
 
   return (
     <aside
@@ -79,7 +86,31 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="absolute bottom-4 left-0 right-0 px-4">
+      <div className="absolute bottom-4 left-0 right-0 px-4 space-y-3">
+        {/* User info and logout */}
+        {session?.user && (
+          <div className="space-y-2">
+            {!collapsed && (
+              <div className="px-3 py-2 text-xs text-slate-400">
+                <p className="truncate">{session.user.name}</p>
+                <p className="truncate text-slate-500">{session.user.email}</p>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className={cn(
+                "w-full justify-start text-slate-400 hover:text-white hover:bg-red-500/20",
+                collapsed && "justify-center px-0"
+              )}
+            >
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="ml-3">ออกจากระบบ</span>}
+            </Button>
+          </div>
+        )}
+
+        {/* Powered by AI badge */}
         {!collapsed && (
           <div className="rounded-lg bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 p-3 border border-emerald-500/20">
             <p className="text-xs text-slate-400">Powered by AI</p>
