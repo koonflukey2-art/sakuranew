@@ -24,6 +24,7 @@ model User {
   notifications Notification[]
   aiConfig      AIConfig?
   stockHistory  StockHistory[]
+  automationRules AutomationRule[]
 }
 
 enum Role {
@@ -151,4 +152,19 @@ model AIConfig {
   userId          String      @unique
 
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  platform    String   // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
+  tool        String   // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
+  ruleName    String
+  condition   Json     // { metric: "CPA", operator: ">", value: 200 }
+  action      Json     // { type: "pauseCampaign", value: "" }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
