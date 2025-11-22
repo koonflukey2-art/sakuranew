@@ -168,3 +168,12 @@ model AutomationRule {
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model WorkflowTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  template    Json     // n8n workflow JSON
+  category    String   // Profit, Lead Gen, E-commerce
+  createdAt   DateTime @default(now())
+}
