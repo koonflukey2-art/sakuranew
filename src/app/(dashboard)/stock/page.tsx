@@ -18,6 +18,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
 import { ProductsPageSkeleton, ButtonLoading } from "@/components/loading-states";
+import { EmptyProducts } from "@/components/empty-states";
+import { DeleteConfirmation } from "@/components/confirmation-dialog";
+import { fetchWithErrorHandling, handleAPIError } from "@/lib/error-handler";
 
 interface Product {
   id: string;
@@ -76,16 +79,10 @@ export default function StockPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/products");
-      if (!response.ok) throw new Error("Failed to fetch products");
-      const data = await response.json();
+      const data = await fetchWithErrorHandling<Product[]>("/api/products");
       setProducts(data);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลสินค้าได้",
-      });
+      handleAPIError(error, "ไม่สามารถโหลดข้อมูลสินค้าได้");
     } finally {
       setLoading(false);
     }
@@ -417,40 +414,43 @@ export default function StockPage() {
       )}
 
       {/* Products Table */}
-      <Card>
-        <CardHeader>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="ค้นหาสินค้า..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ชื่อสินค้า</TableHead>
-                <TableHead>หมวดหมู่</TableHead>
-                <TableHead className="text-right">จำนวน</TableHead>
-                <TableHead className="text-right">ราคาทุน</TableHead>
-                <TableHead className="text-right">ราคาขาย</TableHead>
-                <TableHead>สถานะ</TableHead>
-                <TableHead className="text-right">จัดการ</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.length === 0 ? (
+      {products.length === 0 ? (
+        <EmptyProducts onAdd={() => setOpenAddDialog(true)} />
+      ) : (
+        <Card>
+          <CardHeader>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="ค้นหาสินค้า..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    ไม่พบสินค้า
-                  </TableCell>
+                  <TableHead>ชื่อสินค้า</TableHead>
+                  <TableHead>หมวดหมู่</TableHead>
+                  <TableHead className="text-right">จำนวน</TableHead>
+                  <TableHead className="text-right">ราคาทุน</TableHead>
+                  <TableHead className="text-right">ราคาขาย</TableHead>
+                  <TableHead>สถานะ</TableHead>
+                  <TableHead className="text-right">จัดการ</TableHead>
                 </TableRow>
-              ) : (
-                filteredProducts.map((product) => (
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      ไม่พบสินค้า
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category}</TableCell>
@@ -495,6 +495,7 @@ export default function StockPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
@@ -612,22 +613,13 @@ export default function StockPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบสินค้า "{selectedProduct?.name}" การกระทำนี้ไม่สามารถย้อนกลับได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-red-500 hover:bg-red-600">
-              {submitting ? <ButtonLoading /> : "ลบ"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmation
+        open={openDeleteDialog}
+        onOpenChange={setOpenDeleteDialog}
+        itemName={selectedProduct?.name || ""}
+        onConfirm={handleDelete}
+        loading={submitting}
+      />
     </div>
   );
 }

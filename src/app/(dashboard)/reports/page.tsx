@@ -12,6 +12,7 @@ import { Calendar, Download, DollarSign, TrendingUp, FileSpreadsheet } from "luc
 import { useToast } from "@/hooks/use-toast";
 import { ChartSkeleton, TableSkeleton, StatsCardSkeleton } from "@/components/loading-states";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyReports } from "@/components/empty-states";
 
 interface ReportData {
   totalRevenue: number;
@@ -232,6 +233,10 @@ export default function ReportsPage() {
         </Card>
       </div>
     );
+  }
+
+  if (!loading && topProducts.length === 0 && platformStats.length === 0) {
+    return <EmptyReports />;
   }
 
   return (

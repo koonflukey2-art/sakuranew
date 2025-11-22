@@ -40,6 +40,9 @@ import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, Cartes
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { budgetSchema, BudgetFormData } from "@/lib/validations";
 import { TableSkeleton, ButtonLoading } from "@/components/loading-states";
+import { EmptyBudgets } from "@/components/empty-states";
+import { DeleteConfirmation } from "@/components/confirmation-dialog";
+import { fetchWithErrorHandling, handleAPIError } from "@/lib/error-handler";
 
 interface Budget {
   id: string;
@@ -93,17 +96,10 @@ export default function BudgetPage() {
   const fetchBudgets = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/budgets");
-      if (!response.ok) throw new Error("Failed to fetch budgets");
-      const data = await response.json();
+      const data = await fetchWithErrorHandling<Budget[]>("/api/budgets");
       setBudgets(data);
     } catch (error) {
-      console.error("Failed to fetch budgets:", error);
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลงบประมาณได้",
-        variant: "destructive",
-      });
+      handleAPIError(error, "ไม่สามารถโหลดข้อมูลงบประมาณได้");
     } finally {
       setLoading(false);
     }
@@ -486,19 +482,22 @@ export default function BudgetPage() {
       </Card>
 
       {/* Budgets Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>รายการงบประมาณ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <TableSkeleton rows={10} />
-          ) : budgets.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              ไม่มีงบประมาณ
-            </div>
-          ) : (
-            <Table>
+      {!loading && budgets.length === 0 ? (
+        <EmptyBudgets onAdd={() => setIsAddOpen(true)} />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>รายการงบประมาณ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <TableSkeleton rows={10} />
+            ) : budgets.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                ไม่มีงบประมาณ
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>วัตถุประสงค์</TableHead>
@@ -579,6 +578,7 @@ export default function BudgetPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -811,28 +811,12 @@ export default function BudgetPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบงบประมาณ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการลบงบประมาณ &quot;{selectedBudget?.purpose}&quot; ใช่หรือไม่?
-              การดำเนินการนี้ไม่สามารถย้อนกลับได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedBudget(null)}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              ลบงบประมาณ
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmation
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        itemName={selectedBudget?.purpose || ""}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { Users, Shield, Trash2, MoreVertical, UserCog, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TableSkeleton } from "@/components/loading-states";
+import { EmptyUsers } from "@/components/empty-states";
 
 interface User {
   id: string;
@@ -275,6 +276,8 @@ export default function UsersPage() {
         <CardContent>
           {loading ? (
             <TableSkeleton rows={10} />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyUsers />
           ) : (
             <Table>
               <TableHeader>

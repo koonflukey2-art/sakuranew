@@ -47,6 +47,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { campaignSchema, CampaignFormData } from "@/lib/validations";
 import { TableSkeleton, ButtonLoading } from "@/components/loading-states";
+import { EmptyCampaigns } from "@/components/empty-states";
+import { DeleteConfirmation } from "@/components/confirmation-dialog";
+import { fetchWithErrorHandling, handleAPIError } from "@/lib/error-handler";
 
 interface AdCampaign {
   id: string;
@@ -119,17 +122,10 @@ export default function AdsPage() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/campaigns");
-      if (!response.ok) throw new Error("Failed to fetch campaigns");
-      const data = await response.json();
+      const data = await fetchWithErrorHandling<AdCampaign[]>("/api/campaigns");
       setCampaigns(data);
     } catch (error) {
-      console.error("Failed to fetch campaigns:", error);
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลแคมเปญได้",
-        variant: "destructive",
-      });
+      handleAPIError(error, "ไม่สามารถโหลดข้อมูลแคมเปญได้");
     } finally {
       setLoading(false);
     }
@@ -413,19 +409,22 @@ export default function AdsPage() {
       </div>
 
       {/* Campaigns Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>แคมเปญทั้งหมด</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <TableSkeleton rows={10} />
-          ) : filteredCampaigns.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              ไม่มีแคมเปญ
-            </div>
-          ) : (
-            <Table>
+      {!loading && campaigns.length === 0 ? (
+        <EmptyCampaigns onCreate={() => setIsCreateOpen(true)} />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>แคมเปญทั้งหมด</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <TableSkeleton rows={10} />
+            ) : filteredCampaigns.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                ไม่มีแคมเปญ
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Platform</TableHead>
@@ -512,6 +511,7 @@ export default function AdsPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Create Campaign Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -881,28 +881,12 @@ export default function AdsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบแคมเปญ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการลบแคมเปญ &quot;{selectedCampaign?.campaignName}&quot; ใช่หรือไม่?
-              การดำเนินการนี้ไม่สามารถย้อนกลับได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedCampaign(null)}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              ลบแคมเปญ
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmation
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        itemName={selectedCampaign?.campaignName || ""}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
