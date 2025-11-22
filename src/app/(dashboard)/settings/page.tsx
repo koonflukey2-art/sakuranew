@@ -27,8 +27,13 @@ import {
   Lock,
   Save,
   RefreshCw,
+  Bot,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AI_PROVIDERS, AiProviderId } from "@/lib/ai-providers";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -61,6 +66,13 @@ export default function SettingsPage() {
 
   // Sync user state
   const [syncing, setSyncing] = useState(false);
+
+  // AI Settings state
+  const [selectedProvider, setSelectedProvider] = useState<AiProviderId>("openai");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [connectionMessage, setConnectionMessage] = useState("");
 
   const handleUpdateProfile = () => {
     toast({
@@ -149,6 +161,58 @@ export default function SettingsPage() {
     });
   };
 
+  const handleTestConnection = async () => {
+    try {
+      setTestingConnection(true);
+      setConnectionStatus("idle");
+      setConnectionMessage("");
+
+      const response = await fetch("/api/ai/test-connection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ provider: selectedProvider }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setConnectionStatus("success");
+        setConnectionMessage(data.message);
+        toast({
+          title: "สำเร็จ!",
+          description: data.message,
+        });
+      } else {
+        setConnectionStatus("error");
+        setConnectionMessage(data.message);
+        toast({
+          title: "ล้มเหลว",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      setConnectionStatus("error");
+      setConnectionMessage("เกิดข้อผิดพลาดในการทดสอบการเชื่อมต่อ");
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleSaveAISettings = () => {
+    toast({
+      title: "บันทึกการตั้งค่า AI สำเร็จ",
+      description: `Provider: ${selectedProvider}, Model: ${selectedModel || "ไม่ได้เลือก"}`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,10 +223,14 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile">
             <User className="h-4 w-4 mr-2" />
             โปรไฟล์
+          </TabsTrigger>
+          <TabsTrigger value="ai">
+            <Bot className="h-4 w-4 mr-2" />
+            AI Settings
           </TabsTrigger>
           <TabsTrigger value="api">
             <Key className="h-4 w-4 mr-2" />
@@ -289,6 +357,175 @@ export default function SettingsPage() {
                 <Lock className="h-4 w-4 mr-2" />
                 เปลี่ยนรหัสผ่าน
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI Settings Tab */}
+        <TabsContent value="ai" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Provider Settings</CardTitle>
+              <CardDescription>
+                เลือก AI Provider และ Model สำหรับใช้งานในระบบ
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Provider Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="ai-provider">AI Provider</Label>
+                <Select
+                  value={selectedProvider}
+                  onValueChange={(value) => {
+                    setSelectedProvider(value as AiProviderId);
+                    setSelectedModel("");
+                    setConnectionStatus("idle");
+                    setConnectionMessage("");
+                  }}
+                >
+                  <SelectTrigger id="ai-provider">
+                    <SelectValue placeholder="เลือก AI Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AI_PROVIDERS.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Model Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="ai-model">Model</Label>
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                  <SelectTrigger id="ai-model">
+                    <SelectValue placeholder="เลือก Model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.models.map(
+                      (model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.label}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* Test Connection */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">ทดสอบการเชื่อมต่อ</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    ทดสอบว่า API Key ของ{" "}
+                    {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.name}{" "}
+                    ถูกตั้งค่าในระบบแล้วหรือยัง (ต้องตั้งค่าใน Environment Variables)
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    variant="outline"
+                  >
+                    {testingConnection ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        กำลังทดสอบ...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        ทดสอบการเชื่อมต่อ
+                      </>
+                    )}
+                  </Button>
+
+                  {connectionStatus === "success" && (
+                    <div className="flex items-center gap-2 text-green-500">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="text-sm font-medium">เชื่อมต่อสำเร็จ</span>
+                    </div>
+                  )}
+
+                  {connectionStatus === "error" && (
+                    <div className="flex items-center gap-2 text-red-500">
+                      <XCircle className="w-5 h-5" />
+                      <span className="text-sm font-medium">เชื่อมต่อล้มเหลว</span>
+                    </div>
+                  )}
+                </div>
+
+                {connectionMessage && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      connectionStatus === "success"
+                        ? "bg-green-50 text-green-800 border border-green-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    {connectionMessage}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <Button onClick={handleSaveAISettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  บันทึกการตั้งค่า AI
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Information Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>ข้อมูล API Keys</CardTitle>
+              <CardDescription>
+                วิธีการตั้งค่า API Keys สำหรับแต่ละ Provider
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Environment Variables ที่ต้องการ:</h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  <li>
+                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                      OPENAI_API_KEY
+                    </code>{" "}
+                    - สำหรับ OpenAI
+                  </li>
+                  <li>
+                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                      ANTHROPIC_API_KEY
+                    </code>{" "}
+                    - สำหรับ Anthropic
+                  </li>
+                  <li>
+                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                      GEMINI_API_KEY
+                    </code>{" "}
+                    - สำหรับ Google Gemini
+                  </li>
+                </ul>
+              </div>
+              <Separator />
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  💡 API Keys จะถูกอ่านจาก Environment Variables บนเซิร์ฟเวอร์
+                  ไม่สามารถตั้งค่าผ่านหน้าเว็บได้เพื่อความปลอดภัย
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
