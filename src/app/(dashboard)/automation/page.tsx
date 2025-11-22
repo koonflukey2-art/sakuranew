@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Loader2, Zap, Settings, Play, Pause } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Zap, Settings, Play, Pause, Flask } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface AutomationRule {
@@ -37,8 +37,14 @@ export default function AutomationPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [openTestDialog, setOpenTestDialog] = useState(false);
   const [selectedRule, setSelectedRule] = useState<AutomationRule | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    condition: boolean;
+    message: string;
+    wouldExecute: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     platform: "Facebook Ads",
@@ -238,6 +244,48 @@ export default function AutomationPage() {
         description: "ไม่สามารถเปลี่ยนสถานะได้",
       });
     }
+  };
+
+  // Test rule (dry-run)
+  const handleTestRule = (rule: AutomationRule) => {
+    setSelectedRule(rule);
+
+    // Simulate test with mock data
+    const mockValue = Math.floor(Math.random() * 500); // Random value between 0-500
+    const condition = rule.condition;
+
+    let conditionMet = false;
+    switch (condition.operator) {
+      case ">":
+        conditionMet = mockValue > condition.value;
+        break;
+      case "<":
+        conditionMet = mockValue < condition.value;
+        break;
+      case "=":
+        conditionMet = mockValue === condition.value;
+        break;
+      case ">=":
+        conditionMet = mockValue >= condition.value;
+        break;
+      case "<=":
+        conditionMet = mockValue <= condition.value;
+        break;
+    }
+
+    const actionLabel = getActionLabel(rule.action.type);
+
+    setTestResult({
+      condition: conditionMet,
+      message: conditionMet
+        ? `✅ เงื่อนไขเป็นจริง: ${getMetricLabel(condition.metric)} (${mockValue}) ${condition.operator} ${condition.value}`
+        : `❌ เงื่อนไขเป็นเท็จ: ${getMetricLabel(condition.metric)} (${mockValue}) ${condition.operator} ${condition.value}`,
+      wouldExecute: conditionMet
+        ? `จะทำการ: ${actionLabel}${rule.action.value ? ` ${rule.action.value}%` : ""}`
+        : "ไม่มีการทำงาน (เงื่อนไขไม่เป็นจริง)",
+    });
+
+    setOpenTestDialog(true);
   };
 
   const openEdit = (rule: AutomationRule) => {
@@ -528,30 +576,41 @@ export default function AutomationPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleToggleActive(rule)}
+                    >
+                      {rule.isActive ? (
+                        <>
+                          <Pause className="h-3 w-3 mr-1" />
+                          Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3 w-3 mr-1" />
+                          Activate
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(rule)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => openDelete(rule)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
-                    className="flex-1"
-                    onClick={() => handleToggleActive(rule)}
+                    className="w-full"
+                    onClick={() => handleTestRule(rule)}
                   >
-                    {rule.isActive ? (
-                      <>
-                        <Pause className="h-3 w-3 mr-1" />
-                        Pause
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-3 w-3 mr-1" />
-                        Activate
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(rule)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => openDelete(rule)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <Flask className="h-3 w-3 mr-1" />
+                    ทดสอบ Rule (Dry-run)
                   </Button>
                 </div>
               </CardContent>
@@ -710,6 +769,71 @@ export default function AutomationPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Test Rule Dialog */}
+      <Dialog open={openTestDialog} onOpenChange={setOpenTestDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flask className="h-5 w-5 text-blue-500" />
+              ทดสอบ Rule (Dry-run)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedRule && (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-lg space-y-2">
+                  <h3 className="font-semibold text-sm">Rule: {selectedRule.ruleName}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedRule.platform} • {selectedRule.tool}
+                  </p>
+                </div>
+
+                {testResult && (
+                  <>
+                    <div
+                      className={`p-4 rounded-lg ${
+                        testResult.condition
+                          ? "bg-green-50 border border-green-200"
+                          : "bg-red-50 border border-red-200"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-medium ${
+                          testResult.condition ? "text-green-800" : "text-red-800"
+                        }`}
+                      >
+                        {testResult.message}
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                      <p className="text-sm font-semibold text-blue-800 mb-2">
+                        ผลการทำงาน:
+                      </p>
+                      <p className="text-sm text-blue-700">{testResult.wouldExecute}</p>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                      <p className="text-xs text-yellow-800">
+                        ⚠️ <strong>หมายเหตุ:</strong> นี่เป็นการทดสอบแบบ dry-run
+                        ไม่มีการเปลี่ยนแปลงจริงในระบบ ค่าที่ใช้ทดสอบเป็นค่าสุ่ม
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setOpenTestDialog(false)}>ปิด</Button>
+            <Button variant="outline" onClick={() => selectedRule && handleTestRule(selectedRule)}>
+              <Flask className="h-4 w-4 mr-2" />
+              ทดสอบอีกครั้ง
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

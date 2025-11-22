@@ -17,6 +17,7 @@ import {
   ChevronRight,
   LogOut,
   Zap,
+  Workflow,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/reports", label: "รายงาน", icon: FileBarChart },
   { href: "/profit", label: "คำนวณกำไร", icon: Calculator },
   { href: "/automation", label: "Automation", icon: Zap },
+  { href: "/workflows", label: "Workflows", icon: Workflow },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users },
   { href: "/settings", label: "ตั้งค่า", icon: Settings },
 ];
