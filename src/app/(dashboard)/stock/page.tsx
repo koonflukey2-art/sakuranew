@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +14,9 @@ import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Loader2, Trending
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { productSchema, ProductFormData } from "@/lib/validations";
 
 interface Product {
   id: string;
@@ -34,14 +39,32 @@ export default function StockPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "",
-    quantity: 0,
-    minStockLevel: 10,
-    costPrice: 0,
-    sellPrice: 0,
+  // Add Product Form
+  const addForm = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      category: "Skincare",
+      quantity: 0,
+      minStockLevel: 10,
+      costPrice: 0,
+      sellPrice: 0,
+      description: "",
+    },
+  });
+
+  // Edit Product Form
+  const editForm = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      category: "Skincare",
+      quantity: 0,
+      minStockLevel: 10,
+      costPrice: 0,
+      sellPrice: 0,
+      description: "",
+    },
   });
 
   // Fetch products
@@ -68,13 +91,13 @@ export default function StockPage() {
   };
 
   // Create product
-  const handleCreate = async () => {
+  const handleCreate = async (data: ProductFormData) => {
     try {
       setSubmitting(true);
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) throw new Error("Failed to create product");
@@ -84,8 +107,8 @@ export default function StockPage() {
         description: "เพิ่มสินค้าเรียบร้อยแล้ว",
       });
 
+      addForm.reset();
       setOpenAddDialog(false);
-      resetForm();
       fetchProducts();
     } catch (error) {
       toast({
@@ -99,7 +122,7 @@ export default function StockPage() {
   };
 
   // Update product
-  const handleUpdate = async () => {
+  const handleUpdate = async (data: ProductFormData) => {
     if (!selectedProduct) return;
 
     try {
@@ -107,7 +130,7 @@ export default function StockPage() {
       const response = await fetch("/api/products", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, id: selectedProduct.id }),
+        body: JSON.stringify({ ...data, id: selectedProduct.id }),
       });
 
       if (!response.ok) throw new Error("Failed to update product");
@@ -117,9 +140,9 @@ export default function StockPage() {
         description: "แก้ไขสินค้าเรียบร้อยแล้ว",
       });
 
+      editForm.reset();
       setOpenEditDialog(false);
       setSelectedProduct(null);
-      resetForm();
       fetchProducts();
     } catch (error) {
       toast({
@@ -163,26 +186,16 @@ export default function StockPage() {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      category: "",
-      quantity: 0,
-      minStockLevel: 10,
-      costPrice: 0,
-      sellPrice: 0,
-    });
-  };
-
   const openEdit = (product: Product) => {
     setSelectedProduct(product);
-    setFormData({
+    editForm.reset({
       name: product.name,
-      category: product.category,
+      category: product.category as "Skincare" | "Makeup" | "Haircare" | "Supplement" | "Fashion" | "Other",
       quantity: product.quantity,
       minStockLevel: product.minStockLevel,
       costPrice: product.costPrice,
       sellPrice: product.sellPrice,
+      description: "",
     });
     setOpenEditDialog(true);
   };
@@ -235,7 +248,7 @@ export default function StockPage() {
         </div>
         <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={() => addForm.reset()}>
               <Plus className="h-4 w-4 mr-2" />
               เพิ่มสินค้า
             </Button>
@@ -244,73 +257,113 @@ export default function StockPage() {
             <DialogHeader>
               <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>ชื่อสินค้า</Label>
-                <Input
-                  placeholder="กรอกชื่อสินค้า"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            <Form {...addForm}>
+              <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
+                <FormField
+                  control={addForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ชื่อสินค้า</FormLabel>
+                      <FormControl>
+                        <Input placeholder="กรอกชื่อสินค้า" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>หมวดหมู่</Label>
-                <Input
-                  placeholder="กรอกหมวดหมู่"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                <FormField
+                  control={addForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>หมวดหมู่</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="เลือกหมวดหมู่" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Skincare">Skincare</SelectItem>
+                          <SelectItem value="Makeup">Makeup</SelectItem>
+                          <SelectItem value="Haircare">Haircare</SelectItem>
+                          <SelectItem value="Supplement">Supplement</SelectItem>
+                          <SelectItem value="Fashion">Fashion</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>จำนวน</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={addForm.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>จำนวน</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="minStockLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>สต็อกขั้นต่ำ</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="10" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>สต็อกขั้นต่ำ</Label>
-                  <Input
-                    type="number"
-                    placeholder="10"
-                    value={formData.minStockLevel}
-                    onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={addForm.control}
+                    name="costPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ราคาทุน</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="sellPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ราคาขาย</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>ราคาทุน</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={formData.costPrice}
-                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>ราคาขาย</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={formData.sellPrice}
-                    onChange={(e) => setFormData({ ...formData, sellPrice: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenAddDialog(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleCreate} disabled={submitting}>
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                บันทึก
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setOpenAddDialog(false)}>
+                    ยกเลิก
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    บันทึก
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -453,73 +506,113 @@ export default function StockPage() {
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>ชื่อสินค้า</Label>
-              <Input
-                placeholder="กรอกชื่อสินค้า"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4 py-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ชื่อสินค้า</FormLabel>
+                    <FormControl>
+                      <Input placeholder="กรอกชื่อสินค้า" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>หมวดหมู่</Label>
-              <Input
-                placeholder="กรอกหมวดหมู่"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              <FormField
+                control={editForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>หมวดหมู่</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="เลือกหมวดหมู่" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Skincare">Skincare</SelectItem>
+                        <SelectItem value="Makeup">Makeup</SelectItem>
+                        <SelectItem value="Haircare">Haircare</SelectItem>
+                        <SelectItem value="Supplement">Supplement</SelectItem>
+                        <SelectItem value="Fashion">Fashion</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวน</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>จำนวน</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="minStockLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>สต็อกขั้นต่ำ</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="10" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>สต็อกขั้นต่ำ</Label>
-                <Input
-                  type="number"
-                  placeholder="10"
-                  value={formData.minStockLevel}
-                  onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="costPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ราคาทุน</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="sellPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ราคาขาย</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>ราคาทุน</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={formData.costPrice}
-                  onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ราคาขาย</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={formData.sellPrice}
-                  onChange={(e) => setFormData({ ...formData, sellPrice: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenEditDialog(false)}>
-              ยกเลิก
-            </Button>
-            <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              บันทึก
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setOpenEditDialog(false)}>
+                  ยกเลิก
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  บันทึก
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
