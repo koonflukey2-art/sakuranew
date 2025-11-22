@@ -20,6 +20,7 @@ import {
   Workflow,
   Target,
   GitBranch,
+  Bell,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/ads", label: "โฆษณา", icon: Megaphone },
   { href: "/budget", label: "งบประมาณ", icon: Wallet },
   { href: "/reports", label: "รายงาน", icon: FileBarChart },
+  { href: "/notifications", label: "การแจ้งเตือน", icon: Bell },
   { href: "/profit", label: "คำนวณกำไร", icon: Calculator },
   { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New" },
   { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New" },

@@ -1,74 +1,158 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Package, Megaphone, Wallet, Bot } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, Package, Megaphone, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { formatRelativeTime } from "@/lib/utils";
 
 interface Notification {
   id: string;
   type: "LOW_STOCK" | "BUDGET_REQUEST" | "CAMPAIGN_COMPLETE" | "AI_ALERT";
   message: string;
+  link: string | null;
   isRead: boolean;
+  createdAt: string;
 }
 
-const mockNotifications: Notification[] = [
-  { id: "1", type: "LOW_STOCK", message: 'สินค้า "แป้งฝุ่น Pond\'s" ใกล้หมดสต็อก', isRead: false },
-  { id: "2", type: "CAMPAIGN_COMPLETE", message: 'แคมเปญ "Flash Sale" สิ้นสุดแล้ว ROI: 1.8x', isRead: false },
-  { id: "3", type: "AI_ALERT", message: "AI แนะนำ: เพิ่มงบโฆษณา TikTok 20%", isRead: false },
-];
+const notificationIcons = {
+  LOW_STOCK: Package,
+  BUDGET_REQUEST: Wallet,
+  CAMPAIGN_COMPLETE: Megaphone,
+  AI_ALERT: Bell,
+};
 
-const iconMap = { LOW_STOCK: Package, BUDGET_REQUEST: Wallet, CAMPAIGN_COMPLETE: Megaphone, AI_ALERT: Bot };
-const colorMap = { LOW_STOCK: "text-orange-500 bg-orange-500/10", BUDGET_REQUEST: "text-blue-500 bg-blue-500/10", CAMPAIGN_COMPLETE: "text-green-500 bg-green-500/10", AI_ALERT: "text-purple-500 bg-purple-500/10" };
+const notificationColors = {
+  LOW_STOCK: "text-orange-500",
+  BUDGET_REQUEST: "text-blue-500",
+  CAMPAIGN_COMPLETE: "text-green-500",
+  AI_ALERT: "text-purple-500",
+};
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch("/api/notifications?unreadOnly=true");
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifications(data.slice(0, 5)); // Show only 5 most recent
+      setUnreadCount(data.length);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const markAsReadAndNavigate = async (notification: Notification) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: notification.id }),
+      });
+
+      // Update local state
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // Navigate if link exists
+      if (notification.link) {
+        router.push(notification.link);
+      }
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
-              {unreadCount}
-            </span>
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs animate-pulse"
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </Badge>
           )}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between border-b p-3">
-          <h4 className="font-semibold">การแจ้งเตือน</h4>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <div className="px-4 py-3 border-b">
+          <h3 className="font-semibold">การแจ้งเตือน</h3>
+          {unreadCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              คุณมี {unreadCount} การแจ้งเตือนใหม่
+            </p>
+          )}
         </div>
-        <div className="max-h-80 overflow-y-auto">
-          {notifications.map((notification) => {
-            const Icon = iconMap[notification.type];
-            return (
-              <div
-                key={notification.id}
-                className={cn("flex items-start gap-3 p-3 border-b cursor-pointer hover:bg-muted/50", !notification.isRead && "bg-muted/30")}
-                onClick={() => markAsRead(notification.id)}
+
+        {notifications.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <Bell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              ไม่มีการแจ้งเตือนใหม่
+            </p>
+          </div>
+        ) : (
+          <>
+            {notifications.map((notification) => {
+              const Icon = notificationIcons[notification.type];
+              const color = notificationColors[notification.type];
+
+              return (
+                <DropdownMenuItem
+                  key={notification.id}
+                  onClick={() => markAsReadAndNavigate(notification)}
+                  className="cursor-pointer p-4 focus:bg-blue-50"
+                >
+                  <div className="flex items-start gap-3 w-full">
+                    <div className={`${color} mt-0.5`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium line-clamp-2">
+                        {notification.message}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatRelativeTime(new Date(notification.createdAt))}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
+            <div className="border-t p-2">
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => router.push("/notifications")}
               >
-                <div className={cn("p-2 rounded-full", colorMap[notification.type])}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <p className="text-sm flex-1">{notification.message}</p>
-                {!notification.isRead && <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />}
-              </div>
-            );
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
+                ดูทั้งหมด
+              </Button>
+            </div>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
