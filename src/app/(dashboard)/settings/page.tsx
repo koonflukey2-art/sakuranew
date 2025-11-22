@@ -383,10 +383,10 @@ export default function SettingsPage() {
                     setConnectionMessage("");
                   }}
                 >
-                  <SelectTrigger id="ai-provider">
+                  <SelectTrigger id="ai-provider" className="bg-slate-800 border-slate-700 text-white">
                     <SelectValue placeholder="เลือก AI Provider" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
                     {AI_PROVIDERS.map((provider) => (
                       <SelectItem key={provider.id} value={provider.id}>
                         {provider.name}
@@ -400,10 +400,10 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="ai-model">Model</Label>
                 <Select value={selectedModel} onValueChange={setSelectedModel}>
-                  <SelectTrigger id="ai-model">
+                  <SelectTrigger id="ai-model" className="bg-slate-800 border-slate-700 text-white">
                     <SelectValue placeholder="เลือก Model" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
                     {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.models.map(
                       (model) => (
                         <SelectItem key={model.id} value={model.id}>
