@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -35,6 +37,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { budgetSchema, BudgetFormData } from "@/lib/validations";
 
 interface Budget {
   id: string;
@@ -59,6 +63,30 @@ export default function BudgetPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [updatingBudget, setUpdatingBudget] = useState<Budget | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
+
+  // Add Budget Form
+  const addForm = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetSchema),
+    defaultValues: {
+      purpose: "",
+      amount: 0,
+      spent: 0,
+      startDate: "",
+      endDate: "",
+    },
+  });
+
+  // Edit Budget Form
+  const editForm = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetSchema),
+    defaultValues: {
+      purpose: "",
+      amount: 0,
+      spent: 0,
+      startDate: "",
+      endDate: "",
+    },
+  });
 
   // Fetch budgets from API
   const fetchBudgets = async () => {
@@ -91,20 +119,9 @@ export default function BudgetPage() {
   const percentUsed = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
   // Add budget
-  const handleAddBudget = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setAdding(true);
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      purpose: formData.get("purpose") as string,
-      amount: parseFloat(formData.get("amount") as string),
-      spent: parseFloat(formData.get("spent") as string) || 0,
-      startDate: formData.get("startDate") as string,
-      endDate: formData.get("endDate") as string,
-    };
-
+  const handleAddBudget = async (data: BudgetFormData) => {
     try {
+      setAdding(true);
       const response = await fetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,13 +138,8 @@ export default function BudgetPage() {
         description: "เพิ่มงบประมาณใหม่แล้ว",
       });
 
-      // Reset form ก่อนปิด Dialog
-      e.currentTarget.reset();
-
-      // ปิด Dialog
+      addForm.reset();
       setIsAddOpen(false);
-
-      // Refresh data
       fetchBudgets();
     } catch (error: any) {
       console.error("Add budget error:", error);
@@ -200,28 +212,31 @@ export default function BudgetPage() {
   // Edit budget
   const handleEdit = (budget: Budget) => {
     setSelectedBudget(budget);
+    editForm.reset({
+      purpose: budget.purpose,
+      amount: budget.amount,
+      spent: budget.spent,
+      startDate: typeof budget.startDate === 'string'
+        ? budget.startDate.split('T')[0]
+        : new Date(budget.startDate).toISOString().split('T')[0],
+      endDate: typeof budget.endDate === 'string'
+        ? budget.endDate.split('T')[0]
+        : new Date(budget.endDate).toISOString().split('T')[0],
+    });
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleEditSubmit = async (data: BudgetFormData) => {
     if (!selectedBudget) return;
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      id: selectedBudget.id,
-      purpose: formData.get("purpose") as string,
-      amount: parseFloat(formData.get("amount") as string),
-      spent: parseFloat(formData.get("spent") as string),
-      startDate: formData.get("startDate") as string,
-      endDate: formData.get("endDate") as string,
-    };
 
     try {
       const response = await fetch("/api/budgets", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          id: selectedBudget.id,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to update budget");
@@ -231,10 +246,7 @@ export default function BudgetPage() {
         description: "แก้ไขงบประมาณแล้ว",
       });
 
-      // Reset form ก่อนปิด Dialog
-      e.currentTarget.reset();
-
-      // ปิด Dialog
+      editForm.reset();
       setIsEditOpen(false);
       setSelectedBudget(null);
 
@@ -391,48 +403,91 @@ export default function BudgetPage() {
           <CardTitle>เพิ่มงบประมาณใหม่</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAddBudget} className="space-y-4">
-            <div>
-              <Label>วัตถุประสงค์ *</Label>
-              <Input
+          <Form {...addForm}>
+            <form onSubmit={addForm.handleSubmit(handleAddBudget)} className="space-y-4">
+              <FormField
+                control={addForm.control}
                 name="purpose"
-                required
-                placeholder="เช่น Facebook Ads - December"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>วัตถุประสงค์ *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="เช่น Facebook Ads - December" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div>
-              <Label>จำนวนเงิน (฿) *</Label>
-              <Input name="amount" type="number" step="0.01" min="0" required />
-            </div>
+              <FormField
+                control={addForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>จำนวนเงิน (฿) *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>วันเริ่ม *</Label>
-                <Input name="startDate" type="date" required />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addForm.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>วันเริ่ม *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addForm.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>วันสิ้นสุด *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-              <div>
-                <Label>วันสิ้นสุด *</Label>
-                <Input name="endDate" type="date" required />
-              </div>
-            </div>
 
-            <div>
-              <Label>ใช้ไปแล้ว (฿)</Label>
-              <Input name="spent" type="number" step="0.01" min="0" defaultValue={0} />
-            </div>
+              <FormField
+                control={addForm.control}
+                name="spent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ใช้ไปแล้ว (฿)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <Button type="submit" disabled={adding} className="w-full">
-              {adding ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  กำลังเพิ่ม...
-                </>
-              ) : (
-                "เพิ่มงบประมาณ"
-              )}
-            </Button>
-          </form>
+              <Button type="submit" disabled={adding} className="w-full">
+                {adding ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    กำลังเพิ่ม...
+                  </>
+                ) : (
+                  "เพิ่มงบประมาณ"
+                )}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
@@ -673,78 +728,92 @@ export default function BudgetPage() {
             <DialogDescription>อัปเดตข้อมูลงบประมาณ</DialogDescription>
           </DialogHeader>
           {selectedBudget && (
-            <form onSubmit={handleEditSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <Label>วัตถุประสงค์ *</Label>
-                  <Input
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleEditSubmit)}>
+                <div className="space-y-4">
+                  <FormField
+                    control={editForm.control}
                     name="purpose"
-                    defaultValue={selectedBudget.purpose}
-                    required
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>วัตถุประสงค์ *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="เช่น Facebook Ads - December" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div>
-                  <Label>จำนวนเงิน (฿) *</Label>
-                  <Input
+                  <FormField
+                    control={editForm.control}
                     name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={selectedBudget.amount}
-                    required
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>จำนวนเงิน (฿) *</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>วันเริ่ม *</Label>
-                    <Input
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
                       name="startDate"
-                      type="date"
-                      defaultValue={
-                        new Date(selectedBudget.startDate)
-                          .toISOString()
-                          .split("T")[0]
-                      }
-                      required
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>วันเริ่ม *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div>
-                    <Label>วันสิ้นสุด *</Label>
-                    <Input
+                    <FormField
+                      control={editForm.control}
                       name="endDate"
-                      type="date"
-                      defaultValue={
-                        new Date(selectedBudget.endDate).toISOString().split("T")[0]
-                      }
-                      required
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>วันสิ้นสุด *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </div>
-                <div>
-                  <Label>ใช้ไปแล้ว (฿)</Label>
-                  <Input
+                  <FormField
+                    control={editForm.control}
                     name="spent"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={selectedBudget.spent}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ใช้ไปแล้ว (฿)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsEditOpen(false);
-                    setSelectedBudget(null);
-                  }}
-                >
-                  ยกเลิก
-                </Button>
-                <Button type="submit">บันทึก</Button>
-              </DialogFooter>
-            </form>
+                <DialogFooter className="mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditOpen(false);
+                      setSelectedBudget(null);
+                    }}
+                  >
+                    ยกเลิก
+                  </Button>
+                  <Button type="submit">บันทึก</Button>
+                </DialogFooter>
+              </form>
+            </Form>
           )}
         </DialogContent>
       </Dialog>
