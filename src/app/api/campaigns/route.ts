@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function GET() {
   try {
@@ -26,6 +27,24 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // Get current Clerk user
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Find user in database by clerkId
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found in database. Please sync your account first." },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const campaign = await prisma.adCampaign.create({
       data: {
@@ -40,7 +59,7 @@ export async function POST(request: Request) {
         status: body.status || "ACTIVE",
         startDate: new Date(body.startDate),
         endDate: body.endDate ? new Date(body.endDate) : null,
-        userId: body.userId || "temp-user-id", // TODO: Get from session
+        userId: user.id, // Use database user ID
       },
     });
     return NextResponse.json(campaign, { status: 201 });
@@ -55,6 +74,12 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    // Get current Clerk user
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const campaign = await prisma.adCampaign.update({
       where: { id: body.id },
@@ -75,6 +100,32 @@ export async function PUT(request: Request) {
     console.error("Failed to update campaign:", error);
     return NextResponse.json(
       { error: "Failed to update campaign" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    // Get current Clerk user
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID required" }, { status: 400 });
+    }
+
+    await prisma.adCampaign.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete campaign:", error);
+    return NextResponse.json(
+      { error: "Failed to delete campaign" },
       { status: 500 }
     );
   }
