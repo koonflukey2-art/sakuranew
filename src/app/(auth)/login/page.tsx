@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,15 +23,27 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // Simulate login (replace with NextAuth signIn)
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (email === "admin@test.com" && password === "admin123") {
-      window.location.href = "/";
-    } else {
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      if (result?.error) {
+        setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to the page user was trying to access or dashboard
+      const from = searchParams?.get("from") || "/";
+      router.push(from);
+      router.refresh();
+    } catch (err) {
+      setError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
