@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import { Noto_Sans_Thai } from 'next/font/google'
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { ClerkProvider } from '@clerk/nextjs'
 
 const notoSansThai = Noto_Sans_Thai({ 
   subsets: ['latin', 'thai'],
@@ -19,11 +20,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${notoSansThai.variable} font-headline antialiased`}>
-        {children}
-        <Toaster />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${notoSansThai.variable} font-headline antialiased`}>
+          {children}
+          <Toaster />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-// import { signOut, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -40,25 +40,14 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-
-  // Comment useSession เพื่อหลีกเลี่ยง NextAuth errors
-  // const { data: session } = useSession();
-
-  // ใช้ mock session data ชั่วคราว
-  const session = {
-    user: {
-      name: "Demo User",
-      email: "demo@test.com",
-      role: "ADMIN",
-    },
-  };
-
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = async () => {
-    // await signOut({ callbackUrl: "/login" });
-    // ปิด logout ชั่วคราว
-    alert("Logout disabled for testing. Please refresh the page to continue.");
+    await signOut();
+    router.push('/sign-in');
   };
 
   return (
@@ -122,12 +111,12 @@ export function Sidebar() {
 
       <div className="absolute bottom-4 left-0 right-0 px-4 space-y-3">
         {/* User info and logout */}
-        {session?.user && (
+        {isLoaded && user && (
           <div className="space-y-2">
             {!collapsed && (
               <div className="px-3 py-2 text-xs text-slate-400">
-                <p className="truncate">{session.user.name}</p>
-                <p className="truncate text-slate-500">{session.user.email}</p>
+                <p className="truncate">{user.fullName || user.firstName || 'User'}</p>
+                <p className="truncate text-slate-500">{user.primaryEmailAddress?.emailAddress}</p>
               </div>
             )}
             <Button
