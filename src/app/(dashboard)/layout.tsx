@@ -3,10 +3,12 @@
 import { Sidebar } from "@/components/sidebar";
 import { NotificationBell } from "@/components/notification-bell";
 import { AIChatDialog } from "@/components/ai-chat-dialog";
+import { UserSync } from "@/components/user-sync";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <UserSync />
       <Sidebar />
       <div className="pl-64 transition-all duration-300">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 px-6">
