@@ -466,8 +466,8 @@ export default function SettingsPage() {
                   <div
                     className={`p-3 rounded-lg text-sm ${
                       connectionStatus === "success"
-                        ? "bg-green-50 text-green-800 border border-green-200"
-                        : "bg-red-50 text-red-800 border border-red-200"
+                        ? "bg-green-900/20 text-green-300 border border-green-500/50"
+                        : "bg-red-900/20 text-red-300 border border-red-500/50"
                     }`}
                   >
                     {connectionMessage}
@@ -497,22 +497,22 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Environment Variables ที่ต้องการ:</h4>
-                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <h4 className="text-sm font-semibold text-slate-200">Environment Variables ที่ต้องการ:</h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-slate-300">
                   <li>
-                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                    <code className="bg-slate-700 text-emerald-300 px-2 py-0.5 rounded text-xs font-semibold">
                       OPENAI_API_KEY
                     </code>{" "}
                     - สำหรับ OpenAI
                   </li>
                   <li>
-                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                    <code className="bg-slate-700 text-emerald-300 px-2 py-0.5 rounded text-xs font-semibold">
                       ANTHROPIC_API_KEY
                     </code>{" "}
                     - สำหรับ Anthropic
                   </li>
                   <li>
-                    <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">
+                    <code className="bg-slate-700 text-emerald-300 px-2 py-0.5 rounded text-xs font-semibold">
                       GEMINI_API_KEY
                     </code>{" "}
                     - สำหรับ Google Gemini
