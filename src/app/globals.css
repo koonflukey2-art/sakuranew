@@ -4,12 +4,14 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 5%;
-    --card-foreground: 0 0% 100%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
     --primary: 142 76% 36%;
     --primary-foreground: 0 0% 100%;
+    --accent: 217 91% 60%;
+    --muted: 217 33% 17%;
   }
 
   * {
@@ -17,8 +19,10 @@
   }
 
   body {
-    @apply bg-black text-white;
+    @apply bg-slate-900 text-slate-50;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background: linear-gradient(to bottom, rgb(15, 23, 42), rgb(30, 41, 59));
+    min-height: 100vh;
   }
 }
 
