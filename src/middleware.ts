@@ -2,12 +2,41 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // ปิด authentication ชั่วคราว - ให้เข้าได้ทุกหน้า
+  const { pathname } = request.nextUrl;
+
+  // Public paths
+  const publicPaths = ["/login", "/register"];
+  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
+
+  // API auth routes
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+
+  // Get token
+  const token =
+    request.cookies.get("authjs.session-token")?.value ||
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value;
+
+  const isAuthenticated = !!token;
+
+  // Redirect logic
+  if (isPublicPath && isAuthenticated) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (!isPublicPath && !isAuthenticated) {
+    const from = encodeURIComponent(pathname + request.nextUrl.search);
+    return NextResponse.redirect(new URL(`/login?from=${from}`, request.url));
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$|.*\\.ico$).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$|.*\\.ico$).*)",
   ],
 };
