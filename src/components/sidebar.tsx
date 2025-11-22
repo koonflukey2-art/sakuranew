@@ -18,6 +18,8 @@ import {
   LogOut,
   Zap,
   Workflow,
+  Target,
+  GitBranch,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,8 +31,9 @@ const navItems = [
   { href: "/budget", label: "งบประมาณ", icon: Wallet },
   { href: "/reports", label: "รายงาน", icon: FileBarChart },
   { href: "/profit", label: "คำนวณกำไร", icon: Calculator },
-  { href: "/automation", label: "Automation", icon: Zap },
-  { href: "/workflows", label: "Workflows", icon: Workflow },
+  { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New" },
+  { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New" },
+  { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta" },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users },
   { href: "/settings", label: "ตั้งค่า", icon: Settings },
 ];
@@ -96,7 +99,16 @@ export function Sidebar() {
               )}
             >
               <Icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-emerald-400")} />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <>
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && (
+                    <span className="ml-auto text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
+                </>
+              )}
             </Link>
           );
         })}

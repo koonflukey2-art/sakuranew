@@ -25,6 +25,7 @@ model User {
   aiConfig      AIConfig?
   stockHistory  StockHistory[]
   automationRules AutomationRule[]
+  metricsPlans  MetricsPlan[]
 }
 
 enum Role {
@@ -176,4 +177,16 @@ model WorkflowTemplate {
   template    Json     // n8n workflow JSON
   category    String   // Profit, Lead Gen, E-commerce
   createdAt   DateTime @default(now())
+}
+
+model MetricsPlan {
+  id           String   @id @default(cuid())
+  templateName String
+  targets      Json     // { revenue: 100000, cac: 500, ... }
+  actual       Json?    // ค่าจริง (อัพเดททีหลัง)
+  period       String   // monthly, daily
+  createdAt    DateTime @default(now())
+  userId       String
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
