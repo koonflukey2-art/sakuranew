@@ -103,7 +103,11 @@ export function Sidebar() {
                 <>
                   <span className="flex-1">{item.label}</span>
                   {item.badge && (
-                    <span className="ml-auto text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full">
+                    <span className={cn(
+                      "ml-auto text-xs px-2 py-0.5 rounded-full font-medium",
+                      item.badge === "New" && "bg-emerald-500 text-white",
+                      item.badge === "Beta" && "bg-yellow-500 text-black"
+                    )}>
                       {item.badge}
                     </span>
                   )}
