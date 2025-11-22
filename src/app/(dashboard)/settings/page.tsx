@@ -26,6 +26,7 @@ import {
   EyeOff,
   Lock,
   Save,
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -57,6 +58,9 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState("THB");
   const [language, setLanguage] = useState("th");
   const [timezone, setTimezone] = useState("Asia/Bangkok");
+
+  // Sync user state
+  const [syncing, setSyncing] = useState(false);
 
   const handleUpdateProfile = () => {
     toast({
@@ -92,6 +96,36 @@ export default function SettingsPage() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+  };
+
+  const handleSyncUser = async () => {
+    try {
+      setSyncing(true);
+      const response = await fetch("/api/sync-user", {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        toast({
+          title: "สำเร็จ!",
+          description: "ข้อมูลผู้ใช้ถูก sync แล้ว",
+        });
+      } else {
+        toast({
+          title: "ผิดพลาด",
+          description: "ไม่สามารถ sync ข้อมูลได้",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleSaveAPIKeys = () => {
@@ -180,6 +214,34 @@ export default function SettingsPage() {
               <Button onClick={handleUpdateProfile}>
                 <Save className="h-4 w-4 mr-2" />
                 บันทึกโปรไฟล์
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sync ข้อมูลผู้ใช้</CardTitle>
+              <CardDescription>
+                Sync ข้อมูลจาก Clerk เข้าฐานข้อมูล (ใช้ก่อน deploy)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleSyncUser}
+                disabled={syncing}
+                variant="outline"
+              >
+                {syncing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    กำลัง Sync...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync ข้อมูลผู้ใช้
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
