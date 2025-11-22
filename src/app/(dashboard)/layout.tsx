@@ -1,26 +1,36 @@
-"use client";
-
 import { Sidebar } from "@/components/sidebar";
+import { Toaster } from "@/components/ui/toaster";
+import { UserSync } from "@/components/user-sync";
 import { NotificationBell } from "@/components/notification-bell";
 import { AIChatDialog } from "@/components/ai-chat-dialog";
-import { UserSync } from "@/components/user-sync";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-screen bg-black">
       <UserSync />
       <Sidebar />
-      <div className="pl-64 transition-all duration-300">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 px-6">
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-white">E-Commerce Management</h1>
-          <div className="flex items-center gap-4">
+      <main className="flex-1 overflow-y-auto ml-64">
+        {/* Top Bar */}
+        <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-sm border-b border-white/10">
+          <div className="flex items-center justify-between px-8 py-4">
+            <h2 className="text-xl font-bold text-white">
+              E-Commerce Management
+            </h2>
             <NotificationBell />
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center text-white text-sm font-bold">A</div>
           </div>
-        </header>
-        <main className="p-6">{children}</main>
-      </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-8">
+          {children}
+        </div>
+      </main>
       <AIChatDialog />
+      <Toaster />
     </div>
   );
 }

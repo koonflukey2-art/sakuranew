@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   Package,
@@ -11,19 +12,14 @@ import {
   Wallet,
   FileBarChart,
   Calculator,
+  Target,
+  Zap,
+  GitBranch,
   Users,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Zap,
-  Workflow,
-  Target,
-  GitBranch,
+  Store,
   Bell,
 } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -31,117 +27,91 @@ const navItems = [
   { href: "/ads", label: "โฆษณา", icon: Megaphone },
   { href: "/budget", label: "งบประมาณ", icon: Wallet },
   { href: "/reports", label: "รายงาน", icon: FileBarChart },
-  { href: "/notifications", label: "การแจ้งเตือน", icon: Bell },
   { href: "/profit", label: "คำนวณกำไร", icon: Calculator },
   { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New" },
   { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New" },
   { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta" },
+  { href: "/notifications", label: "การแจ้งเตือน", icon: Bell },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users },
   { href: "/settings", label: "ตั้งค่า", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, isLoaded } = useUser();
-  const { signOut } = useClerk();
-  const [collapsed, setCollapsed] = useState(false);
-
-  const handleLogout = async () => {
-    await signOut();
-    router.push('/sign-in');
-  };
+  const { user } = useUser();
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-slate-900 text-white transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
-      <div className="flex h-16 items-center justify-between border-b border-slate-700 px-4">
-        {!collapsed && (
-          <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-            E-Commerce
-          </span>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="text-slate-400 hover:text-white hover:bg-slate-800"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-black border-r border-white/10 flex flex-col overflow-hidden">
+      {/* Logo */}
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <Store className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">E-Commerce</h1>
+            <p className="text-xs text-white/60">Management System</p>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex flex-col gap-1 p-2">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-
-          return (
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-1">
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                isActive
-                  ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-emerald-400 border-l-2 border-emerald-400"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+                "flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all group",
+                pathname === item.href
+                  ? "bg-white/10 text-white shadow-lg shadow-emerald-500/10"
+                  : "text-white/70 hover:bg-white/5 hover:text-white"
               )}
             >
-              <Icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-emerald-400")} />
-              {!collapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className={cn(
-                      "ml-auto text-xs px-2 py-0.5 rounded-full font-medium",
-                      item.badge === "New" && "bg-emerald-500 text-white",
-                      item.badge === "Beta" && "bg-yellow-500 text-black"
-                    )}>
-                      {item.badge}
-                    </span>
-                  )}
-                </>
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium">{item.label}</span>
+              {item.badge && (
+                <Badge className="ml-auto bg-emerald-500 text-white text-xs px-2 py-0.5">
+                  {item.badge}
+                </Badge>
               )}
             </Link>
-          );
-        })}
+          ))}
+        </div>
       </nav>
 
-      <div className="absolute bottom-4 left-0 right-0 px-4 space-y-3">
-        {/* User info and logout */}
-        {isLoaded && user && (
-          <div className="space-y-2">
-            {!collapsed && (
-              <div className="px-3 py-2 text-xs text-slate-400">
-                <p className="truncate">{user.fullName || user.firstName || 'User'}</p>
-                <p className="truncate text-slate-500">{user.primaryEmailAddress?.emailAddress}</p>
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className={cn(
-                "w-full justify-start text-slate-400 hover:text-white hover:bg-red-500/20",
-                collapsed && "justify-center px-0"
-              )}
-            >
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span className="ml-3">ออกจากระบบ</span>}
-            </Button>
-          </div>
-        )}
+      {/* User Section */}
+      <div className="p-4 border-t border-white/10">
+        <div className="flex items-center gap-3">
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-10 h-10",
+                userButtonPopoverCard: "bg-black border-white/10",
+                userButtonPopoverActionButton: "hover:bg-white/5",
+              },
+            }}
+          />
+          {user && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {user.fullName}
+              </p>
+              <p className="text-xs text-white/60 truncate">
+                {user.primaryEmailAddress?.emailAddress}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Powered by AI badge */}
-        {!collapsed && (
-          <div className="rounded-lg bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 p-3 border border-emerald-500/20">
-            <p className="text-xs text-slate-400">Powered by AI</p>
-            <p className="text-sm font-medium text-emerald-400">Gemini 2.0 Flash</p>
-          </div>
-        )}
+      {/* Footer */}
+      <div className="p-4 border-t border-white/10">
+        <div className="flex items-center justify-between text-xs text-white/40">
+          <span>Powered by AI</span>
+          <span>Gemini 2.0 Flash</span>
+        </div>
       </div>
     </aside>
   );
