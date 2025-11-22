@@ -232,9 +232,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">ภาพรวมธุรกิจของคุณ</p>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        <p className="text-white/70 mt-1">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Stats Cards */}
@@ -331,12 +331,12 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-          <CardHeader>
+        <Card className="border border-white/10 bg-gradient-to-br from-white/5 to-black backdrop-blur-sm">
+          <CardHeader className="border-b border-white/10">
             <CardTitle className="text-xl font-bold text-white">
               รายได้ vs ค่าใช้จ่าย (7 วัน)
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-white/70">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -362,24 +362,28 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.1} />
                   <XAxis
                     dataKey="date"
-                    stroke="#94a3b8"
-                    style={{ fontSize: '12px', fontWeight: '500' }}
+                    stroke="#ffffff"
+                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
+                    tick={{ fill: '#ffffff' }}
                   />
                   <YAxis
-                    stroke="#94a3b8"
-                    style={{ fontSize: '12px', fontWeight: '500' }}
+                    stroke="#ffffff"
+                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
+                    tick={{ fill: '#ffffff' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
-                      borderRadius: "8px",
+                      backgroundColor: "rgba(0, 0, 0, 0.95)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      borderRadius: "12px",
                       padding: "12px",
+                      backdropFilter: "blur(10px)",
                     }}
-                    labelStyle={{ color: "#f1f5f9", fontWeight: "600" }}
+                    labelStyle={{ color: "#ffffff", fontWeight: "700", marginBottom: "8px" }}
+                    itemStyle={{ color: "#ffffff", fontWeight: "600" }}
                     formatter={(value: number) => [
                       `฿${value.toLocaleString()}`,
                       "",
@@ -426,12 +430,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-          <CardHeader>
+        <Card className="border border-white/10 bg-gradient-to-br from-white/5 to-black backdrop-blur-sm">
+          <CardHeader className="border-b border-white/10">
             <CardTitle className="text-xl font-bold text-white">
               ROI แต่ละ Platform
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-white/70">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -449,26 +453,30 @@ export default function DashboardPage() {
                       <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.1} />
                   <XAxis
                     dataKey="platform"
-                    stroke="#94a3b8"
-                    style={{ fontSize: '12px', fontWeight: '500' }}
+                    stroke="#ffffff"
+                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
+                    tick={{ fill: '#ffffff' }}
                   />
                   <YAxis
-                    stroke="#94a3b8"
-                    style={{ fontSize: '12px', fontWeight: '500' }}
+                    stroke="#ffffff"
+                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
+                    tick={{ fill: '#ffffff' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
-                      borderRadius: "8px",
+                      backgroundColor: "rgba(0, 0, 0, 0.95)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      borderRadius: "12px",
                       padding: "12px",
+                      backdropFilter: "blur(10px)",
                     }}
-                    labelStyle={{ color: "#f1f5f9", fontWeight: "600" }}
+                    labelStyle={{ color: "#ffffff", fontWeight: "700", marginBottom: "8px" }}
+                    itemStyle={{ color: "#ffffff", fontWeight: "600" }}
                     formatter={(value: number) => [`${value.toFixed(2)}x`, "ROI"]}
-                    cursor={{ fill: "rgba(148, 163, 184, 0.1)" }}
+                    cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
                   />
                   <Bar
                     dataKey="avgROI"
