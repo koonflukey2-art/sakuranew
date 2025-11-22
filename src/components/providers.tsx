@@ -1,7 +1,8 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
+// import { SessionProvider } from "next-auth/react";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  // ปิด SessionProvider ชั่วคราว เพื่อหลีกเลี่ยง NextAuth errors
+  return <>{children}</>;
 }

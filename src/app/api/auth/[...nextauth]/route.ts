@@ -12,16 +12,25 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
         try {
+          console.log("🔐 Auth attempt for:", credentials?.email);
+
+          if (!credentials?.email || !credentials?.password) {
+            console.log("❌ Missing credentials");
+            return null;
+          }
+
           const user = await prisma.user.findUnique({
             where: { email: credentials.email },
           });
 
-          if (!user || !user.password) {
+          if (!user) {
+            console.log("❌ User not found:", credentials.email);
+            return null;
+          }
+
+          if (!user.password) {
+            console.log("❌ No password set for user:", credentials.email);
             return null;
           }
 
@@ -31,8 +40,11 @@ const handler = NextAuth({
           );
 
           if (!isPasswordValid) {
+            console.log("❌ Invalid password for:", credentials.email);
             return null;
           }
+
+          console.log("✅ Auth successful for:", user.email);
 
           return {
             id: user.id,
@@ -41,7 +53,7 @@ const handler = NextAuth({
             role: user.role,
           };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("❌ Auth error:", error);
           return null;
         }
       },
@@ -49,9 +61,11 @@ const handler = NextAuth({
   ],
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -63,13 +77,14 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
       }
       return session;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };
