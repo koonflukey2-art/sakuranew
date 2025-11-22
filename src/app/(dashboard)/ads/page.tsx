@@ -46,6 +46,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { campaignSchema, CampaignFormData } from "@/lib/validations";
+import { TableSkeleton, ButtonLoading } from "@/components/loading-states";
 
 interface AdCampaign {
   id: string;
@@ -418,9 +419,7 @@ export default function AdsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton rows={10} />
           ) : filteredCampaigns.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               ไม่มีแคมเปญ
@@ -688,14 +687,7 @@ export default function AdsPage() {
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={creating}>
-                  {creating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      กำลังสร้าง...
-                    </>
-                  ) : (
-                    "สร้างแคมเปญ"
-                  )}
+                  {creating ? <ButtonLoading /> : "สร้างแคมเปญ"}
                 </Button>
               </DialogFooter>
             </form>

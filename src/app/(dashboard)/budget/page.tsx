@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { budgetSchema, BudgetFormData } from "@/lib/validations";
+import { TableSkeleton, ButtonLoading } from "@/components/loading-states";
 
 interface Budget {
   id: string;
@@ -477,14 +478,7 @@ export default function BudgetPage() {
               />
 
               <Button type="submit" disabled={adding} className="w-full">
-                {adding ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    กำลังเพิ่ม...
-                  </>
-                ) : (
-                  "เพิ่มงบประมาณ"
-                )}
+                {adding ? <ButtonLoading /> : "เพิ่มงบประมาณ"}
               </Button>
             </form>
           </Form>
@@ -498,9 +492,7 @@ export default function BudgetPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton rows={10} />
           ) : budgets.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               ไม่มีงบประมาณ

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Users, Shield, Trash2, MoreVertical, UserCog, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TableSkeleton } from "@/components/loading-states";
 
 interface User {
   id: string;
@@ -273,7 +274,7 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-center py-4 text-muted-foreground">กำลังโหลด...</p>
+            <TableSkeleton rows={10} />
           ) : (
             <Table>
               <TableHeader>

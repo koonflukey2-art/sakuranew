@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Calendar, Download, DollarSign, TrendingUp, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChartSkeleton, TableSkeleton, StatsCardSkeleton } from "@/components/loading-states";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ReportData {
   totalRevenue: number;
@@ -194,6 +196,43 @@ export default function ReportsPage() {
       description: `${customStartDate} ถึง ${customEndDate}`,
     });
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+        </div>
+
+        {/* Chart */}
+        <ChartSkeleton />
+
+        {/* Platform Statistics Table */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton rows={5} />
+          </CardContent>
+        </Card>
+
+        {/* Top Products Table */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton rows={10} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

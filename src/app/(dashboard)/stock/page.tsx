@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
+import { ProductsPageSkeleton, ButtonLoading } from "@/components/loading-states";
 
 interface Product {
   id: string;
@@ -232,11 +233,7 @@ export default function StockPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <ProductsPageSkeleton />;
   }
 
   return (
@@ -358,8 +355,7 @@ export default function StockPage() {
                     ยกเลิก
                   </Button>
                   <Button type="submit" disabled={submitting}>
-                    {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    บันทึก
+                    {submitting ? <ButtonLoading /> : "บันทึก"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -607,8 +603,7 @@ export default function StockPage() {
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  บันทึก
+                  {submitting ? <ButtonLoading /> : "บันทึก"}
                 </Button>
               </DialogFooter>
             </form>
@@ -628,8 +623,7 @@ export default function StockPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-red-500 hover:bg-red-600">
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              ลบ
+              {submitting ? <ButtonLoading /> : "ลบ"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TrendingUp, Wallet, Package, Target, AlertTriangle, DollarSign, ShoppingCart, Activity, Loader2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { DashboardSkeleton } from "@/components/loading-states";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
@@ -226,24 +227,7 @@ export default function DashboardPage() {
   const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">ภาพรวมธุรกิจของคุณ</p>
-        </div>
-        <div className="space-y-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-32 bg-slate-800 rounded-lg animate-pulse flex items-center justify-center"
-            >
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
