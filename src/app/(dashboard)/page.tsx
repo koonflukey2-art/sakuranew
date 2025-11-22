@@ -234,27 +234,24 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-white/70 mt-1">ภาพรวมธุรกิจของคุณ</p>
+        <p className="text-white mt-1">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         {/* กำไรรวม */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-slate-800">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-200">
+        <Card className="bg-gradient-to-br from-green-600 to-green-700 border-green-600">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-white">
               กำไรรวม
             </CardTitle>
-            <div className="rounded-full bg-emerald-500/20 p-2">
-              <DollarSign className="h-5 w-5 text-emerald-400" />
-            </div>
+            <DollarSign className="h-4 w-4 text-white" />
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-white drop-shadow-lg">
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
               {formatCurrency(stats.totalProfit)}
             </div>
-            <p className="text-sm text-emerald-300 mt-2 font-medium">
+            <p className="text-xs text-white/90 mt-1">
               {stats.totalProfit > 0 ? "+" : ""}
               {stats.totalRevenue > 0
                 ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1)
@@ -265,63 +262,54 @@ export default function DashboardPage() {
         </Card>
 
         {/* รายได้ */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500/20 via-blue-600/10 to-slate-800">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent" />
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-200">
+        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-600">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-white">
               รายได้
             </CardTitle>
-            <div className="rounded-full bg-blue-500/20 p-2">
-              <TrendingUp className="h-5 w-5 text-blue-400" />
-            </div>
+            <TrendingUp className="h-4 w-4 text-white" />
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-white drop-shadow-lg">
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-sm text-blue-300 mt-2 font-medium">
+            <p className="text-xs text-white/90 mt-1">
               จากแคมเปญทั้งหมด
             </p>
           </CardContent>
         </Card>
 
         {/* ออเดอร์ */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-purple-500/20 via-purple-600/10 to-slate-800">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent" />
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-200">
+        <Card className="bg-gradient-to-br from-purple-600 to-purple-700 border-purple-600">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-white">
               ออเดอร์
             </CardTitle>
-            <div className="rounded-full bg-purple-500/20 p-2">
-              <ShoppingCart className="h-5 w-5 text-purple-400" />
-            </div>
+            <ShoppingCart className="h-4 w-4 text-white" />
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-white drop-shadow-lg">
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
               {formatNumber(stats.totalOrders)}
             </div>
-            <p className="text-sm text-purple-300 mt-2 font-medium">
+            <p className="text-xs text-white/90 mt-1">
               Conversions ทั้งหมด
             </p>
           </CardContent>
         </Card>
 
         {/* ROAS */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-yellow-500/20 via-yellow-600/10 to-slate-800">
-          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent" />
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-200">
+        <Card className="bg-gradient-to-br from-yellow-600 to-yellow-700 border-yellow-600">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-white">
               ROAS เฉลี่ย
             </CardTitle>
-            <div className="rounded-full bg-yellow-500/20 p-2">
-              <Activity className="h-5 w-5 text-yellow-400" />
-            </div>
+            <Activity className="h-4 w-4 text-white" />
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-white drop-shadow-lg">
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
               {stats.avgROAS.toFixed(2)}x
             </div>
-            <p className="text-sm text-yellow-300 mt-2 font-medium">
+            <p className="text-xs text-white/90 mt-1">
               Return on Ad Spend
             </p>
           </CardContent>
@@ -331,12 +319,10 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="border border-white/10 bg-gradient-to-br from-white/5 to-black backdrop-blur-sm">
-          <CardHeader className="border-b border-white/10">
-            <CardTitle className="text-xl font-bold text-white">
-              รายได้ vs ค่าใช้จ่าย (7 วัน)
-            </CardTitle>
-            <CardDescription className="text-white/70">
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
+            <CardDescription className="text-slate-300">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -362,32 +348,23 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.1} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis
                     dataKey="date"
-                    stroke="#ffffff"
-                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
-                    tick={{ fill: '#ffffff' }}
+                    stroke="#e2e8f0"
+                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
                   />
                   <YAxis
-                    stroke="#ffffff"
-                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
-                    tick={{ fill: '#ffffff' }}
+                    stroke="#e2e8f0"
+                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "rgba(0, 0, 0, 0.95)",
-                      border: "1px solid rgba(255, 255, 255, 0.2)",
-                      borderRadius: "12px",
-                      padding: "12px",
-                      backdropFilter: "blur(10px)",
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      color: "#fff"
                     }}
-                    labelStyle={{ color: "#ffffff", fontWeight: "700", marginBottom: "8px" }}
-                    itemStyle={{ color: "#ffffff", fontWeight: "600" }}
-                    formatter={(value: number) => [
-                      `฿${value.toLocaleString()}`,
-                      "",
-                    ]}
+                    labelStyle={{ color: "#fff" }}
                   />
                   <Legend
                     wrapperStyle={{ paddingTop: "20px" }}
@@ -430,12 +407,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="border border-white/10 bg-gradient-to-br from-white/5 to-black backdrop-blur-sm">
-          <CardHeader className="border-b border-white/10">
-            <CardTitle className="text-xl font-bold text-white">
-              ROI แต่ละ Platform
-            </CardTitle>
-            <CardDescription className="text-white/70">
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">ROI แต่ละ Platform</CardTitle>
+            <CardDescription className="text-slate-300">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -453,30 +428,23 @@ export default function DashboardPage() {
                       <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.1} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis
                     dataKey="platform"
-                    stroke="#ffffff"
-                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
-                    tick={{ fill: '#ffffff' }}
+                    stroke="#e2e8f0"
+                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
                   />
                   <YAxis
-                    stroke="#ffffff"
-                    style={{ fontSize: '12px', fontWeight: '600', fill: '#ffffff' }}
-                    tick={{ fill: '#ffffff' }}
+                    stroke="#e2e8f0"
+                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "rgba(0, 0, 0, 0.95)",
-                      border: "1px solid rgba(255, 255, 255, 0.2)",
-                      borderRadius: "12px",
-                      padding: "12px",
-                      backdropFilter: "blur(10px)",
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      color: "#fff"
                     }}
-                    labelStyle={{ color: "#ffffff", fontWeight: "700", marginBottom: "8px" }}
-                    itemStyle={{ color: "#ffffff", fontWeight: "600" }}
-                    formatter={(value: number) => [`${value.toFixed(2)}x`, "ROI"]}
-                    cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                    labelStyle={{ color: "#fff" }}
                   />
                   <Bar
                     dataKey="avgROI"
@@ -494,9 +462,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardHeader>
-            <CardTitle>สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="text-white">สัดส่วนงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
@@ -542,9 +510,9 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
@@ -591,15 +559,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Activities */}
-      <Card>
+      <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
-          <CardTitle>กิจกรรมล่าสุด</CardTitle>
+          <CardTitle className="text-white">กิจกรรมล่าสุด</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
             {/* Recent Campaigns */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-400 mb-3">
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
                 📢 แคมเปญล่าสุด
               </h3>
               {campaigns.length === 0 ? (
@@ -622,7 +590,7 @@ export default function DashboardPage() {
                     .map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between py-2 border-b border-slate-800"
+                        className="flex items-center justify-between py-2 border-b border-slate-700"
                       >
                         <div>
                           <p className="text-sm text-white font-medium">
@@ -651,7 +619,7 @@ export default function DashboardPage() {
 
             {/* Budget Status */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-400 mb-3">
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
                 💰 สถานะงบประมาณ
               </h3>
               {budgets.length === 0 ? (
@@ -693,7 +661,7 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={b.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-800"
+                          className="flex items-center justify-between py-2 border-b border-slate-700"
                         >
                           <div className="flex-1">
                             <p className="text-sm text-white font-medium">
