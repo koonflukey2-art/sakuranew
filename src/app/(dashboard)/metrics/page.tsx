@@ -32,58 +32,109 @@ import {
   Edit,
   Save,
   Facebook,
-  Video
+  Video,
+  MessageCircle,
+  Users as UsersIcon,
+  Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { RadialBarChart, RadialBar, Legend, ResponsiveContainer } from "recharts";
 
-// Template definitions
-const templates = [
+// Template definitions with 7 templates
+const metricsTemplates = [
   {
+    id: "growth-plan",
     name: "Growth Plan",
-    metrics: [
-      { key: "revenue", label: "Revenue (฿)", unit: "฿", target: 100000 },
-      { key: "cac", label: "CAC (Cost per Acquisition)", unit: "฿", target: 500 },
-      { key: "ltv", label: "LTV (Lifetime Value)", unit: "฿", target: 3000 },
-      { key: "conversionRate", label: "Conversion Rate", unit: "%", target: 5 },
-      { key: "roas", label: "ROAS (Return on Ad Spend)", unit: "x", target: 3 },
-    ],
+    description: "แผนเติบโตธุรกิจ",
     icon: TrendingUp,
     color: "text-blue-500",
+    metrics: [
+      { key: "revenue", label: "Monthly Revenue", unit: "฿", target: 100000 },
+      { key: "cac", label: "CAC (Cost per Acquisition)", unit: "฿", target: 500 },
+      { key: "ltv", label: "LTV (Lifetime Value)", unit: "฿", target: 2000 },
+      { key: "conversionRate", label: "Conversion Rate", unit: "%", target: 3.5 },
+      { key: "roas", label: "ROAS", unit: "x", target: 3.0 },
+    ],
   },
   {
+    id: "profit-plan",
     name: "Profit Plan",
+    description: "แผนกำไร",
+    icon: DollarSign,
+    color: "text-green-500",
     metrics: [
       { key: "grossProfit", label: "Gross Profit", unit: "฿", target: 50000 },
       { key: "netProfit", label: "Net Profit", unit: "฿", target: 30000 },
       { key: "profitMargin", label: "Profit Margin", unit: "%", target: 30 },
       { key: "breakEven", label: "Break-even Point", unit: "฿", target: 20000 },
     ],
-    icon: DollarSign,
-    color: "text-green-500",
   },
   {
+    id: "facebook-messages",
     name: "Facebook - แคมเปญข้อความ",
-    metrics: [
-      { key: "cpm", label: "CPM (Cost per 1000 impressions)", unit: "฿", target: 50 },
-      { key: "ctr", label: "CTR (Click-through Rate)", unit: "%", target: 2.5 },
-      { key: "cpc", label: "CPC (Cost per Click)", unit: "฿", target: 5 },
-      { key: "conversions", label: "Conversions", unit: "", target: 100 },
-      { key: "costPerConversion", label: "Cost per Conversion", unit: "฿", target: 150 },
-    ],
-    icon: Facebook,
+    description: "Metrics สำหรับ Facebook Messages Campaign",
+    icon: MessageCircle,
     color: "text-blue-600",
+    metrics: [
+      { key: "cpm", label: "CPM", unit: "฿", target: 50 },
+      { key: "ctr", label: "CTR", unit: "%", target: 2.5 },
+      { key: "cpc", label: "CPC", unit: "฿", target: 5 },
+      { key: "conversions", label: "Conversions", unit: "", target: 100 },
+      { key: "costPerConversion", label: "Cost per Conversion", unit: "฿", target: 200 },
+    ],
   },
   {
-    name: "TikTok - E-commerce",
+    id: "facebook-s1",
+    name: "Facebook (S1 Plan)",
+    description: "Facebook S1 Strategy",
+    icon: Facebook,
+    color: "text-blue-700",
     metrics: [
-      { key: "videoViews", label: "Video Views", unit: "", target: 10000 },
+      { key: "reach", label: "Reach", unit: "", target: 50000 },
       { key: "engagementRate", label: "Engagement Rate", unit: "%", target: 5 },
-      { key: "addToCart", label: "Add to Cart", unit: "", target: 200 },
-      { key: "purchase", label: "Purchase", unit: "", target: 50 },
-      { key: "roas", label: "ROAS", unit: "x", target: 3 },
+      { key: "linkClicks", label: "Link Clicks", unit: "", target: 1000 },
+      { key: "costPerClick", label: "Cost per Click", unit: "฿", target: 3 },
     ],
+  },
+  {
+    id: "facebook-lead-gen",
+    name: "Facebook - Lead Generation",
+    description: "สร้างลีด",
+    icon: Target,
+    color: "text-indigo-500",
+    metrics: [
+      { key: "leads", label: "Leads", unit: "", target: 200 },
+      { key: "costPerLead", label: "Cost per Lead", unit: "฿", target: 100 },
+      { key: "leadQuality", label: "Lead Quality Score", unit: "/10", target: 8 },
+      { key: "conversionToSale", label: "Conversion to Sale", unit: "%", target: 20 },
+    ],
+  },
+  {
+    id: "tiktok-ecommerce",
+    name: "TikTok - E-commerce (Growth Plan)",
+    description: "ขายของผ่าน TikTok",
     icon: Video,
     color: "text-pink-500",
+    metrics: [
+      { key: "videoViews", label: "Video Views", unit: "", target: 100000 },
+      { key: "engagementRate", label: "Engagement Rate", unit: "%", target: 5 },
+      { key: "addToCart", label: "Add to Cart", unit: "", target: 500 },
+      { key: "purchase", label: "Purchase", unit: "", target: 100 },
+      { key: "roas", label: "ROAS", unit: "x", target: 3 },
+    ],
+  },
+  {
+    id: "tiktok-brand",
+    name: "TikTok - Brand Awareness",
+    description: "สร้างการรับรู้แบรนด์",
+    icon: Star,
+    color: "text-yellow-500",
+    metrics: [
+      { key: "impressions", label: "Impressions", unit: "", target: 500000 },
+      { key: "videoViews", label: "Video Views", unit: "", target: 200000 },
+      { key: "profileVisits", label: "Profile Visits", unit: "", target: 5000 },
+      { key: "followerGrowth", label: "Follower Growth", unit: "", target: 1000 },
+    ],
   },
 ];
 
@@ -112,7 +163,7 @@ export default function MetricsPage() {
 
   useEffect(() => {
     if (selectedTemplate) {
-      const template = templates.find((t) => t.name === selectedTemplate);
+      const template = metricsTemplates.find((t) => t.id === selectedTemplate);
       if (template) {
         const defaultTargets: Record<string, number> = {};
         const defaultActual: Record<string, number> = {};
@@ -228,6 +279,7 @@ export default function MetricsPage() {
       title: "กำลังเตรียม PDF...",
       description: "ฟีเจอร์นี้จะพร้อมใช้งานในเร็วๆ นี้",
     });
+    // TODO: Implement PDF export using jsPDF or react-pdf
   };
 
   const calculateProgress = (actualValue: number, targetValue: number) => {
@@ -236,13 +288,28 @@ export default function MetricsPage() {
   };
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 100) return "bg-green-500";
-    if (progress >= 70) return "bg-blue-500";
-    if (progress >= 40) return "bg-yellow-500";
-    return "bg-red-500";
+    if (progress >= 100) return "text-green-500";
+    if (progress >= 70) return "text-blue-500";
+    if (progress >= 40) return "text-yellow-500";
+    return "text-red-500";
   };
 
-  const currentTemplate = templates.find((t) => t.name === selectedTemplate);
+  const currentTemplate = metricsTemplates.find((t) => t.id === selectedTemplate);
+
+  // Prepare data for Radial Chart
+  const prepareGaugeData = (key: string) => {
+    const targetValue = targets[key] || 0;
+    const actualValue = actual[key] || 0;
+    const progress = calculateProgress(actualValue, targetValue);
+
+    return [
+      {
+        name: key,
+        value: progress,
+        fill: progress >= 100 ? "#22c55e" : progress >= 70 ? "#3b82f6" : progress >= 40 ? "#eab308" : "#ef4444",
+      },
+    ];
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -254,7 +321,7 @@ export default function MetricsPage() {
             แผน Metrics
           </h1>
           <p className="text-muted-foreground mt-1">
-            กำหนดเป้าหมายและติดตามผลลัพธ์ของแต่ละ metric
+            เลือก Template และกำหนดเป้าหมายสำหรับแต่ละ metric
           </p>
         </div>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
@@ -264,7 +331,7 @@ export default function MetricsPage() {
               สร้างแผนใหม่
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingPlan ? "แก้ไขแผน Metrics" : "สร้างแผน Metrics ใหม่"}
@@ -284,8 +351,8 @@ export default function MetricsPage() {
                       <SelectValue placeholder="เลือก Template" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.name} value={template.name}>
+                      {metricsTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
                           {template.name}
                         </SelectItem>
                       ))}
@@ -309,7 +376,7 @@ export default function MetricsPage() {
                 </div>
               </div>
 
-              {/* Dynamic Form */}
+              {/* Dynamic Form with Gauge Charts */}
               {currentTemplate && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -317,76 +384,113 @@ export default function MetricsPage() {
                       <currentTemplate.icon className={`h-5 w-5 ${currentTemplate.color}`} />
                     )}
                     <h3 className="text-lg font-semibold">{currentTemplate.name}</h3>
+                    <Badge variant="secondary">{currentTemplate.description}</Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    {currentTemplate.metrics.map((metric) => (
-                      <Card key={metric.key}>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium">
-                            {metric.label}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">
-                              เป้าหมาย {metric.unit && `(${metric.unit})`}
-                            </Label>
-                            <Input
-                              type="number"
-                              value={targets[metric.key] || ""}
-                              onChange={(e) =>
-                                setTargets({
-                                  ...targets,
-                                  [metric.key]: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              placeholder={`เป้าหมาย ${metric.unit}`}
-                            />
-                          </div>
+                    {currentTemplate.metrics.map((metric) => {
+                      const progress = calculateProgress(actual[metric.key] || 0, targets[metric.key] || 0);
+                      const gaugeData = prepareGaugeData(metric.key);
 
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">
-                              ผลลัพธ์จริง {metric.unit && `(${metric.unit})`}
-                            </Label>
-                            <Input
-                              type="number"
-                              value={actual[metric.key] || ""}
-                              onChange={(e) =>
-                                setActual({
-                                  ...actual,
-                                  [metric.key]: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              placeholder={`ผลลัพธ์จริง ${metric.unit}`}
-                            />
-                          </div>
+                      return (
+                        <Card key={metric.key} className="overflow-hidden">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-medium flex items-center justify-between">
+                              <span>{metric.label}</span>
+                              <Badge variant={progress >= 100 ? "default" : "secondary"} className="text-xs">
+                                {progress.toFixed(0)}%
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {/* Gauge Chart */}
+                            <div className="h-32">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RadialBarChart
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius="60%"
+                                  outerRadius="90%"
+                                  barSize={10}
+                                  data={gaugeData}
+                                  startAngle={180}
+                                  endAngle={0}
+                                >
+                                  <RadialBar
+                                    minAngle={15}
+                                    background
+                                    clockWise
+                                    dataKey="value"
+                                    cornerRadius={10}
+                                  />
+                                  <text
+                                    x="50%"
+                                    y="50%"
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    className={`text-2xl font-bold ${getProgressColor(progress)}`}
+                                  >
+                                    {progress.toFixed(0)}%
+                                  </text>
+                                </RadialBarChart>
+                              </ResponsiveContainer>
+                            </div>
 
-                          {/* Progress */}
-                          {actual[metric.key] !== undefined && targets[metric.key] && (
+                            {/* Input Fields */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  เป้าหมาย {metric.unit && `(${metric.unit})`}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  value={targets[metric.key] || ""}
+                                  onChange={(e) =>
+                                    setTargets({
+                                      ...targets,
+                                      [metric.key]: parseFloat(e.target.value) || 0,
+                                    })
+                                  }
+                                  placeholder="Target"
+                                  className="text-sm"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  ผลลัพธ์จริง {metric.unit && `(${metric.unit})`}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  value={actual[metric.key] || ""}
+                                  onChange={(e) =>
+                                    setActual({
+                                      ...actual,
+                                      [metric.key]: parseFloat(e.target.value) || 0,
+                                    })
+                                  }
+                                  placeholder="Actual"
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Progress Bar */}
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>ความคืบหน้า</span>
                                 <span>
-                                  {calculateProgress(
-                                    actual[metric.key],
-                                    targets[metric.key]
-                                  ).toFixed(1)}
-                                  %
+                                  {(actual[metric.key] || 0).toLocaleString()}{metric.unit}
+                                </span>
+                                <span>
+                                  {(targets[metric.key] || 0).toLocaleString()}{metric.unit}
                                 </span>
                               </div>
-                              <Progress
-                                value={calculateProgress(
-                                  actual[metric.key],
-                                  targets[metric.key]
-                                )}
-                                className="h-2"
-                              />
+                              <Progress value={progress} className="h-2" />
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -419,7 +523,7 @@ export default function MetricsPage() {
           </Card>
         ) : (
           plans.map((plan) => {
-            const template = templates.find((t) => t.name === plan.templateName);
+            const template = metricsTemplates.find((t) => t.id === plan.templateName);
             if (!template) return null;
 
             return (
@@ -431,12 +535,16 @@ export default function MetricsPage() {
                         {template.icon && (
                           <template.icon className={`h-5 w-5 ${template.color}`} />
                         )}
-                        {plan.templateName}
+                        {template.name}
                       </CardTitle>
                       <CardDescription>
-                        รอบเวลา: {plan.period === "monthly" ? "รายเดือน" :
-                                   plan.period === "daily" ? "รายวัน" :
-                                   plan.period === "weekly" ? "รายสัปดาห์" : "รายไตรมาส"}
+                        {plan.period === "monthly"
+                          ? "รายเดือน"
+                          : plan.period === "daily"
+                          ? "รายวัน"
+                          : plan.period === "weekly"
+                          ? "รายสัปดาห์"
+                          : "รายไตรมาส"}
                         {" • "}
                         สร้างเมื่อ {new Date(plan.createdAt).toLocaleDateString("th-TH")}
                       </CardDescription>
@@ -449,11 +557,7 @@ export default function MetricsPage() {
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExportPDF}
-                      >
+                      <Button variant="outline" size="sm" onClick={handleExportPDF}>
                         <Download className="h-3 w-3" />
                       </Button>
                       <Button
@@ -467,7 +571,7 @@ export default function MetricsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     {template.metrics.map((metric) => {
                       const targetValue = plan.targets[metric.key] || 0;
                       const actualValue = plan.actual?.[metric.key] || 0;
@@ -477,19 +581,25 @@ export default function MetricsPage() {
                         <div key={metric.key} className="space-y-2">
                           <div className="flex justify-between items-start">
                             <span className="text-sm font-medium">{metric.label}</span>
-                            <Badge variant={progress >= 100 ? "default" : "secondary"}>
+                            <Badge
+                              variant={progress >= 100 ? "default" : "secondary"}
+                              className="text-xs"
+                            >
                               {progress.toFixed(0)}%
                             </Badge>
                           </div>
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>จริง: {actualValue.toLocaleString()}{metric.unit}</span>
-                              <span>เป้า: {targetValue.toLocaleString()}{metric.unit}</span>
+                              <span>
+                                {actualValue.toLocaleString()}
+                                {metric.unit}
+                              </span>
+                              <span>
+                                {targetValue.toLocaleString()}
+                                {metric.unit}
+                              </span>
                             </div>
-                            <Progress
-                              value={progress}
-                              className={`h-2 ${getProgressColor(progress)}`}
-                            />
+                            <Progress value={progress} className="h-2" />
                           </div>
                         </div>
                       );
