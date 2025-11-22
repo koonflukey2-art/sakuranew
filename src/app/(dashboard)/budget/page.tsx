@@ -121,10 +121,16 @@ export default function BudgetPage() {
         description: "เพิ่มงบประมาณใหม่แล้ว",
       });
 
-      setIsAddOpen(false);
-      fetchBudgets();
+      // Reset form ก่อนปิด Dialog
       e.currentTarget.reset();
+
+      // ปิด Dialog
+      setIsAddOpen(false);
+
+      // Refresh data
+      fetchBudgets();
     } catch (error: any) {
+      console.error("Add budget error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error.message || "ไม่สามารถเพิ่มงบประมาณได้",
@@ -170,10 +176,17 @@ export default function BudgetPage() {
         description: "อัพเดทค่าใช้จ่ายแล้ว",
       });
 
+      // Reset form ก่อนปิด Dialog
+      e.currentTarget.reset();
+
+      // ปิด Dialog
       setIsUpdateSpentOpen(false);
       setUpdatingBudget(null);
+
+      // Refresh data
       fetchBudgets();
     } catch (error) {
+      console.error("Update spent error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถอัพเดทค่าใช้จ่ายได้",
@@ -218,10 +231,17 @@ export default function BudgetPage() {
         description: "แก้ไขงบประมาณแล้ว",
       });
 
+      // Reset form ก่อนปิด Dialog
+      e.currentTarget.reset();
+
+      // ปิด Dialog
       setIsEditOpen(false);
       setSelectedBudget(null);
+
+      // Refresh data
       fetchBudgets();
     } catch (error) {
+      console.error("Update budget error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถแก้ไขงบประมาณได้",

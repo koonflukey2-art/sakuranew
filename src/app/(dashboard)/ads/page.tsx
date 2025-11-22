@@ -154,10 +154,16 @@ export default function AdsPage() {
         description: "สร้างแคมเปญใหม่แล้ว",
       });
 
-      setIsCreateOpen(false);
-      fetchCampaigns();
+      // Reset form ก่อนปิด Dialog
       e.currentTarget.reset();
+
+      // ปิด Dialog
+      setIsCreateOpen(false);
+
+      // Refresh data
+      fetchCampaigns();
     } catch (error: any) {
+      console.error("Create campaign error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error.message || "ไม่สามารถสร้างแคมเปญได้",
@@ -207,10 +213,17 @@ export default function AdsPage() {
         description: "อัปเดตแคมเปญแล้ว",
       });
 
+      // Reset form ก่อนปิด Dialog
+      e.currentTarget.reset();
+
+      // ปิด Dialog
       setIsEditOpen(false);
       setSelectedCampaign(null);
+
+      // Refresh data
       fetchCampaigns();
     } catch (error) {
+      console.error("Update campaign error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถอัปเดตแคมเปญได้",
