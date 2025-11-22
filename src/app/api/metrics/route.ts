@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
 // GET - ดึงข้อมูล metrics plans ทั้งหมด
 export async function GET(request: Request) {
