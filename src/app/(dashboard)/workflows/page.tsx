@@ -472,11 +472,11 @@ export default function WorkflowsPage() {
           </Select>
 
           {/* Template Info Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-gradient-to-r from-blue-900/20 to-cyan-900/20 p-4 rounded-lg border border-blue-500/50">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <h3 className="font-semibold text-lg">{currentTemplate.name}</h3>
-                <p className="text-sm text-muted-foreground">{currentTemplate.description}</p>
+                <h3 className="font-semibold text-lg text-white">{currentTemplate.name}</h3>
+                <p className="text-sm text-slate-300">{currentTemplate.description}</p>
                 <div className="flex gap-2 mt-2">
                   <Badge variant="secondary">{currentTemplate.category}</Badge>
                   <Badge variant="outline">{currentTemplate.nodes} nodes</Badge>
@@ -542,13 +542,13 @@ export default function WorkflowsPage() {
               <AccordionContent>
                 <div className="space-y-2">
                   {currentTemplate.workflow.nodes.map((node, idx) => (
-                    <div key={node.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div key={node.id} className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg border border-slate-600/50">
                       <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {idx + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{node.name}</p>
-                        <p className="text-xs text-muted-foreground">{node.type}</p>
+                        <p className="font-medium text-sm text-white">{node.name}</p>
+                        <p className="text-xs text-slate-400">{node.type}</p>
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {node.type.split(".").pop()}
@@ -595,8 +595,8 @@ export default function WorkflowsPage() {
             </Button>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">
+          <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg">
+            <p className="text-sm text-blue-300">
               💡 <strong>คำแนะนำ:</strong> หลังดาวน์โหลดหรือคัดลอกแล้ว ไปที่ n8n.io → Workflows →
               Import from File/Clipboard
             </p>
@@ -648,8 +648,8 @@ export default function WorkflowsPage() {
             ))}
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-4">
-            <p className="text-xs text-yellow-800">
+          <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg mt-4">
+            <p className="text-xs text-yellow-300">
               ⚠️ <strong>หมายเหตุ:</strong> อย่าลืมแทนที่ค่า Placeholder เช่น YOUR_SHEET_ID,
               YOUR_API เป็นค่าจริงของคุณหลังจาก import workflow แล้ว
             </p>
@@ -668,28 +668,28 @@ export default function WorkflowsPage() {
               href="https://n8n.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex items-center justify-between p-4 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-600/50"
             >
-              <span className="font-medium text-sm">n8n.io</span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-sm text-white">n8n.io</span>
+              <ExternalLink className="h-4 w-4 text-slate-400" />
             </a>
             <a
               href="https://docs.n8n.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex items-center justify-between p-4 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-600/50"
             >
-              <span className="font-medium text-sm">n8n Documentation</span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-sm text-white">n8n Documentation</span>
+              <ExternalLink className="h-4 w-4 text-slate-400" />
             </a>
             <a
               href="https://community.n8n.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex items-center justify-between p-4 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-600/50"
             >
-              <span className="font-medium text-sm">n8n Community</span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-sm text-white">n8n Community</span>
+              <ExternalLink className="h-4 w-4 text-slate-400" />
             </a>
           </div>
         </CardContent>
