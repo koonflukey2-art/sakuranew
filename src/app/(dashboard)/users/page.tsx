@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Shield, Trash2, MoreVertical, UserCog, Search, Filter } from "lucide-react";
+import { Users, Shield, Trash2, MoreVertical, UserCog, Search, Filter, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TableSkeleton } from "@/components/loading-states";
 import { EmptyUsers } from "@/components/empty-states";
@@ -34,27 +35,29 @@ interface User {
   id: string;
   email: string;
   name: string | null;
-  role: "ADMIN" | "STOCK_STAFF" | "USER";
+  role: "ADMIN" | "STOCK" | "EMPLOYEE";
   createdAt: string;
   lastLogin: string | null;
 }
 
 const roleColors: Record<string, string> = {
   ADMIN: "bg-red-500",
-  STOCK_STAFF: "bg-blue-500",
-  USER: "bg-gray-500",
+  STOCK: "bg-blue-500",
+  EMPLOYEE: "bg-gray-500",
 };
 
 const roleLabels: Record<string, string> = {
   ADMIN: "ผู้ดูแลระบบ",
-  STOCK_STAFF: "พนักงานสต็อก",
-  USER: "ผู้ใช้ทั่วไป",
+  STOCK: "พนักงานสต็อก",
+  EMPLOYEE: "พนักงาน",
 };
 
 export default function UsersPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
 
@@ -74,12 +77,39 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch("/api/users");
-      if (!res.ok) throw new Error("Failed to fetch users");
+
+      // Handle specific status codes
+      if (res.status === 401) {
+        // Session expired or not authenticated
+        setError("กรุณาเข้าสู่ระบบใหม่");
+        toast({
+          title: "Session หมดอายุ",
+          description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
+          variant: "destructive",
+        });
+        // Redirect to sign-in after a short delay
+        setTimeout(() => router.push("/sign-in"), 2000);
+        return;
+      }
+
+      if (res.status === 403) {
+        // Forbidden - user doesn't have permission
+        setError("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+        setUsers([]);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
+
       const data = await res.json();
       setUsers(data);
     } catch (error) {
       console.error("Failed to fetch users:", error);
+      setError("ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถโหลดข้อมูลผู้ใช้ได้",
@@ -178,8 +208,8 @@ export default function UsersPage() {
   // Calculate statistics
   const totalUsers = users.length;
   const adminCount = users.filter((u) => u.role === "ADMIN").length;
-  const staffCount = users.filter((u) => u.role === "STOCK_STAFF").length;
-  const userCount = users.filter((u) => u.role === "USER").length;
+  const staffCount = users.filter((u) => u.role === "STOCK").length;
+  const userCount = users.filter((u) => u.role === "EMPLOYEE").length;
 
   return (
     <div className="space-y-6">
@@ -257,8 +287,8 @@ export default function UsersPage() {
               <SelectContent>
                 <SelectItem value="ALL">ทั้งหมด</SelectItem>
                 <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="STOCK_STAFF">พนักงานสต็อก</SelectItem>
-                <SelectItem value="USER">ผู้ใช้ทั่วไป</SelectItem>
+                <SelectItem value="STOCK">พนักงานสต็อก</SelectItem>
+                <SelectItem value="EMPLOYEE">พนักงาน</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -276,6 +306,11 @@ export default function UsersPage() {
         <CardContent>
           {loading ? (
             <TableSkeleton rows={10} />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <ShieldAlert className="h-16 w-16 text-red-500" />
+              <p className="text-lg font-semibold text-slate-200">{error}</p>
+            </div>
           ) : filteredUsers.length === 0 ? (
             <EmptyUsers />
           ) : (
@@ -354,8 +389,8 @@ export default function UsersPage() {
                   <SelectValue placeholder="เลือกบทบาท" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USER">ผู้ใช้ทั่วไป</SelectItem>
-                  <SelectItem value="STOCK_STAFF">พนักงานสต็อก</SelectItem>
+                  <SelectItem value="EMPLOYEE">พนักงาน</SelectItem>
+                  <SelectItem value="STOCK">พนักงานสต็อก</SelectItem>
                   <SelectItem value="ADMIN">Admin</SelectItem>
                 </SelectContent>
               </Select>
