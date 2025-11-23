@@ -13,23 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Bot,
   Send,
-  Settings,
   CheckCircle,
   XCircle,
   Loader2,
-  Download,
   Trash2,
   Plus,
   MessageSquare,
@@ -47,9 +38,11 @@ interface AIConfig {
   lastTested?: string | null;
 }
 
+type ChatRole = "USER" | "ASSISTANT";
+
 interface Message {
   id: string;
-  role: "USER" | "ASSISTANT";
+  role: ChatRole;
   content: string;
   createdAt: string;
 }
@@ -60,33 +53,23 @@ interface ChatSession {
   provider: string;
   updatedAt: string;
   _count: { messages: number };
-}
-
-interface QuickPrompt {
-  id: number;
-  category: string;
-  prompts: string[];
+  messages?: Message[];
 }
 
 export default function AIChatPage() {
   const [configs, setConfigs] = useState<AIConfig[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [quickPrompts, setQuickPrompts] = useState<QuickPrompt[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [testing, setTesting] = useState<string | null>(null);
-  const [showSessions, setShowSessions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchConfigs();
     fetchSessions();
-    fetchQuickPrompts();
   }, []);
 
   useEffect(() => {
@@ -113,14 +96,13 @@ export default function AIChatPage() {
 
       setConfigs(list);
 
-      // If no selectedProvider yet, pick the first valid config as default
       const firstValid = list.find((c) => c.isValid);
       if (firstValid && !selectedProvider) {
         setSelectedProvider(firstValid.provider);
       }
     } catch (error) {
       console.error("Failed to fetch AI configs", error);
-      setConfigs([]); // keep it an array to avoid configs.find error
+      setConfigs([]);
       toast({
         title: "Error",
         description: "Failed to fetch AI configs",
@@ -133,82 +115,54 @@ export default function AIChatPage() {
     try {
       const response = await fetch("/api/ai/sessions");
       const data = await response.json();
-      setSessions(data);
+      if (Array.isArray(data)) {
+        setSessions(data);
+      }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     }
   };
 
-  const fetchQuickPrompts = async () => {
+  const loadSession = async (session: ChatSession) => {
     try {
-      const response = await fetch("/api/ai/quick-prompts");
-      const data = await response.json();
-      setQuickPrompts(data);
-    } catch (error) {
-      console.error("Failed to fetch quick prompts:", error);
-    }
-  };
-
-  const handleSaveConfig = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const provider = formData.get("provider") as string;
-    const apiKey = formData.get("apiKey") as string;
-
-    try {
-      const response = await fetch("/api/ai/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey }),
-      });
-
-      if (!response.ok) throw new Error("Failed to save");
-
-      toast({ title: "บันทึกสำเร็จ!", description: "API key ถูกบันทึกแล้ว" });
-      e.currentTarget.reset();
-      setIsConfigOpen(false);
-      fetchConfigs();
-    } catch (error) {
-      toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถบันทึก API key ได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTestConfig = async (configId: string) => {
-    try {
-      setTesting(configId);
-      const response = await fetch(`/api/ai/config?id=${configId}`, {
-        method: "PUT",
-      });
+      setLoading(true);
+      const response = await fetch(`/api/ai/sessions/${session.id}`);
+      if (!response.ok) throw new Error("Failed to load session");
 
       const data = await response.json();
+      setSessionId(session.id);
+
+      // Map messages to proper format
+      const loadedMessages: Message[] = (data.messages || []).map((msg: any) => ({
+        id: msg.id,
+        role: msg.role || "ASSISTANT",
+        content: msg.content || "",
+        createdAt: msg.createdAt || new Date().toISOString(),
+      }));
+
+      setMessages(loadedMessages);
 
       toast({
-        title: data.isValid ? "สำเร็จ!" : "ล้มเหลว",
-        description: data.message,
-        variant: data.isValid ? "default" : "destructive",
+        title: "Session loaded",
+        description: `Loaded ${loadedMessages.length} messages`,
       });
-
-      fetchConfigs();
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Failed to load session:", error);
       toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถทดสอบ API key ได้",
+        title: "Error",
+        description: "Failed to load chat session",
         variant: "destructive",
       });
     } finally {
-      setTesting(null);
+      setLoading(false);
     }
   };
 
-  const handleSendMessage = async (e?: React.FormEvent, quickPrompt?: string) => {
-    if (e) e.preventDefault();
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const messageText = quickPrompt || input;
-    if (!messageText.trim() || !selectedProvider) return;
+    const messageText = input.trim();
+    if (!messageText || !selectedProvider) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -241,6 +195,8 @@ export default function AIChatPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Refresh sessions to show updated chat
       fetchSessions();
     } catch (error: any) {
       toast({
@@ -256,12 +212,6 @@ export default function AIChatPage() {
   const handleNewChat = () => {
     setSessionId(null);
     setMessages([]);
-  };
-
-  const handleLoadSession = async (session: ChatSession) => {
-    setSessionId(session.id);
-    // Load messages ของ session นั้น
-    // TODO: สร้าง API endpoint สำหรับดึง messages ของ session
   };
 
   const handleDeleteSession = async (delSessionId: string) => {
@@ -283,21 +233,6 @@ export default function AIChatPage() {
     }
   };
 
-  const handleExportChat = () => {
-    const chatText = messages
-      .map((m) => `${m.role}: ${m.content}`)
-      .join("\n\n");
-
-    const blob = new Blob([chatText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat-${new Date().toISOString()}.txt`;
-    a.click();
-
-    toast({ title: "Export สำเร็จ!" });
-  };
-
   const validConfig =
     Array.isArray(configs)
       ? configs.find(
@@ -308,57 +243,88 @@ export default function AIChatPage() {
         )
       : undefined;
 
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return "เมื่อสักครู่";
+      if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+      if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`;
+      if (days < 7) return `${days} วันที่แล้ว`;
+      return date.toLocaleDateString("th-TH");
+    } catch {
+      return "";
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6">
-      {/* Sidebar - Sessions */}
-      {showSessions && (
-        <Card className="w-80 bg-slate-800 border-slate-700">
-          <CardHeader className="border-b border-slate-700">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-white">Chat History</CardTitle>
-              <Button size="sm" onClick={handleNewChat}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <ScrollArea className="h-full">
-            <CardContent className="p-4 space-y-2">
-              {sessions.map((session) => (
+      {/* Sidebar - Chat History */}
+      <Card className="w-80 bg-slate-800 border-slate-700">
+        <CardHeader className="border-b border-slate-700">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white">Chat History</CardTitle>
+            <Button size="sm" onClick={handleNewChat} variant="outline">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <ScrollArea className="h-[calc(100vh-12rem)]">
+          <CardContent className="p-4 space-y-2">
+            {sessions.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">ยังไม่มีประวัติการแชท</p>
+              </div>
+            ) : (
+              sessions.map((session) => (
                 <div
                   key={session.id}
                   className={`p-3 rounded-lg cursor-pointer transition-all ${
                     sessionId === session.id
-                      ? "bg-slate-700"
-                      : "bg-slate-800 hover:bg-slate-700"
+                      ? "bg-slate-700 ring-2 ring-blue-500"
+                      : "bg-slate-800/50 hover:bg-slate-700"
                   }`}
-                  onClick={() => handleLoadSession(session)}
+                  onClick={() => loadSession(session)}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">
+                      <p className="text-sm text-white truncate font-medium">
                         {session.title}
                       </p>
-                      <p className="text-xs text-slate-400">
-                        {session._count.messages} messages • {session.provider}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-slate-400">
+                          {session._count.messages} messages
+                        </p>
+                        <span className="text-xs text-slate-500">•</span>
+                        <p className="text-xs text-slate-400">
+                          {formatTime(session.updatedAt)}
+                        </p>
+                      </div>
                     </div>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-6 w-6 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteSession(session.id);
                       }}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3 h-3 text-slate-400 hover:text-red-400" />
                     </Button>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </ScrollArea>
-        </Card>
-      )}
+              ))
+            )}
+          </CardContent>
+        </ScrollArea>
+      </Card>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col space-y-4">
@@ -404,55 +370,9 @@ export default function AIChatPage() {
                   </Badge>
                 )}
               </div>
-
-              <div className="flex items-center gap-2">
-                {messages.length > 0 && (
-                  <Button size="sm" variant="outline" onClick={handleExportChat}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={() => setIsConfigOpen(true)}>
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Quick Prompts */}
-        {messages.length === 0 && quickPrompts.length > 0 && (
-          <Card className="bg-slate-800 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white text-lg">คำถามที่ถามบ่อย</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {quickPrompts.map((category) => (
-                  <div key={category.id}>
-                    <h3 className="text-sm font-semibold text-slate-300 mb-2">
-                      {category.category}
-                    </h3>
-                    <div className="space-y-2">
-                      {category.prompts.slice(0, 3).map((prompt, idx) => (
-                        <Button
-                          key={idx}
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start text-left h-auto py-2 px-3"
-                          onClick={() => handleSendMessage(undefined, prompt)}
-                          disabled={!validConfig}
-                        >
-                          <span className="text-xs">{prompt}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Messages */}
         <Card className="flex-1 bg-slate-800 border-slate-700 overflow-hidden">
@@ -521,11 +441,12 @@ export default function AIChatPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ..."
                 disabled={!validConfig || loading}
-                className="flex-1"
+                className="flex-1 bg-slate-900 border-slate-600 text-white"
               />
               <Button
                 type="submit"
                 disabled={!validConfig || loading || !input.trim()}
+                className="bg-gradient-to-r from-blue-600 to-purple-600"
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -533,88 +454,6 @@ export default function AIChatPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Config Dialog */}
-      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <DialogContent className="max-w-2xl bg-slate-800 border-slate-700 text-white">
-          <DialogHeader>
-            <DialogTitle>Configure AI Models</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <h3 className="font-semibold">Current Configurations:</h3>
-            {configs.map((config) => (
-              <div
-                key={config.id}
-                className="flex items-center justify-between p-3 bg-slate-700 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium">{config.provider}</p>
-                  <p className="text-xs text-slate-400">
-                    {config.hasApiKey ? "API Key configured" : "No API key"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {config.isValid ? (
-                    <Badge className="bg-green-500">Valid</Badge>
-                  ) : (
-                    <Badge variant="destructive">Invalid</Badge>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTestConfig(config.id)}
-                    disabled={!config.hasApiKey || testing === config.id}
-                  >
-                    {testing === config.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      "Test"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <form onSubmit={handleSaveConfig} className="space-y-4">
-            <div>
-              <Label>AI Provider</Label>
-              <Select name="provider" required>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="Select provider" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                  <SelectItem value="GEMINI">Google Gemini</SelectItem>
-                  <SelectItem value="OPENAI">OpenAI GPT</SelectItem>
-                  <SelectItem value="N8N">n8n Webhook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>API Key / Webhook URL</Label>
-              <Input
-                name="apiKey"
-                placeholder="Enter your API key or webhook URL"
-                required
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsConfigOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

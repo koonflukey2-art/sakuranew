@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { UserButton, useUser, SignOutButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Package,
@@ -21,6 +22,7 @@ import {
   Bell,
   Bot,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 
 const navItems = [
@@ -50,12 +52,12 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-slate-700/50 bg-slate-800/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 via-emerald-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400/20">
+          <div className="w-10 h-10 bg-gradient-to-br from-pink-400 via-rose-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/30 ring-2 ring-pink-400/20">
             <Store className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">E-Commerce</h1>
-            <p className="text-xs text-slate-400">Management System</p>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">Sakura</h1>
+            <p className="text-xs text-slate-400">E-Commerce</p>
           </div>
         </div>
       </div>
@@ -82,7 +84,7 @@ export function Sidebar() {
                 </Badge>
               )}
               {pathname === item.href && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-cyan-400 rounded-r-full" />
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-pink-400 to-rose-400 rounded-r-full" />
               )}
             </Link>
           ))}
@@ -91,11 +93,11 @@ export function Sidebar() {
 
       {/* User Section */}
       <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
-        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors">
+        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors mb-2">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "w-10 h-10 ring-2 ring-emerald-400/30",
+                avatarBox: "w-10 h-10 ring-2 ring-pink-400/30",
                 userButtonPopoverCard: "bg-slate-900 border-slate-700",
                 userButtonPopoverActionButton: "hover:bg-slate-800",
               },
@@ -112,13 +114,24 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* Logout Button */}
+        <SignOutButton>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-slate-300 hover:text-white hover:bg-red-500/10"
+          >
+            <LogOut className="w-4 h-4 mr-2 text-red-400" />
+            <span className="text-sm">ออกจากระบบ</span>
+          </Button>
+        </SignOutButton>
       </div>
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-700/50 bg-slate-950/50">
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Powered by AI</span>
-          <span className="text-emerald-400 font-semibold">Gemini 2.0</span>
+          <span className="text-pink-400 font-semibold">Gemini 2.0</span>
         </div>
       </div>
     </aside>
