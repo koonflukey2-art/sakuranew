@@ -20,6 +20,7 @@ import {
   Store,
   Bell,
   Bot,
+  BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/ads", label: "โฆษณา", icon: Megaphone, color: "text-pink-400" },
   { href: "/budget", label: "งบประมาณ", icon: Wallet, color: "text-amber-400" },
   { href: "/reports", label: "รายงาน", icon: FileBarChart, color: "text-blue-400" },
+  { href: "/analytics", label: "การวิเคราะห์", icon: BarChart3, badge: "New", color: "text-violet-400" },
   { href: "/profit", label: "คำนวณกำไร", icon: Calculator, color: "text-green-400" },
   { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New", color: "text-orange-400" },
   { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New", color: "text-yellow-400" },

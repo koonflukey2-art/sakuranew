@@ -32,6 +32,37 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// POST /api/notifications - Create a new notification
+export async function POST(request: NextRequest) {
+  try {
+    const user = await currentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { type, title, message, link } = body;
+
+    const notification = await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type,
+        title,
+        message,
+        link,
+      },
+    });
+
+    return NextResponse.json(notification);
+  } catch (error) {
+    console.error("Failed to create notification:", error);
+    return NextResponse.json(
+      { error: "Failed to create notification" },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT /api/notifications - Mark notification(s) as read
 export async function PUT(request: NextRequest) {
   try {
@@ -102,6 +133,15 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const deleteAll = searchParams.get("deleteAll") === "true";
+
+    if (deleteAll) {
+      // Delete all read notifications
+      await prisma.notification.deleteMany({
+        where: { userId: user.id, isRead: true },
+      });
+      return NextResponse.json({ message: "All read notifications deleted" });
+    }
 
     if (!id) {
       return NextResponse.json(

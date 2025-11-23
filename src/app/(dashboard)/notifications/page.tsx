@@ -22,7 +22,8 @@ import { useRouter } from "next/navigation";
 
 interface Notification {
   id: string;
-  type: "LOW_STOCK" | "BUDGET_REQUEST" | "CAMPAIGN_COMPLETE" | "AI_ALERT";
+  type: "INFO" | "WARNING" | "SUCCESS" | "ERROR";
+  title: string;
   message: string;
   link: string | null;
   isRead: boolean;
@@ -30,17 +31,17 @@ interface Notification {
 }
 
 const notificationIcons = {
-  LOW_STOCK: Package,
-  BUDGET_REQUEST: Wallet,
-  CAMPAIGN_COMPLETE: Megaphone,
-  AI_ALERT: Bell,
+  INFO: Bell,
+  WARNING: Package,
+  SUCCESS: Megaphone,
+  ERROR: Wallet,
 };
 
 const notificationColors = {
-  LOW_STOCK: "text-orange-500",
-  BUDGET_REQUEST: "text-blue-500",
-  CAMPAIGN_COMPLETE: "text-green-500",
-  AI_ALERT: "text-purple-500",
+  INFO: "text-blue-500",
+  WARNING: "text-yellow-500",
+  SUCCESS: "text-green-500",
+  ERROR: "text-red-500",
 };
 
 export default function NotificationsPage() {
@@ -243,7 +244,12 @@ export default function NotificationsPage() {
                         onClick={() => handleNotificationClick(notification)}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <p className="font-medium">{notification.message}</p>
+                          <div>
+                            <p className="font-medium">{notification.title}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {notification.message}
+                            </p>
+                          </div>
                           {!notification.isRead && (
                             <Badge variant="default" className="ml-2">
                               ใหม่
@@ -319,7 +325,12 @@ export default function NotificationsPage() {
                         onClick={() => handleNotificationClick(notification)}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <p className="font-medium">{notification.message}</p>
+                          <div>
+                            <p className="font-medium">{notification.title}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {notification.message}
+                            </p>
+                          </div>
                           <Badge variant="default" className="ml-2">
                             ใหม่
                           </Badge>
@@ -363,7 +374,7 @@ export default function NotificationsPage() {
       <DeleteConfirmation
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        itemName={notificationToDelete?.message || ""}
+        itemName={notificationToDelete?.title || ""}
         onConfirm={deleteNotification}
       />
     </div>
