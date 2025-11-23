@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     if (defaultProvider.provider === "GEMINI") {
       response = await callGemini(apiKey, message, context);
     } else if (defaultProvider.provider === "OPENAI") {
-      response = await callOpenAI(apiKey, message, context);
+      response = await callOpenAI(apiKey, message, context, defaultProvider.modelName || undefined);
     } else if (defaultProvider.provider === "N8N") {
       response = await callN8N(apiKey, message, context);
     }
@@ -225,13 +225,21 @@ ${context.campaigns.slice(0, 10).map((c: any) =>
 }
 
 // OpenAI API
-async function callOpenAI(apiKey: string, message: string, context: any) {
+async function callOpenAI(
+  apiKey: string,
+  message: string,
+  context: any,
+  modelName?: string
+): Promise<string> {
   const systemPrompt = `คุณคือ AI Assistant สำหรับระบบ E-commerce
 
 ข้อมูลธุรกิจ:
 ${JSON.stringify(context, null, 2)}
 
 ตอบคำถามโดยใช้ข้อมูลจริง แนะนำอย่างเฉพาะเจาะจง ตอบเป็นภาษาไทย`;
+
+  // ใช้ model จากการตั้งค่า ถ้ามี, ถ้าไม่มีก็ใช้ gpt-4o-mini เป็นค่าเริ่มต้น
+  const model = (modelName && modelName.trim()) || "gpt-4o-mini";
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -241,18 +249,20 @@ ${JSON.stringify(context, null, 2)}
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
+        temperature: 0.7,
+        max_tokens: 1000,
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดโควต้า";
-      throw new Error(`ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือเปลี่ยนไปใช้ Gemini (ฟรี)`);
+      throw new Error(`ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings (ตรวจดูชื่อโมเดล: ปัจจุบันใช้ "${model}") หรือเปลี่ยนไปใช้ Gemini (ฟรี)`);
     }
 
     const data = await response.json();
@@ -264,7 +274,7 @@ ${JSON.stringify(context, null, 2)}
     return data.choices[0].message.content;
   } catch (error: any) {
     // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
-    if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ OpenAI")) {
+    if (error instanceof Error) {
       throw error;
     }
     // ถ้าไม่ใช่ ให้สร้าง error message ใหม่

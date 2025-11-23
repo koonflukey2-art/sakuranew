@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     if (provider === "GEMINI") {
       aiResponse = await callGemini(apiKey, message, session.messages, systemContext);
     } else if (provider === "OPENAI") {
-      aiResponse = await callOpenAI(apiKey, message, session.messages, systemContext);
+      aiResponse = await callOpenAI(apiKey, message, session.messages, systemContext, config.modelName || undefined);
     } else if (provider === "N8N") {
       aiResponse = await callN8N(apiKey, message, systemContext);
     }
@@ -383,7 +383,8 @@ async function callOpenAI(
   apiKey: string,
   message: string,
   history: any[],
-  context: any
+  context: any,
+  modelName?: string
 ): Promise<string> {
   const systemPrompt = `You are an expert e-commerce business analyst with access to real-time data.
 
@@ -396,6 +397,9 @@ Detailed Data:
 ${JSON.stringify(context, null, 2)}
 
 Provide intelligent, data-driven answers in Thai. Be specific with numbers and actionable recommendations.`;
+
+  // ใช้ model จากการตั้งค่า ถ้ามี, ถ้าไม่มีก็ใช้ gpt-4o-mini เป็นค่าเริ่มต้น
+  const model = (modelName && modelName.trim()) || "gpt-4o-mini";
 
   const messages = [
     { role: "system", content: systemPrompt },
@@ -413,7 +417,7 @@ Provide intelligent, data-driven answers in Thai. Be specific with numbers and a
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4",
+      model,
       messages,
       temperature: 0.7,
       max_tokens: 1000,
