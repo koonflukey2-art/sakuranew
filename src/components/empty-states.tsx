@@ -7,6 +7,7 @@ import {
   Users,
   FileBarChart,
   Plus,
+  Search,
 } from "lucide-react";
 
 interface EmptyStateProps {
@@ -88,6 +89,16 @@ export function EmptyReports() {
       icon={<FileBarChart className="w-12 h-12 text-slate-400" />}
       title="ยังไม่มีข้อมูล"
       description="เริ่มต้นเพิ่มสินค้าและแคมเปญเพื่อดูรายงาน"
+    />
+  );
+}
+
+export function EmptySearch() {
+  return (
+    <EmptyState
+      icon={<Search className="w-12 h-12 text-slate-400" />}
+      title="ไม่พบผลลัพธ์"
+      description="ลองค้นหาด้วยคำอื่น หรือปรับเงื่อนไขการค้นหา"
     />
   );
 }
