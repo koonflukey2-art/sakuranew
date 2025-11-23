@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { UserSync } from "@/components/user-sync";
 import { NotificationBell } from "@/components/notification-bell";
 import { AIChatDialog } from "@/components/ai-chat-dialog";
+import { AIAssistantButton } from "@/components/ai-assistant-button";
 
 export default function DashboardLayout({
   children,
@@ -30,6 +31,7 @@ export default function DashboardLayout({
         </div>
       </main>
       <AIChatDialog />
+      <AIAssistantButton />
       <Toaster />
     </div>
   );

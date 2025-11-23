@@ -35,6 +35,7 @@ const navItems = [
   { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New", color: "text-yellow-400" },
   { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta", color: "text-indigo-400" },
   { href: "/ai-chat", label: "AI Chat", icon: Bot, badge: "New", color: "text-emerald-400" },
+  { href: "/ai-assistant", label: "AI Assistant", icon: Bot, badge: "AI", color: "text-blue-400" },
   { href: "/notifications", label: "การแจ้งเตือน", icon: Bell, color: "text-red-400" },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users, color: "text-teal-400" },
   { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-slate-400" },
