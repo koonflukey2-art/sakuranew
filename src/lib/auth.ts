@@ -2,7 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-export type UserRole = "ADMIN" | "STOCK" | "USER";
+export type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
 
 export interface AuthUser {
   id: string;
@@ -38,8 +38,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       return null;
     }
 
-    // Map STOCK_STAFF to STOCK for compatibility
-    const role = user.role === "STOCK_STAFF" ? "STOCK" : (user.role as UserRole);
+    // Map old role names for compatibility
+    let role = user.role as UserRole;
+    if (user.role === "STOCK_STAFF") role = "STOCK";
+    if (user.role === "USER") role = "EMPLOYEE";
 
     return {
       ...user,
@@ -100,6 +102,13 @@ export function isAdmin(user: AuthUser): boolean {
  */
 export function isStock(user: AuthUser): boolean {
   return user.role === "STOCK";
+}
+
+/**
+ * Check if user is employee (read-only access)
+ */
+export function isEmployee(user: AuthUser): boolean {
+  return user.role === "EMPLOYEE";
 }
 
 /**

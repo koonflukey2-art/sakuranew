@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireRole(["ADMIN", "STOCK", "USER"]);
+    const user = await requireRole(["ADMIN", "STOCK", "EMPLOYEE"]);
 
     const budgetRequest = await prisma.budgetRequest.findUnique({
       where: { id: params.id },

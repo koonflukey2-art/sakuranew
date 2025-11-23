@@ -55,7 +55,7 @@ export async function POST() {
           clerkId: clerkUser.id,
           email,
           name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
-          role: "USER",
+          role: "EMPLOYEE",
           lastLogin: new Date(),
         },
       });
