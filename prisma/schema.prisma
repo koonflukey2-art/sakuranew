@@ -23,10 +23,11 @@ model User {
   campaigns     AdCampaign[]
   budgets       Budget[]
   notifications Notification[]
-  aiConfig      AIConfig?
   stockHistory  StockHistory[]
   automationRules AutomationRule[]
   metricsPlans  MetricsPlan[]
+  aiConfigs     AIConfig[]
+  chatSessions  ChatSession[]
 }
 
 enum Role {
@@ -145,15 +146,54 @@ enum NotificationType {
 }
 
 model AIConfig {
-  id              String      @id @default(cuid())
-  geminiApiKey    String?
-  openaiApiKey    String?
-  n8nWebhook      String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  userId          String      @unique
+  id        String   @id @default(cuid())
+  userId    String
+  provider  AIProvider
+  apiKey    String   // Encrypted
+  isActive  Boolean  @default(false)
+  isValid   Boolean  @default(false)
+  lastTested DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("New Chat")
+  provider  AIProvider
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  sessionId   String
+  role        MessageRole
+  content     String   @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+enum AIProvider {
+  GEMINI
+  OPENAI
+  N8N
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
 }
 
 model AutomationRule {
