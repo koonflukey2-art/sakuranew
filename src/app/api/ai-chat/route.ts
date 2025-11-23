@@ -201,10 +201,26 @@ ${context.campaigns.slice(0, 10).map((c: any) =>
       }
     );
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดอายุ";
+      throw new Error(`ไม่สามารถเชื่อมต่อกับ Gemini ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือลองใช้ AI Provider อื่น`);
+    }
+
     const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || "ไม่สามารถตอบได้";
-  } catch (error) {
-    throw new Error("Gemini API error");
+
+    if (!data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
+      throw new Error("Gemini ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง");
+    }
+
+    return data.candidates[0].content.parts[0].text;
+  } catch (error: any) {
+    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
+    if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ Gemini")) {
+      throw error;
+    }
+    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
+    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ Gemini กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง");
   }
 }
 
@@ -233,10 +249,26 @@ ${JSON.stringify(context, null, 2)}
       }),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดโควต้า";
+      throw new Error(`ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือเปลี่ยนไปใช้ Gemini (ฟรี)`);
+    }
+
     const data = await response.json();
-    return data.choices[0]?.message?.content || "ไม่สามารถตอบได้";
-  } catch (error) {
-    throw new Error("OpenAI API error");
+
+    if (!data.choices || !data.choices[0]?.message?.content) {
+      throw new Error("OpenAI ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง");
+    }
+
+    return data.choices[0].message.content;
+  } catch (error: any) {
+    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
+    if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ OpenAI")) {
+      throw error;
+    }
+    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
+    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenAI กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง");
   }
 }
 
@@ -249,9 +281,23 @@ async function callN8N(webhookUrl: string, message: string, context: any) {
       body: JSON.stringify({ message, context }),
     });
 
+    if (!response.ok) {
+      throw new Error(`ไม่สามารถเชื่อมต่อกับ n8n Webhook ได้ (HTTP ${response.status})\n\nกรุณาตรวจสอบ Webhook URL ที่หน้า Settings หรือตรวจสอบว่า n8n workflow กำลังทำงานอยู่`);
+    }
+
     const data = await response.json();
-    return data.response || data.message || "ไม่สามารถตอบได้";
-  } catch (error) {
-    throw new Error("n8n Webhook error");
+
+    if (!data.response && !data.message) {
+      throw new Error("n8n Webhook ไม่ส่งคำตอบกลับมา กรุณาตรวจสอบการตั้งค่า workflow");
+    }
+
+    return data.response || data.message;
+  } catch (error: any) {
+    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
+    if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ n8n")) {
+      throw error;
+    }
+    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
+    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ n8n Webhook กรุณาตรวจสอบ URL หรือลองใหม่อีกครั้ง");
   }
 }

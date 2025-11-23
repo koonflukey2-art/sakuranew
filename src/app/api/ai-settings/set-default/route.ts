@@ -19,6 +19,25 @@ export async function POST(request: Request) {
 
     const { providerId } = await request.json();
 
+    // ตรวจสอบว่า provider นี้มีอยู่และ isValid
+    const provider = await prisma.aIProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      return NextResponse.json(
+        { error: "Provider not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!provider.isValid) {
+      return NextResponse.json(
+        { error: "กรุณาทดสอบการเชื่อมต่อ AI Provider ให้สำเร็จก่อนตั้งเป็นค่าเริ่มต้น" },
+        { status: 400 }
+      );
+    }
+
     // ยกเลิก default ทั้งหมด
     await prisma.aIProvider.updateMany({
       where: { userId: user.id },
