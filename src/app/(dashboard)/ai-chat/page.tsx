@@ -232,8 +232,15 @@ export default function AIChatPage() {
 
       if (!response.ok) throw new Error(data.error);
 
-      setSessionId(data.sessionId);
-      setMessages((prev) => [...prev, data.message]);
+      // Create assistant message from response
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ASSISTANT",
+        content: data.response || "ไม่สามารถตอบได้",
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
       fetchSessions();
     } catch (error: any) {
       toast({
@@ -462,34 +469,36 @@ export default function AIChatPage() {
                   </p>
                 </div>
               ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.role === "USER" ? "justify-end" : "justify-start"
-                    }`}
-                  >
+                messages
+                  .filter((msg): msg is Message => !!msg && !!msg.role && !!msg.content)
+                  .map((msg) => (
                     <div
-                      className={`max-w-[80%] rounded-lg p-4 ${
-                        msg.role === "USER"
-                          ? "bg-blue-600 text-white"
-                          : "bg-slate-700 text-white"
+                      key={msg.id}
+                      className={`flex ${
+                        msg.role === "USER" ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {msg.role === "ASSISTANT" && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <Bot className="w-4 h-4" />
-                          <span className="text-xs font-semibold">
-                            {selectedProvider}
-                          </span>
+                      <div
+                        className={`max-w-[80%] rounded-lg p-4 ${
+                          msg.role === "USER"
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-700 text-white"
+                        }`}
+                      >
+                        {msg.role === "ASSISTANT" && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Bot className="w-4 h-4" />
+                            <span className="text-xs font-semibold">
+                              {selectedProvider}
+                            </span>
+                          </div>
+                        )}
+                        <div className="prose prose-invert max-w-none">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
-                      )}
-                      <div className="prose prose-invert max-w-none">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))
               )}
               {loading && (
                 <div className="flex justify-start">

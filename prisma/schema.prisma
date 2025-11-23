@@ -22,6 +22,7 @@ model User {
   products      Product[]
   campaigns     AdCampaign[]
   budgets       Budget[]
+  budgetRequests BudgetRequest[]
   notifications Notification[]
   stockHistory  StockHistory[]
   automationRules AutomationRule[]
@@ -32,7 +33,7 @@ model User {
 
 enum Role {
   ADMIN
-  STOCK_STAFF
+  STOCK
   USER
 }
 
@@ -82,6 +83,27 @@ model Budget {
   userId      String
 
   user        User            @relation(fields: [userId], references: [id])
+}
+
+model BudgetRequest {
+  id          String                @id @default(cuid())
+  amount      Float
+  reason      String
+  status      BudgetRequestStatus   @default(PENDING)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  userId      String
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum BudgetRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model AdCampaign {
@@ -144,6 +166,7 @@ enum NotificationType {
   WARNING
   SUCCESS
   ERROR
+  BUDGET_REQUEST
 }
 
 model AIProvider {
