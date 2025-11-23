@@ -22,7 +22,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Bot, Send, Settings, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Bot,
+  Send,
+  Settings,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Download,
+  Trash2,
+  Plus,
+  MessageSquare,
+  Sparkles,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface AIConfig {
   id: string;
@@ -40,8 +54,24 @@ interface Message {
   createdAt: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  provider: string;
+  updatedAt: string;
+  _count: { messages: number };
+}
+
+interface QuickPrompt {
+  id: number;
+  category: string;
+  prompts: string[];
+}
+
 export default function AIChatPage() {
   const [configs, setConfigs] = useState<AIConfig[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [quickPrompts, setQuickPrompts] = useState<QuickPrompt[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -49,11 +79,14 @@ export default function AIChatPage() {
   const [loading, setLoading] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
+  const [showSessions, setShowSessions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchConfigs();
+    fetchSessions();
+    fetchQuickPrompts();
   }, []);
 
   useEffect(() => {
@@ -66,7 +99,6 @@ export default function AIChatPage() {
       const data = await response.json();
       setConfigs(data);
 
-      // เลือก provider แรกที่ valid
       const validConfig = data.find((c: AIConfig) => c.isValid);
       if (validConfig && !selectedProvider) {
         setSelectedProvider(validConfig.provider);
@@ -77,6 +109,26 @@ export default function AIChatPage() {
         description: "Failed to fetch AI configs",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const response = await fetch("/api/ai/sessions");
+      const data = await response.json();
+      setSessions(data);
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    }
+  };
+
+  const fetchQuickPrompts = async () => {
+    try {
+      const response = await fetch("/api/ai/quick-prompts");
+      const data = await response.json();
+      setQuickPrompts(data);
+    } catch (error) {
+      console.error("Failed to fetch quick prompts:", error);
     }
   };
 
@@ -95,14 +147,14 @@ export default function AIChatPage() {
 
       if (!response.ok) throw new Error("Failed to save");
 
-      toast({ title: "Saved!", description: "API key saved successfully" });
+      toast({ title: "บันทึกสำเร็จ!", description: "API key ถูกบันทึกแล้ว" });
       e.currentTarget.reset();
       setIsConfigOpen(false);
       fetchConfigs();
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to save API key",
+        title: "ผิดพลาด",
+        description: "ไม่สามารถบันทึก API key ได้",
         variant: "destructive",
       });
     }
@@ -118,7 +170,7 @@ export default function AIChatPage() {
       const data = await response.json();
 
       toast({
-        title: data.isValid ? "Success!" : "Failed",
+        title: data.isValid ? "สำเร็จ!" : "ล้มเหลว",
         description: data.message,
         variant: data.isValid ? "default" : "destructive",
       });
@@ -126,8 +178,8 @@ export default function AIChatPage() {
       fetchConfigs();
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to test API key",
+        title: "ผิดพลาด",
+        description: "ไม่สามารถทดสอบ API key ได้",
         variant: "destructive",
       });
     } finally {
@@ -135,14 +187,16 @@ export default function AIChatPage() {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !selectedProvider) return;
+  const handleSendMessage = async (e?: React.FormEvent, quickPrompt?: string) => {
+    if (e) e.preventDefault();
+
+    const messageText = quickPrompt || input;
+    if (!messageText.trim() || !selectedProvider) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "USER",
-      content: input,
+      content: messageText,
       createdAt: new Date().toISOString(),
     };
 
@@ -155,7 +209,7 @@ export default function AIChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
+          message: messageText,
           provider: selectedProvider,
           sessionId,
         }),
@@ -167,10 +221,11 @@ export default function AIChatPage() {
 
       setSessionId(data.sessionId);
       setMessages((prev) => [...prev, data.message]);
+      fetchSessions();
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
+        title: "ผิดพลาด",
+        description: error.message || "ไม่สามารถส่งข้อความได้",
         variant: "destructive",
       });
     } finally {
@@ -178,124 +233,278 @@ export default function AIChatPage() {
     }
   };
 
+  const handleNewChat = () => {
+    setSessionId(null);
+    setMessages([]);
+  };
+
+  const handleLoadSession = async (session: ChatSession) => {
+    setSessionId(session.id);
+    // Load messages ของ session นั้น
+    // TODO: สร้าง API endpoint สำหรับดึง messages ของ session
+  };
+
+  const handleDeleteSession = async (delSessionId: string) => {
+    try {
+      await fetch(`/api/ai/sessions?id=${delSessionId}`, {
+        method: "DELETE",
+      });
+      toast({ title: "ลบสำเร็จ!" });
+      fetchSessions();
+      if (delSessionId === sessionId) {
+        handleNewChat();
+      }
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถลบ session ได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportChat = () => {
+    const chatText = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n\n");
+
+    const blob = new Blob([chatText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-${new Date().toISOString()}.txt`;
+    a.click();
+
+    toast({ title: "Export สำเร็จ!" });
+  };
+
   const validConfig = configs.find(
     (c) => c.provider === selectedProvider && c.isValid
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">AI Chat Assistant</h1>
-          <p className="text-slate-400 mt-1">
-            Chat with AI about your business data
-          </p>
-        </div>
-        <Button onClick={() => setIsConfigOpen(true)} variant="outline">
-          <Settings className="w-4 h-4 mr-2" />
-          Configure AI
-        </Button>
-      </div>
-
-      {/* AI Provider Selector */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Label className="text-white">Select AI Model:</Label>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-              <SelectTrigger className="w-64 bg-slate-800 border-slate-700 text-white">
-                <SelectValue placeholder="Choose AI Model" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                <SelectItem value="GEMINI">Google Gemini</SelectItem>
-                <SelectItem value="OPENAI">OpenAI GPT</SelectItem>
-                <SelectItem value="N8N">n8n Workflow</SelectItem>
-              </SelectContent>
-            </Select>
-            {validConfig ? (
-              <Badge className="bg-green-500">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Connected
-              </Badge>
-            ) : (
-              <Badge variant="destructive">
-                <XCircle className="w-3 h-3 mr-1" />
-                Not Configured
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Chat Messages */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-6">
-          <div className="h-[500px] overflow-y-auto space-y-4 mb-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <Bot className="w-16 h-16 mb-4" />
-                <p>Start chatting with AI about your business!</p>
-                <p className="text-sm mt-2">
-                  Ask about products, campaigns, budgets, or analytics
-                </p>
-              </div>
-            ) : (
-              messages.map((msg) => (
+    <div className="flex h-[calc(100vh-8rem)] gap-6">
+      {/* Sidebar - Sessions */}
+      {showSessions && (
+        <Card className="w-80 bg-slate-800 border-slate-700">
+          <CardHeader className="border-b border-slate-700">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white">Chat History</CardTitle>
+              <Button size="sm" onClick={handleNewChat}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <ScrollArea className="h-full">
+            <CardContent className="p-4 space-y-2">
+              {sessions.map((session) => (
                 <div
-                  key={msg.id}
-                  className={`flex ${
-                    msg.role === "USER" ? "justify-end" : "justify-start"
+                  key={session.id}
+                  className={`p-3 rounded-lg cursor-pointer transition-all ${
+                    sessionId === session.id
+                      ? "bg-slate-700"
+                      : "bg-slate-800 hover:bg-slate-700"
                   }`}
+                  onClick={() => handleLoadSession(session)}
                 >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-4 ${
-                      msg.role === "USER"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-700 text-white"
-                    }`}
-                  >
-                    {msg.role === "ASSISTANT" && (
-                      <div className="flex items-center gap-2 mb-2">
-                        <Bot className="w-4 h-4" />
-                        <span className="text-xs font-semibold">
-                          {selectedProvider}
-                        </span>
-                      </div>
-                    )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">
+                        {session.title}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {session._count.messages} messages • {session.provider}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSession(session.id);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
-              ))
-            )}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-slate-700 rounded-lg p-4">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              ))}
+            </CardContent>
+          </ScrollArea>
+        </Card>
+      )}
 
-          {/* Input */}
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything about your business..."
-              disabled={!validConfig || loading}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              disabled={!validConfig || loading || !input.trim()}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col space-y-4">
+        {/* Header */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                  <SelectTrigger className="w-48 bg-slate-800 border-slate-700 text-white">
+                    <SelectValue placeholder="เลือก AI Model" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                    <SelectItem value="GEMINI">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Google Gemini
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="OPENAI">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        OpenAI GPT
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="N8N">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        n8n Workflow
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {validConfig ? (
+                  <Badge className="bg-green-500">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <XCircle className="w-3 h-3 mr-1" />
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={handleExportChat}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setIsConfigOpen(true)}>
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Prompts */}
+        {messages.length === 0 && quickPrompts.length > 0 && (
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white text-lg">คำถามที่ถามบ่อย</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {quickPrompts.map((category) => (
+                  <div key={category.id}>
+                    <h3 className="text-sm font-semibold text-slate-300 mb-2">
+                      {category.category}
+                    </h3>
+                    <div className="space-y-2">
+                      {category.prompts.slice(0, 3).map((prompt, idx) => (
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start text-left h-auto py-2 px-3"
+                          onClick={() => handleSendMessage(undefined, prompt)}
+                          disabled={!validConfig}
+                        >
+                          <span className="text-xs">{prompt}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Messages */}
+        <Card className="flex-1 bg-slate-800 border-slate-700 overflow-hidden">
+          <ScrollArea className="h-full p-6">
+            <div className="space-y-4">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <Bot className="w-16 h-16 mb-4" />
+                  <p className="text-lg font-semibold mb-2">
+                    เริ่มแชทกับ AI Assistant
+                  </p>
+                  <p className="text-sm text-center">
+                    ถามเกี่ยวกับสต็อก, โฆษณา, งบประมาณ, หรือวิเคราะห์ธุรกิจ
+                  </p>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${
+                      msg.role === "USER" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg p-4 ${
+                        msg.role === "USER"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-700 text-white"
+                      }`}
+                    >
+                      {msg.role === "ASSISTANT" && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Bot className="w-4 h-4" />
+                          <span className="text-xs font-semibold">
+                            {selectedProvider}
+                          </span>
+                        </div>
+                      )}
+                      <div className="prose prose-invert max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-700 rounded-lg p-4">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        </Card>
+
+        {/* Input */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-4">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ..."
+                disabled={!validConfig || loading}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={!validConfig || loading || !input.trim()}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Config Dialog */}
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
@@ -304,7 +513,6 @@ export default function AIChatPage() {
             <DialogTitle>Configure AI Models</DialogTitle>
           </DialogHeader>
 
-          {/* Current Configs */}
           <div className="space-y-3">
             <h3 className="font-semibold">Current Configurations:</h3>
             {configs.map((config) => (
@@ -341,7 +549,6 @@ export default function AIChatPage() {
             ))}
           </div>
 
-          {/* Add/Update Form */}
           <form onSubmit={handleSaveConfig} className="space-y-4">
             <div>
               <Label>AI Provider</Label>
