@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -40,11 +39,12 @@ import ReactMarkdown from "react-markdown";
 
 interface AIConfig {
   id: string;
-  provider: string;
+  provider: "GEMINI" | "OPENAI" | "N8N";
   isActive: boolean;
+  isDefault: boolean;
   isValid: boolean;
   hasApiKey: boolean;
-  lastTested?: string;
+  lastTested?: string | null;
 }
 
 interface Message {
@@ -95,15 +95,32 @@ export default function AIChatPage() {
 
   const fetchConfigs = async () => {
     try {
-      const response = await fetch("/api/ai/config");
+      const response = await fetch("/api/ai-settings");
+      if (!response.ok) throw new Error("Failed to fetch AI configs");
       const data = await response.json();
-      setConfigs(data);
 
-      const validConfig = data.find((c: AIConfig) => c.isValid);
-      if (validConfig && !selectedProvider) {
-        setSelectedProvider(validConfig.provider);
+      const list: AIConfig[] = Array.isArray(data)
+        ? data.map((item: any) => ({
+            id: item.id,
+            provider: item.provider,
+            isActive: item.isDefault ?? false,
+            isDefault: item.isDefault ?? false,
+            isValid: item.isValid ?? false,
+            hasApiKey: item.hasApiKey ?? false,
+            lastTested: item.lastTested ?? null,
+          }))
+        : [];
+
+      setConfigs(list);
+
+      // If no selectedProvider yet, pick the first valid config as default
+      const firstValid = list.find((c) => c.isValid);
+      if (firstValid && !selectedProvider) {
+        setSelectedProvider(firstValid.provider);
       }
     } catch (error) {
+      console.error("Failed to fetch AI configs", error);
+      setConfigs([]); // keep it an array to avoid configs.find error
       toast({
         title: "Error",
         description: "Failed to fetch AI configs",
@@ -205,14 +222,10 @@ export default function AIChatPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: messageText,
-          provider: selectedProvider,
-          sessionId,
-        }),
+        body: JSON.stringify({ message: messageText }),
       });
 
       const data = await response.json();
@@ -278,9 +291,15 @@ export default function AIChatPage() {
     toast({ title: "Export สำเร็จ!" });
   };
 
-  const validConfig = configs.find(
-    (c) => c.provider === selectedProvider && c.isValid
-  );
+  const validConfig =
+    Array.isArray(configs)
+      ? configs.find(
+          (c) =>
+            c.provider === selectedProvider &&
+            c.isValid &&
+            c.hasApiKey
+        )
+      : undefined;
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6">
@@ -566,11 +585,10 @@ export default function AIChatPage() {
 
             <div>
               <Label>API Key / Webhook URL</Label>
-              <Textarea
+              <Input
                 name="apiKey"
                 placeholder="Enter your API key or webhook URL"
                 required
-                rows={3}
                 className="bg-slate-700 border-slate-600 text-white"
               />
             </div>
