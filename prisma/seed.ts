@@ -34,7 +34,7 @@ async function main() {
       email: 'staff@test.com',
       password: userPassword,
       name: 'Stock Staff',
-      role: 'STOCK_STAFF',
+      role: 'STOCK',
     },
   });
 
@@ -43,7 +43,7 @@ async function main() {
       email: 'user@test.com',
       password: userPassword,
       name: 'Regular User',
-      role: 'USER',
+      role: 'EMPLOYEE',
     },
   });
 
@@ -337,7 +337,6 @@ async function main() {
   await Promise.all([
     prisma.metricsPlan.create({
       data: {
-        templateId: 'growth-plan',
         templateName: 'Growth Plan',
         targets: {
           revenue: 100000,
@@ -359,7 +358,6 @@ async function main() {
     }),
     prisma.metricsPlan.create({
       data: {
-        templateId: 'profit-plan',
         templateName: 'Profit Plan',
         targets: {
           grossProfit: 50000,
