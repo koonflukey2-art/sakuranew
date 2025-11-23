@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const user = await requireAuth();
 
     // Only STOCK and ADMIN can create budget requests
-    if (user.role === "USER") {
+    if (user.role === "EMPLOYEE") {
       return NextResponse.json(
         { error: "คุณไม่มีสิทธิ์ขออนุมัติงบประมาณ" },
         { status: 403 }

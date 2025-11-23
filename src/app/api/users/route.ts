@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireRole } from "@/lib/auth";
 
 export async function GET() {
+  // Only ADMIN can view all users
+  try {
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: error.status || 401 }
+    );
+  }
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -36,8 +46,18 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Only ADMIN can update user roles
+    try {
+      await requireRole(["ADMIN"]);
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error.message || "Unauthorized" },
+        { status: error.status || 401 }
+      );
+    }
+
     // Validate role
-    if (!["USER", "STOCK_STAFF", "ADMIN"].includes(role)) {
+    if (!["EMPLOYEE", "STOCK", "ADMIN"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
@@ -65,6 +85,16 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // Only ADMIN can delete users
+  try {
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: error.status || 401 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

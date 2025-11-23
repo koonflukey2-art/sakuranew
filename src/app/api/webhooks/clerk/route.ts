@@ -52,7 +52,8 @@ export async function POST(req: Request) {
           clerkId: id,
           email: email_addresses[0].email_address,
           name: `${first_name || ""} ${last_name || ""}`.trim() || null,
-          role: "USER",
+          role: "EMPLOYEE", // Default role for new users
+          lastLogin: new Date(),
         },
       });
 
@@ -71,12 +72,29 @@ export async function POST(req: Request) {
         data: {
           email: email_addresses[0].email_address,
           name: `${first_name || ""} ${last_name || ""}`.trim() || null,
+          lastLogin: new Date(),
         },
       });
 
       console.log("✅ User updated in database:", email_addresses[0].email_address);
     } catch (error) {
       console.error("❌ Error updating user:", error);
+    }
+  }
+
+  // Update lastLogin on session creation
+  if (eventType === "session.created") {
+    const { user_id } = evt.data;
+
+    try {
+      await prisma.user.update({
+        where: { clerkId: user_id },
+        data: { lastLogin: new Date() },
+      });
+
+      console.log("✅ User lastLogin updated:", user_id);
+    } catch (error) {
+      console.error("❌ Error updating lastLogin:", error);
     }
   }
 
