@@ -112,13 +112,10 @@ export default function BudgetRequestsPage() {
       const response = await fetch("/api/budget-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          amount: Number(formData.amount),
-        }),
+        body: JSON.stringify(formData),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
 
       if (!response.ok) throw new Error((data as any).error || "Failed to create");
 

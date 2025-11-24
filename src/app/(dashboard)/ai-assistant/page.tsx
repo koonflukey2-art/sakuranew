@@ -81,6 +81,11 @@ export default function AIAssistantPage() {
         setSessionId(data.sessionId);
       }
 
+<<<<<<< HEAD
+      const aiMessage: Message = {
+        role: "assistant",
+        content: data.reply || data.response,
+=======
       const reply =
         typeof data.reply === "string"
           ? data.reply
@@ -95,6 +100,7 @@ export default function AIAssistantPage() {
       const aiMessage: Message = {
         role: "assistant",
         content: reply,
+>>>>>>> codex/fix-budget-requests-page-404-error-alybq3
         timestamp: new Date(),
       };
 
