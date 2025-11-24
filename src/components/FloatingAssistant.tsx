@@ -29,6 +29,31 @@ export function FloatingAssistant() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const autoInsight = window.localStorage.getItem("sakura_auto_insight");
+    if (!autoInsight) return;
+
+    setMessages((prev) => {
+      if (prev.some((m) => m.id.startsWith("auto-insight-"))) {
+        return prev;
+      }
+
+      return [
+        ...prev,
+        {
+          id: `auto-insight-${Date.now()}`,
+          role: "ASSISTANT",
+          content: autoInsight,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    });
+
+    window.localStorage.removeItem("sakura_auto_insight");
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 

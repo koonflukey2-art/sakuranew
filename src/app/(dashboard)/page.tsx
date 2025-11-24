@@ -157,11 +157,11 @@ export default function DashboardPage() {
       }
 
       const raw =
-        typeof data.reply === "string"
-          ? data.reply
-          : typeof data.response === "string"
+        typeof data?.response === "string"
           ? data.response
-          : typeof data.message === "string"
+          : typeof data?.reply === "string"
+          ? data.reply
+          : typeof data?.message === "string"
           ? data.message
           : "";
 
@@ -182,6 +182,14 @@ export default function DashboardPage() {
         .slice(0, 5);
 
       setAiInsights(insights);
+
+      if (typeof window !== "undefined" && insights.length > 0) {
+        const summaryForAssistant =
+          "สรุปภาพรวมธุรกิจจากแดชบอร์ดวันนี้:\n" +
+          insights.map((t, i) => `${i + 1}. ${t}`).join("\n");
+
+        window.localStorage.setItem("sakura_auto_insight", summaryForAssistant);
+      }
       setAiError(null);
     } catch (error) {
       console.error("AI Insights error:", error);
