@@ -18,8 +18,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
 import { ProductsPageSkeleton, ButtonLoading } from "@/components/loading-states";
-import { EmptyProducts } from "@/components/empty-states";
-import { DeleteConfirmation } from "@/components/confirmation-dialog";
+import { EmptyProducts, ErrorState } from "@/components/empty-states";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ExportButton } from "@/components/export-button";
 import { fetchWithErrorHandling, handleAPIError } from "@/lib/error-handler";
 
 interface Product {
@@ -36,6 +37,7 @@ export default function StockPage() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
@@ -79,9 +81,11 @@ export default function StockPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await fetchWithErrorHandling<Product[]>("/api/products");
       setProducts(data);
     } catch (error) {
+      setError("ไม่สามารถโหลดข้อมูลสินค้าได้");
       handleAPIError(error, "ไม่สามารถโหลดข้อมูลสินค้าได้");
     } finally {
       setLoading(false);
@@ -233,12 +237,40 @@ export default function StockPage() {
     return <ProductsPageSkeleton />;
   }
 
+  if (error && !loading) {
+    return <ErrorState message={error} onRetry={fetchProducts} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">จัดการสินค้า</h1>
           <p className="text-muted-foreground">จัดการสต็อกและสินค้าคงคลัง</p>
+        </div>
+        <div className="flex gap-2">
+          {products.length > 0 && (
+            <ExportButton
+              data={products.map(p => ({
+                ชื่อสินค้า: p.name,
+                หมวดหมู่: p.category,
+                จำนวน: p.quantity,
+                ระดับต่ำสุด: p.minStockLevel,
+                ราคาทุน: p.costPrice,
+                ราคาขาย: p.sellPrice,
+                กำไร: p.sellPrice - p.costPrice,
+              }))}
+              filename="stock-report"
+              columns={[
+                { header: "ชื่อสินค้า", dataKey: "ชื่อสินค้า" },
+                { header: "หมวดหมู่", dataKey: "หมวดหมู่" },
+                { header: "จำนวน", dataKey: "จำนวน" },
+                { header: "ราคาทุน", dataKey: "ราคาทุน" },
+                { header: "ราคาขาย", dataKey: "ราคาขาย" },
+              ]}
+              title="รายงานสต็อกสินค้า"
+            />
+          )}
         </div>
         <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
           <DialogTrigger asChild>
@@ -613,11 +645,15 @@ export default function StockPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmation
+      <ConfirmDialog
         open={openDeleteDialog}
         onOpenChange={setOpenDeleteDialog}
-        itemName={selectedProduct?.name || ""}
+        title="ยืนยันการลบ"
+        description={`คุณแน่ใจหรือไม่ที่จะลบสินค้า "${selectedProduct?.name}"? การกระทำนี้ไม่สามารถย้อนกลับได้`}
         onConfirm={handleDelete}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        variant="destructive"
         loading={submitting}
       />
     </div>

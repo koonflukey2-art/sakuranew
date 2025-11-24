@@ -7,6 +7,11 @@ export function exportToExcel(data: any[], filename: string) {
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+
+  // Auto-size columns
+  const maxWidth = data.reduce((w, r) => Math.max(w, ...Object.keys(r).map(k => k.length)), 10);
+  worksheet['!cols'] = Object.keys(data[0] || {}).map(() => ({ wch: maxWidth }));
+
   XLSX.writeFile(workbook, `${filename}.xlsx`);
 }
 
@@ -21,8 +26,12 @@ export function exportToPDF(
 
   // Add title if provided
   if (title) {
-    doc.setFontSize(16);
-    doc.text(title, 14, 15);
+    doc.setFontSize(18);
+    doc.text(title, 14, 20);
+
+    // Add date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString('th-TH')}`, 14, 28);
   }
 
   // Add table
@@ -37,7 +46,7 @@ export function exportToPDF(
         return String(value);
       })
     ),
-    startY: title ? 25 : 10,
+    startY: title ? 35 : 10,
     styles: {
       font: "helvetica",
       fontSize: 9,

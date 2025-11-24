@@ -18,6 +18,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: "default" | "destructive";
+  loading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -29,6 +30,7 @@ export function ConfirmDialog({
   confirmText = "ยืนยัน",
   cancelText = "ยกเลิก",
   variant = "default",
+  loading = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -38,16 +40,20 @@ export function ConfirmDialog({
           <AlertDialogDescription className="text-slate-400">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+            }}
+            disabled={loading}
             className={
               variant === "destructive"
                 ? "bg-red-600 hover:bg-red-700"
                 : ""
             }
           >
-            {confirmText}
+            {loading ? "กำลังดำเนินการ..." : confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

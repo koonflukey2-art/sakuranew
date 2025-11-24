@@ -8,6 +8,10 @@ import {
   FileBarChart,
   Plus,
   Search,
+  AlertTriangle,
+  TrendingUp,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 
 interface EmptyStateProps {
@@ -100,5 +104,22 @@ export function EmptySearch() {
       title="ไม่พบผลลัพธ์"
       description="ลองค้นหาด้วยคำอื่น หรือปรับเงื่อนไขการค้นหา"
     />
+  );
+}
+
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <Card className="bg-slate-800 border-slate-700">
+      <CardContent className="flex flex-col items-center justify-center py-16">
+        <div className="rounded-full bg-red-500/10 p-4 mb-4">
+          <AlertTriangle className="w-8 h-8 text-red-500" />
+        </div>
+        <h3 className="text-xl font-semibold text-white mb-2">เกิดข้อผิดพลาด</h3>
+        <p className="text-slate-400 text-center max-w-md mb-6">{message}</p>
+        {onRetry && (
+          <Button onClick={onRetry}>ลองใหม่</Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }

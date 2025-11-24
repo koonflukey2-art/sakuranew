@@ -17,7 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatRelativeTime } from "@/lib/utils";
 import { TableSkeleton } from "@/components/loading-states";
-import { DeleteConfirmation } from "@/components/confirmation-dialog";
+import { ErrorState } from "@/components/empty-states";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useRouter } from "next/navigation";
 
 interface Notification {
@@ -49,6 +50,8 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] =
@@ -61,6 +64,7 @@ export default function NotificationsPage() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
+      setError(null);
       const url =
         filter === "unread"
           ? "/api/notifications?unreadOnly=true"
@@ -71,6 +75,7 @@ export default function NotificationsPage() {
       setNotifications(data);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
+      setError("ไม่สามารถโหลดการแจ้งเตือนได้");
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถโหลดการแจ้งเตือนได้",
@@ -134,6 +139,7 @@ export default function NotificationsPage() {
     if (!notificationToDelete) return;
 
     try {
+      setDeleting(true);
       const res = await fetch(
         `/api/notifications?id=${notificationToDelete.id}`,
         {
@@ -161,6 +167,8 @@ export default function NotificationsPage() {
         description: "ไม่สามารถลบการแจ้งเตือนได้",
         variant: "destructive",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -179,6 +187,10 @@ export default function NotificationsPage() {
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  if (error && !loading) {
+    return <ErrorState message={error} onRetry={fetchNotifications} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -371,11 +383,16 @@ export default function NotificationsPage() {
       </Tabs>
 
       {/* Delete Confirmation */}
-      <DeleteConfirmation
+      <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        itemName={notificationToDelete?.title || ""}
+        title="ยืนยันการลบ"
+        description={`คุณแน่ใจหรือไม่ที่จะลบการแจ้งเตือน "${notificationToDelete?.title}"?`}
         onConfirm={deleteNotification}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        variant="destructive"
+        loading={deleting}
       />
     </div>
   );
