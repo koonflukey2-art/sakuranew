@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +21,10 @@ import { formatRelativeTime } from "@/lib/utils";
 import { TableSkeleton } from "@/components/loading-states";
 import { ErrorState } from "@/components/empty-states";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { useRouter } from "next/navigation";
 
 interface Notification {
   id: string;
-  type: "INFO" | "WARNING" | "SUCCESS" | "ERROR";
+  type: "INFO" | "WARNING" | "SUCCESS" | "ERROR" | string; // เผื่อ type แปลก ๆ จาก backend
   title: string;
   message: string;
   link: string | null;
@@ -31,14 +32,14 @@ interface Notification {
   createdAt: string;
 }
 
-const notificationIcons = {
+const notificationIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   INFO: Bell,
   WARNING: Package,
   SUCCESS: Megaphone,
   ERROR: Wallet,
 };
 
-const notificationColors = {
+const notificationColors: Record<string, string> = {
   INFO: "text-blue-500",
   WARNING: "text-yellow-500",
   SUCCESS: "text-green-500",
@@ -48,6 +49,7 @@ const notificationColors = {
 export default function NotificationsPage() {
   const { toast } = useToast();
   const router = useRouter();
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,20 +61,24 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       setError(null);
+
       const url =
         filter === "unread"
           ? "/api/notifications?unreadOnly=true"
           : "/api/notifications";
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch notifications");
+
       const data = await res.json();
-      setNotifications(data);
+      setNotifications(data || []);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
       setError("ไม่สามารถโหลดการแจ้งเตือนได้");
@@ -120,7 +126,6 @@ export default function NotificationsPage() {
       if (!res.ok) throw new Error("Failed to mark all as read");
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-
       toast({
         title: "สำเร็จ",
         description: "ทำเครื่องหมายการแจ้งเตือนทั้งหมดว่าอ่านแล้ว",
@@ -142,9 +147,7 @@ export default function NotificationsPage() {
       setDeleting(true);
       const res = await fetch(
         `/api/notifications?id=${notificationToDelete.id}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
 
       if (!res.ok) throw new Error("Failed to delete notification");
@@ -197,8 +200,8 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">การแจ้งเตือน</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold text-foreground">การแจ้งเตือน</h1>
+          <p className="text-sm text-muted-foreground">
             ติดตามข้อมูลสำคัญและการอัปเดต
           </p>
         </div>
@@ -221,14 +224,17 @@ export default function NotificationsPage() {
           </TabsTrigger>
         </TabsList>
 
+        {/* ALL TAB */}
         <TabsContent value="all" className="space-y-4 mt-6">
           {loading ? (
             <TableSkeleton rows={5} />
           ) : notifications.length === 0 ? (
-            <Card>
+            <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Bell className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">ไม่มีการแจ้งเตือน</p>
+                <p className="text-lg font-medium text-foreground">
+                  ไม่มีการแจ้งเตือน
+                </p>
                 <p className="text-sm text-muted-foreground">
                   เมื่อมีการแจ้งเตือนใหม่ จะแสดงที่นี่
                 </p>
@@ -236,14 +242,18 @@ export default function NotificationsPage() {
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const color = notificationColors[notification.type];
+              const Icon =
+                notificationIcons[notification.type] ?? Bell; // fallback icon
+              const color =
+                notificationColors[notification.type] ?? "text-primary";
 
               return (
                 <Card
                   key={notification.id}
-                  className={`transition-all hover:shadow-md cursor-pointer ${
-                    !notification.isRead ? "bg-blue-50/50 border-blue-200" : ""
+                  className={`transition-all hover:shadow-md cursor-pointer border ${
+                    !notification.isRead
+                      ? "bg-primary/5 border-primary/40"
+                      : "bg-card border-border"
                   }`}
                 >
                   <CardContent className="p-4">
@@ -257,7 +267,9 @@ export default function NotificationsPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium">{notification.title}</p>
+                            <p className="font-medium text-foreground">
+                              {notification.title}
+                            </p>
                             <p className="text-sm text-muted-foreground mt-1">
                               {notification.message}
                             </p>
@@ -268,7 +280,7 @@ export default function NotificationsPage() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {formatRelativeTime(new Date(notification.createdAt))}
                         </p>
                       </div>
@@ -304,14 +316,17 @@ export default function NotificationsPage() {
           )}
         </TabsContent>
 
+        {/* UNREAD TAB */}
         <TabsContent value="unread" className="space-y-4 mt-6">
           {loading ? (
             <TableSkeleton rows={5} />
           ) : notifications.length === 0 ? (
-            <Card>
+            <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <CheckCheck className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">คุณอ่านทุกอย่างแล้ว!</p>
+                <p className="text-lg font-medium text-foreground">
+                  คุณอ่านทุกอย่างแล้ว!
+                </p>
                 <p className="text-sm text-muted-foreground">
                   ไม่มีการแจ้งเตือนที่ยังไม่ได้อ่าน
                 </p>
@@ -319,13 +334,15 @@ export default function NotificationsPage() {
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const color = notificationColors[notification.type];
+              const Icon =
+                notificationIcons[notification.type] ?? Bell; // fallback icon
+              const color =
+                notificationColors[notification.type] ?? "text-primary";
 
               return (
                 <Card
                   key={notification.id}
-                  className="bg-blue-50/50 border-blue-200 transition-all hover:shadow-md cursor-pointer"
+                  className="bg-primary/5 border-primary/40 transition-all hover:shadow-md cursor-pointer"
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
@@ -338,7 +355,9 @@ export default function NotificationsPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium">{notification.title}</p>
+                            <p className="font-medium text-foreground">
+                              {notification.title}
+                            </p>
                             <p className="text-sm text-muted-foreground mt-1">
                               {notification.message}
                             </p>
@@ -347,7 +366,7 @@ export default function NotificationsPage() {
                             ใหม่
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {formatRelativeTime(new Date(notification.createdAt))}
                         </p>
                       </div>
@@ -387,7 +406,11 @@ export default function NotificationsPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="ยืนยันการลบ"
-        description={`คุณแน่ใจหรือไม่ที่จะลบการแจ้งเตือน "${notificationToDelete?.title}"?`}
+        description={
+          notificationToDelete
+            ? `คุณแน่ใจหรือไม่ที่จะลบการแจ้งเตือน "${notificationToDelete.title}"?`
+            : "คุณแน่ใจหรือไม่ที่จะลบการแจ้งเตือนนี้?"
+        }
         onConfirm={deleteNotification}
         confirmText="ลบ"
         cancelText="ยกเลิก"
