@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Loader2, TrendingUp } from "lucide-react";
+import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Loader2, TrendingUp, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { exportToExcel } from "@/lib/export";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -44,6 +46,8 @@ export default function StockPage() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Add Product Form
   const addForm = useForm<ProductFormData>({
@@ -188,6 +192,78 @@ export default function StockPage() {
     }
   };
 
+  // Bulk Actions
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredProducts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setBulkDeleting(true);
+      await Promise.all(
+        selectedIds.map(id =>
+          fetch(`/api/products?id=${id}`, { method: "DELETE" })
+        )
+      );
+
+      toast({
+        title: "สำเร็จ!",
+        description: `ลบสินค้า ${selectedIds.length} รายการเรียบร้อยแล้ว`,
+      });
+      setSelectedIds([]);
+      fetchProducts();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถลบสินค้าได้",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleBulkExport = () => {
+    const selectedProducts = products.filter(p => selectedIds.includes(p.id));
+
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "กรุณาเลือกสินค้า",
+        description: "เลือกสินค้าที่ต้องการ export อย่างน้อย 1 รายการ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data = selectedProducts.map(p => ({
+      ชื่อสินค้า: p.name,
+      หมวดหมู่: p.category,
+      จำนวน: p.quantity,
+      ราคาทุน: p.costPrice,
+      ราคาขาย: p.sellPrice,
+      กำไร: p.sellPrice - p.costPrice,
+    }));
+
+    exportToExcel(data, `selected-products-${selectedIds.length}`);
+
+    toast({
+      title: "สำเร็จ!",
+      description: `Export ${selectedIds.length} รายการเรียบร้อยแล้ว`,
+    });
+  };
+
   const openEdit = (product: Product) => {
     setSelectedProduct(product);
     editForm.reset({
@@ -245,10 +321,37 @@ export default function StockPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">จัดการสินค้า</h1>
-          <p className="text-muted-foreground">จัดการสต็อกและสินค้าคงคลัง</p>
+          <h1 className="text-3xl font-bold text-white">Stock Management</h1>
+          <p className="text-slate-400 mt-1">
+            จัดการสินค้าและสต็อก
+            {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
+          </p>
         </div>
         <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleBulkExport}
+                disabled={bulkDeleting}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export ({selectedIds.length})
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                ลบ ({selectedIds.length})
+              </Button>
+            </>
+          )}
           {products.length > 0 && (
             <ExportButton
               data={products.map(p => ({
@@ -261,24 +364,23 @@ export default function StockPage() {
                 กำไร: p.sellPrice - p.costPrice,
               }))}
               filename="stock-report"
-              columns={[
+              pdfColumns={[
                 { header: "ชื่อสินค้า", dataKey: "ชื่อสินค้า" },
                 { header: "หมวดหมู่", dataKey: "หมวดหมู่" },
                 { header: "จำนวน", dataKey: "จำนวน" },
                 { header: "ราคาทุน", dataKey: "ราคาทุน" },
                 { header: "ราคาขาย", dataKey: "ราคาขาย" },
               ]}
-              title="รายงานสต็อกสินค้า"
+              pdfTitle="รายงานสต็อกสินค้า"
             />
           )}
-        </div>
-        <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={() => addForm.reset()}>
-              <Plus className="h-4 w-4 mr-2" />
-              เพิ่มสินค้า
-            </Button>
-          </DialogTrigger>
+          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={() => addForm.reset()}>
+                <Plus className="w-4 h-4 mr-2" />
+                เพิ่มสินค้า
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
@@ -465,64 +567,82 @@ export default function StockPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ชื่อสินค้า</TableHead>
-                  <TableHead>หมวดหมู่</TableHead>
-                  <TableHead className="text-right">จำนวน</TableHead>
-                  <TableHead className="text-right">ราคาทุน</TableHead>
-                  <TableHead className="text-right">ราคาขาย</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead className="text-right">จัดการ</TableHead>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead className="text-slate-300">ชื่อสินค้า</TableHead>
+                  <TableHead className="text-slate-300">หมวดหมู่</TableHead>
+                  <TableHead className="text-right text-slate-300">จำนวน</TableHead>
+                  <TableHead className="text-right text-slate-300">ราคาทุน</TableHead>
+                  <TableHead className="text-right text-slate-300">ราคาขาย</TableHead>
+                  <TableHead className="text-slate-300">สถานะ</TableHead>
+                  <TableHead className="text-right text-slate-300">จัดการ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       ไม่พบสินค้า
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell className="text-right">{product.quantity}</TableCell>
-                    <TableCell className="text-right">฿{product.costPrice.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">฿{product.sellPrice.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {product.quantity < product.minStockLevel ? (
-                        <Badge variant="destructive">สต็อกต่ำ</Badge>
-                      ) : product.quantity < product.minStockLevel * 1.5 ? (
-                        <Badge variant="secondary" className="bg-orange-500/10 text-orange-500">
-                          ใกล้หมด
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                          ปกติ
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEdit(product)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDelete(product)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+                  filteredProducts.map((product) => {
+                    const profit = product.sellPrice - product.costPrice;
+                    const profitPercent = ((profit / product.costPrice) * 100).toFixed(1);
+                    const isLowStock = product.quantity < product.minStockLevel;
+
+                    return (
+                      <TableRow key={product.id} className={selectedIds.includes(product.id) ? "bg-slate-700/50" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(product.id)}
+                            onCheckedChange={() => toggleSelect(product.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.category}</TableCell>
+                        <TableCell className="text-right">{product.quantity}</TableCell>
+                        <TableCell className="text-right">฿{product.costPrice.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">฿{product.sellPrice.toLocaleString()}</TableCell>
+                        <TableCell>
+                          {product.quantity < product.minStockLevel ? (
+                            <Badge variant="destructive">สต็อกต่ำ</Badge>
+                          ) : product.quantity < product.minStockLevel * 1.5 ? (
+                            <Badge variant="secondary" className="bg-orange-500/10 text-orange-500">
+                              ใกล้หมด
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                              ปกติ
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(product)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDelete(product)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
             </TableBody>
           </Table>
         </CardContent>

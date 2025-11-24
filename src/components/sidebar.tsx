@@ -24,6 +24,8 @@ import {
   Bot,
   BarChart3,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
@@ -51,6 +53,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -75,7 +78,23 @@ export function Sidebar() {
     : navItems;
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-r border-slate-700/50 flex flex-col overflow-hidden shadow-2xl">
+    <>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-r border-slate-700/50
+        flex flex-col overflow-hidden shadow-2xl
+        transform transition-transform duration-200 ease-in-out
+        ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}>
       <div className="p-6 border-b border-slate-700/50 bg-slate-800/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-pink-400 via-rose-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/30 ring-2 ring-pink-400/20">
@@ -164,5 +183,14 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className="fixed bottom-4 right-4 lg:hidden z-50 bg-blue-600 text-white p-3 rounded-full shadow-lg"
+      >
+        {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+      </button>
+    </>
   );
 }

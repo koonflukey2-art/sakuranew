@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Loader2, Zap, Settings, Play, Pause, Flask } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Zap, Settings, Play, Pause, TestTube } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface AutomationRule {
@@ -609,7 +609,7 @@ export default function AutomationPage() {
                     className="w-full"
                     onClick={() => handleTestRule(rule)}
                   >
-                    <Flask className="h-3 w-3 mr-1" />
+                    <TestTube className="h-3 w-3 mr-1" />
                     ทดสอบ Rule (Dry-run)
                   </Button>
                 </div>
@@ -775,7 +775,7 @@ export default function AutomationPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Flask className="h-5 w-5 text-blue-500" />
+              <TestTube className="h-5 w-5 text-blue-500" />
               ทดสอบ Rule (Dry-run)
             </DialogTitle>
           </DialogHeader>
@@ -828,7 +828,7 @@ export default function AutomationPage() {
           <DialogFooter>
             <Button onClick={() => setOpenTestDialog(false)}>ปิด</Button>
             <Button variant="outline" onClick={() => selectedRule && handleTestRule(selectedRule)}>
-              <Flask className="h-4 w-4 mr-2" />
+              <TestTube className="h-4 w-4 mr-2" />
               ทดสอบอีกครั้ง
             </Button>
           </DialogFooter>
