@@ -119,19 +119,37 @@ export default function DashboardPage() {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const insights = data.response
-          .split("\n")
-          .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
-          .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
-          .filter((line: string) => line.length > 0)
-          .slice(0, 5);
+      const data = await response.json().catch(() => ({}));
 
-        setAiInsights(insights);
+      if (!response.ok) {
+        console.warn("AI insights request failed", data?.error || response.statusText);
+        setAiInsights([]);
+        return;
       }
+
+      const raw =
+        typeof data.response === "string"
+          ? data.response
+          : typeof data.message === "string"
+          ? data.message
+          : "";
+
+      if (!raw) {
+        setAiInsights([]);
+        return;
+      }
+
+      const insights = raw
+        .split("\n")
+        .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
+        .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 5);
+
+      setAiInsights(insights);
     } catch (error) {
       console.error("AI Insights error:", error);
+      setAiInsights([]);
     } finally {
       setLoadingInsights(false);
     }

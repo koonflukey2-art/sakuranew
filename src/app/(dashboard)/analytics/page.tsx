@@ -98,25 +98,29 @@ export default function AnalyticsPage() {
 
   const { overview, topProducts, topCategories, revenueByMonth, campaignPerformance } = data;
 
-  const exportProducts = formatDataForExport(topProducts, {
+  // Product Analysis Export Data
+  const exportProducts = formatDataForExport(topProducts || [], {
     name: "สินค้า",
     category: "หมวดหมู่",
     revenue: "รายได้",
     quantity: "จำนวนที่ขาย",
   });
 
-  const exportCategories = formatDataForExport(topCategories, {
+  // Category Analysis Export Data
+  const exportCategories = formatDataForExport(topCategories || [], {
     category: "หมวดหมู่",
     revenue: "รายได้",
     percentage: "เปอร์เซ็นต์",
   });
 
-  const exportRevenue = formatDataForExport(revenueByMonth, {
+  // Revenue Export Data
+  const exportRevenue = formatDataForExport(revenueByMonth || [], {
     month: "เดือน",
     revenue: "รายได้",
   });
 
-  const exportCampaigns = formatDataForExport(campaignPerformance, {
+  // Campaign Analysis Export Data
+  const exportCampaigns = formatDataForExport(campaignPerformance || [], {
     platform: "แพลตฟอร์ม",
     spent: "ค่าใช้จ่าย",
     roi: "ROI",
