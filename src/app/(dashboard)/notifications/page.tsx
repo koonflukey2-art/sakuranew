@@ -37,14 +37,14 @@ const notificationIcons: Record<string, React.ComponentType<{ className?: string
   WARNING: Package,
   SUCCESS: Megaphone,
   ERROR: Wallet,
-};
+} as const;
 
 const notificationColors: Record<string, string> = {
   INFO: "text-blue-500",
   WARNING: "text-yellow-500",
   SUCCESS: "text-green-500",
   ERROR: "text-red-500",
-};
+} as const;
 
 export default function NotificationsPage() {
   const { toast } = useToast();
@@ -196,7 +196,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -256,11 +256,11 @@ export default function NotificationsPage() {
                       : "bg-card border-border"
                   }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className={`${color} mt-1`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                <div className={`${color} mt-1`}>
+                  <Icon className="h-6 w-6" />
+                </div>
                       <div
                         className="flex-1"
                         onClick={() => handleNotificationClick(notification)}
@@ -275,7 +275,10 @@ export default function NotificationsPage() {
                             </p>
                           </div>
                           {!notification.isRead && (
-                            <Badge variant="default" className="ml-2">
+                            <Badge
+                              variant="outline"
+                              className="ml-2 bg-amber-500/10 text-amber-500 border-amber-500/40"
+                            >
                               ใหม่
                             </Badge>
                           )}
@@ -362,7 +365,10 @@ export default function NotificationsPage() {
                               {notification.message}
                             </p>
                           </div>
-                          <Badge variant="default" className="ml-2">
+                          <Badge
+                            variant="outline"
+                            className="ml-2 bg-amber-500/10 text-amber-500 border-amber-500/40"
+                          >
                             ใหม่
                           </Badge>
                         </div>

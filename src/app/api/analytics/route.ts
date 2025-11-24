@@ -148,6 +148,64 @@ export async function GET(req: NextRequest) {
       conversions: c.conversions ?? 0,
     }));
 
+    // Ad metrics aggregation
+    const totalAdSpend = campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
+    const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE").length;
+
+    const roiValues = campaigns
+      .map((c) => c.roi)
+      .filter((v) => typeof v === "number" && !Number.isNaN(v)) as number[];
+
+    const avgCampaignROI =
+      roiValues.length > 0
+        ? roiValues.reduce((sum, v) => sum + v, 0) / roiValues.length
+        : 0;
+
+    const adPerformanceByPlatform = campaigns.reduce(
+      (acc, c) => {
+        const key = c.platform || "UNKNOWN";
+        if (!acc[key]) {
+          acc[key] = {
+            platform: key,
+            campaigns: 0,
+            totalSpend: 0,
+            avgROI: 0,
+            totalConversions: 0,
+          };
+        }
+
+        acc[key].campaigns += 1;
+        acc[key].totalSpend += c.spent || 0;
+        acc[key].totalConversions += c.conversions || 0;
+
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          platform: string;
+          campaigns: number;
+          totalSpend: number;
+          avgROI: number;
+          totalConversions: number;
+        }
+      >
+    );
+
+    Object.keys(adPerformanceByPlatform).forEach((key) => {
+      const group = adPerformanceByPlatform[key];
+      const platformCampaigns = campaigns.filter(
+        (c) => (c.platform || "UNKNOWN") === key && typeof c.roi === "number"
+      );
+      if (platformCampaigns.length > 0) {
+        group.avgROI =
+          platformCampaigns.reduce((sum, c) => sum + (c.roi || 0), 0) /
+          platformCampaigns.length;
+      } else {
+        group.avgROI = 0;
+      }
+    });
+
     const analytics = {
       overview: {
         totalRevenue,
@@ -158,11 +216,15 @@ export async function GET(req: NextRequest) {
         productsChange,
         avgOrderValue,
         avgOrderChange,
+        totalAdSpend,
+        activeCampaigns,
+        avgCampaignROI,
       },
       topProducts,
       topCategories,
       revenueByMonth,
       campaignPerformance,
+      adPerformanceByPlatform: Object.values(adPerformanceByPlatform),
     };
 
     return NextResponse.json(analytics);

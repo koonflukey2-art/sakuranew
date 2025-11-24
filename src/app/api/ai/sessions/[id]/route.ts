@@ -9,6 +9,7 @@ type RouteParams = {
 // GET - ดึง session + message ทั้งหมดของ session นั้น
 export async function GET(_req: Request, { params }: RouteParams) {
   try {
+    const { id } = await context.params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -16,7 +17,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
     const session = await prisma.chatSession.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.id,
       },
       include: {

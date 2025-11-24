@@ -743,18 +743,10 @@ export default function StockPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEdit(product)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openDelete(product)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>

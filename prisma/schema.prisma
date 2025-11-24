@@ -264,3 +264,36 @@ model MetricsPlan {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+enum AdPlatform {
+  FACEBOOK
+  TIKTOK
+  SHOPEE
+  LAZADA
+}
+
+enum AdTestStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+model AdAccount {
+  id               String        @id @default(cuid())
+  userId           String
+  platform         AdPlatform
+  name             String
+  apiKey           String?
+  apiSecret        String?
+  accessToken      String?
+  refreshToken     String?
+  accountId        String?
+  pixelOrTrackingId String?
+  isActive         Boolean       @default(true)
+  lastTestedAt     DateTime?
+  lastTestStatus   AdTestStatus?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

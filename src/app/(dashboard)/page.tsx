@@ -70,11 +70,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Fetch all data from APIs
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setAiError(null);
 
       const [productsRes, campaignsRes, budgetsRes] = await Promise.all([
         fetch("/api/products"),
@@ -90,7 +92,22 @@ export default function DashboardPage() {
       setCampaigns(campaignsData);
       setBudgets(budgetsData);
 
-      calculateStats(productsData, campaignsData, budgetsData);
+      const metrics = calculateStats(productsData, campaignsData, budgetsData);
+
+      const budgetRemaining = budgetsData.reduce(
+        (sum: number, b: Budget) => sum + (b.amount - b.spent),
+        0
+      );
+
+      fetchAIInsights({
+        ...metrics,
+        budgetRemaining,
+        campaignCount: campaignsData.length,
+        budgetCount: budgetsData.length,
+        lowStockCount: productsData.filter(
+          (p: Product) => p.quantity < p.minStockLevel
+        ).length,
+      });
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
       toast({
@@ -108,14 +125,25 @@ export default function DashboardPage() {
   }, []);
 
   // Fetch AI Insights
-  const fetchAIInsights = async () => {
+  const fetchAIInsights = async (
+    metrics: Stats & {
+      budgetRemaining: number;
+      campaignCount: number;
+      budgetCount: number;
+      lowStockCount: number;
+    }
+  ) => {
     try {
       setLoadingInsights(true);
+      setAiError(null);
+
+      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(0)}\n- กำไร: ${metrics.totalProfit.toFixed(0)}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(2)}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(0)}\n- จำนวนแคมเปญ: ${metrics.campaignCount}\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${metrics.lowStockCount}`;
+
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: "วิเคราะห์สถานการณ์ธุรกิจปัจจุบันและให้คำแนะนำสั้นๆ 3-5 ข้อ ในรูปแบบ bullet points",
+          message: prompt,
         }),
       });
 
@@ -124,42 +152,80 @@ export default function DashboardPage() {
       if (!response.ok) {
         console.warn("AI insights request failed", data?.error || response.statusText);
         setAiInsights([]);
+<<<<<<< HEAD
+=======
+        setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
+>>>>>>> codex/fix-budget-requests-page-404-error-tgb0dk
         return;
       }
 
       const raw =
+<<<<<<< HEAD
         typeof data.response === "string"
           ? data.response
           : typeof data.message === "string"
+=======
+        typeof data?.response === "string"
+          ? data.response
+          : typeof data?.reply === "string"
+          ? data.reply
+          : typeof data?.message === "string"
+>>>>>>> codex/fix-budget-requests-page-404-error-tgb0dk
           ? data.message
           : "";
 
       if (!raw) {
         setAiInsights([]);
+<<<<<<< HEAD
+=======
+        setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
+>>>>>>> codex/fix-budget-requests-page-404-error-tgb0dk
         return;
       }
 
       const insights = raw
         .split("\n")
+<<<<<<< HEAD
         .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
+=======
+        .filter(
+          (line: string) =>
+            line.trim().startsWith("-") || line.trim().startsWith("•")
+        )
+>>>>>>> codex/fix-budget-requests-page-404-error-tgb0dk
         .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
         .filter((line: string) => line.length > 0)
         .slice(0, 5);
 
       setAiInsights(insights);
+<<<<<<< HEAD
     } catch (error) {
       console.error("AI Insights error:", error);
       setAiInsights([]);
+=======
+
+        if (typeof window !== "undefined" && insights.length > 0) {
+          const summaryForAssistant =
+            "สรุปภาพรวมธุรกิจจากแดชบอร์ดวันนี้:\n" +
+            insights.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n");
+
+        window.localStorage.setItem("sakura_auto_insight", summaryForAssistant);
+        window.dispatchEvent(
+          new CustomEvent("sakura:auto_insight", {
+            detail: summaryForAssistant,
+          })
+        );
+      }
+      setAiError(null);
+    } catch (error) {
+      console.error("AI Insights error:", error);
+      setAiInsights([]);
+      setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
+>>>>>>> codex/fix-budget-requests-page-404-error-tgb0dk
     } finally {
       setLoadingInsights(false);
     }
   };
-
-  useEffect(() => {
-    if (products.length > 0 && campaigns.length > 0) {
-      fetchAIInsights();
-    }
-  }, [products, campaigns]);
 
   // Calculate statistics from real data
   const calculateStats = (
@@ -188,7 +254,9 @@ export default function DashboardPage() {
         ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
         : 0;
 
-    setStats({ totalRevenue, totalProfit, totalOrders, avgROAS });
+    const computed = { totalRevenue, totalProfit, totalOrders, avgROAS };
+    setStats(computed);
+    return computed;
   };
 
   // Format currency
@@ -290,10 +358,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-50">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-white mt-1">ภาพรวมธุรกิจของคุณ</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+        <p className="text-slate-700 dark:text-slate-300 mt-1">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Stats Cards */}
@@ -378,10 +446,10 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardTitle className="text-slate-900 dark:text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-300">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -466,10 +534,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">ROI แต่ละ Platform</CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardTitle className="text-slate-900 dark:text-white">ROI แต่ละ Platform</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-300">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -521,9 +589,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="text-slate-900 dark:text-white">สัดส่วนงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
@@ -569,9 +637,9 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
@@ -625,32 +693,34 @@ export default function DashboardPage() {
               <Sparkles className="w-5 h-5 text-yellow-400" />
               AI Insights & Recommendations
             </CardTitle>
-            <CardDescription className="text-blue-200">
-              คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingInsights ? (
-              <div className="flex items-center gap-2 text-blue-200">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                AI กำลังวิเคราะห์...
-              </div>
-            ) : aiInsights.length > 0 ? (
-              <ul className="space-y-3">
-                {aiInsights.map((insight, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-white">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
-                      {idx + 1}
-                    </span>
-                    <span className="flex-1">{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-blue-200">
-                เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
-              </p>
-            )}
+          <CardDescription className="text-blue-200">
+            คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingInsights ? (
+            <div className="flex items-center gap-2 text-blue-200">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              AI กำลังวิเคราะห์ข้อมูลของคุณ...
+            </div>
+          ) : aiInsights.length > 0 ? (
+            <ul className="space-y-3">
+              {aiInsights.map((insight, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-white">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          ) : aiError ? (
+            <p className="text-red-200">{aiError}</p>
+          ) : (
+            <p className="text-blue-200">
+              เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
+            </p>
+          )}
 
             <Button
               variant="outline"
@@ -665,19 +735,19 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activities */}
-      <Card className="bg-slate-800 border-slate-700 animate-fade-in hover-lift">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-fade-in hover-lift">
         <CardHeader>
-          <CardTitle className="text-white">กิจกรรมล่าสุด</CardTitle>
+          <CardTitle className="text-slate-900 dark:text-white">กิจกรรมล่าสุด</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
             {/* Recent Campaigns */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
                 📢 แคมเปญล่าสุด
               </h3>
               {campaigns.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
                   ไม่มีแคมเปญ
                 </div>
               ) : (
@@ -696,23 +766,23 @@ export default function DashboardPage() {
                     .map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between py-2 border-b border-slate-700"
+                        className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
                       >
                         <div>
-                          <p className="text-sm text-white font-medium">
+                          <p className="text-sm text-slate-900 dark:text-white font-medium">
                             {c.campaignName}
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
                             {c.platform} • ROI: {c.roi.toFixed(2)}x
                           </p>
                         </div>
                         <Badge
                           className={
                             c.status === "ACTIVE"
-                              ? "bg-green-500"
+                              ? "bg-green-500/10 text-green-400 border border-green-500/40"
                               : c.status === "PAUSED"
-                              ? "bg-yellow-500"
-                              : "bg-gray-500"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
+                              : "bg-slate-500/10 text-slate-300 border border-slate-500/40"
                           }
                         >
                           {c.status}
@@ -729,20 +799,20 @@ export default function DashboardPage() {
                 💰 สถานะงบประมาณ
               </h3>
               {budgets.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
                   ไม่มีงบประมาณ
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-4 bg-slate-800 rounded-lg">
+                  <div className="p-4 rounded-lg bg-slate-100 dark:bg-slate-800">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-400">งบประมาณรวม</span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">งบประมาณรวม</span>
+                      <span className="text-lg font-bold text-slate-900 dark:text-white">
                         {formatCurrency(totalBudget)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-400">คงเหลือ</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">คงเหลือ</span>
                       <span
                         className={`text-lg font-bold ${
                           budgetRemaining >= 0 ? "text-green-500" : "text-red-500"
@@ -752,8 +822,8 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">จำนวนรายการ</span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">จำนวนรายการ</span>
+                      <span className="text-lg font-bold text-slate-900 dark:text-white">
                         {budgets.length}
                       </span>
                     </div>
@@ -767,13 +837,13 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={b.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-700"
+                          className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
                         >
                           <div className="flex-1">
-                            <p className="text-sm text-white font-medium">
+                            <p className="text-sm text-slate-900 dark:text-white font-medium">
                               {b.purpose}
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
                               ใช้ไป {formatCurrency(b.spent)} /{" "}
                               {formatCurrency(b.amount)}
                             </p>
@@ -781,10 +851,10 @@ export default function DashboardPage() {
                           <Badge
                             className={
                               percentage > 90
-                                ? "bg-red-500"
+                                ? "bg-red-500/10 text-red-400 border border-red-500/40"
                                 : percentage > 70
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
+                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
+                                : "bg-green-500/10 text-green-400 border border-green-500/40"
                             }
                           >
                             {percentage.toFixed(0)}%
