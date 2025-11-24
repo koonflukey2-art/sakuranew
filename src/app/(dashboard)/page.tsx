@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Wallet, Package, Target, AlertTriangle, DollarSign, ShoppingCart, Activity, Loader2 } from "lucide-react";
+import { TrendingUp, Wallet, Package, Target, AlertTriangle, DollarSign, ShoppingCart, Activity, Loader2, Sparkles, Bot } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardSkeleton } from "@/components/loading-states";
@@ -55,6 +57,7 @@ interface Stats {
 
 export default function DashboardPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [stats, setStats] = useState<Stats>({
     totalRevenue: 0,
     totalProfit: 0,
@@ -65,6 +68,8 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   // Fetch all data from APIs
   const fetchDashboardData = async () => {
@@ -101,6 +106,42 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Fetch AI Insights
+  const fetchAIInsights = async () => {
+    try {
+      setLoadingInsights(true);
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "วิเคราะห์สถานการณ์ธุรกิจปัจจุบันและให้คำแนะนำสั้นๆ 3-5 ข้อ ในรูปแบบ bullet points",
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const insights = data.response
+          .split("\n")
+          .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
+          .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
+          .filter((line: string) => line.length > 0)
+          .slice(0, 5);
+
+        setAiInsights(insights);
+      }
+    } catch (error) {
+      console.error("AI Insights error:", error);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
+  useEffect(() => {
+    if (products.length > 0 && campaigns.length > 0) {
+      fetchAIInsights();
+    }
+  }, [products, campaigns]);
 
   // Calculate statistics from real data
   const calculateStats = (
@@ -558,8 +599,55 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* AI Insights */}
+      {!loading && (
+        <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-blue-700 animate-fade-in hover-lift">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-yellow-400" />
+              AI Insights & Recommendations
+            </CardTitle>
+            <CardDescription className="text-blue-200">
+              คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingInsights ? (
+              <div className="flex items-center gap-2 text-blue-200">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                AI กำลังวิเคราะห์...
+              </div>
+            ) : aiInsights.length > 0 ? (
+              <ul className="space-y-3">
+                {aiInsights.map((insight, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-white">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
+                      {idx + 1}
+                    </span>
+                    <span className="flex-1">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-blue-200">
+                เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
+              </p>
+            )}
+
+            <Button
+              variant="outline"
+              className="mt-4 w-full border-blue-400 text-blue-100 hover:bg-blue-800"
+              onClick={() => router.push("/ai-chat")}
+            >
+              <Bot className="w-4 h-4 mr-2" />
+              เปิด AI Assistant
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent Activities */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-slate-800 border-slate-700 animate-fade-in hover-lift">
         <CardHeader>
           <CardTitle className="text-white">กิจกรรมล่าสุด</CardTitle>
         </CardHeader>
