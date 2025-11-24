@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const currentUserData = await getCurrentUser();
+    if (!currentUserData) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+      where: { id: currentUserData.id },
       include: { aiProviders: true },
     });
 
@@ -19,36 +19,92 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { message } = await request.json();
+    const { message, provider: requestedProvider, model: requestedModel, sessionId } = await request.json();
 
-    // หา default provider
-    const defaultProvider = user.aiProviders.find((p) => p.isDefault && p.isValid);
+    // หา provider ที่ขอมา หรือใช้ default
+    const providerToUse = requestedProvider || user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
+    const aiProvider = user.aiProviders.find(
+      (p) => p.provider === providerToUse && p.isValid
+    );
 
-    if (!defaultProvider) {
+    if (!aiProvider) {
       return NextResponse.json(
         { error: "กรุณาตั้งค่า AI Provider ที่หน้า Settings" },
         { status: 400 }
       );
     }
 
+    // หา ChatSession หรือสร้างใหม่
+    let chatSession;
+    if (sessionId) {
+      chatSession = await prisma.chatSession.findFirst({
+        where: {
+          id: sessionId,
+          userId: user.id,
+        },
+      });
+    }
+
+    if (!chatSession) {
+      // สร้าง session ใหม่
+      const title = message.length > 60 ? message.substring(0, 60) + "..." : message;
+      chatSession = await prisma.chatSession.create({
+        data: {
+          userId: user.id,
+          title,
+          provider: aiProvider.provider,
+        },
+      });
+    }
+
+    // บันทึก USER message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: chatSession.id,
+        role: "USER",
+        content: message,
+      },
+    });
+
     // ดึงข้อมูลทั้งระบบ
     const context = await getSystemContext(user.id);
 
     // เรียก AI
-    const apiKey = decrypt(defaultProvider.apiKey);
+    const apiKey = decrypt(aiProvider.apiKey);
     let response = "";
 
-    if (defaultProvider.provider === "GEMINI") {
+    if (aiProvider.provider === "GEMINI") {
       response = await callGemini(apiKey, message, context);
-    } else if (defaultProvider.provider === "OPENAI") {
-      response = await callOpenAI(apiKey, message, context, defaultProvider.modelName || undefined);
-    } else if (defaultProvider.provider === "N8N") {
+    } else if (aiProvider.provider === "OPENAI") {
+      response = await callOpenAI(
+        apiKey,
+        message,
+        context,
+        requestedModel || aiProvider.modelName || undefined
+      );
+    } else if (aiProvider.provider === "N8N") {
       response = await callN8N(apiKey, message, context);
     }
 
+    // บันทึก ASSISTANT message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: chatSession.id,
+        role: "ASSISTANT",
+        content: response,
+      },
+    });
+
+    // อัปเดต updatedAt ของ session (Prisma จะทำอัตโนมัติเพราะมี @updatedAt)
+    await prisma.chatSession.update({
+      where: { id: chatSession.id },
+      data: { updatedAt: new Date() },
+    });
+
     return NextResponse.json({
-      response,
-      provider: defaultProvider.provider,
+      sessionId: chatSession.id,
+      reply: response,
+      provider: aiProvider.provider,
     });
   } catch (error: any) {
     console.error("AI chat error:", error);

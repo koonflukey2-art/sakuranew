@@ -36,6 +36,7 @@ interface AIConfig {
   isValid: boolean;
   hasApiKey: boolean;
   lastTested?: string | null;
+  modelName?: string | null;
 }
 
 type ChatRole = "USER" | "ASSISTANT";
@@ -91,6 +92,7 @@ export default function AIChatPage() {
             isValid: item.isValid ?? false,
             hasApiKey: item.hasApiKey ?? false,
             lastTested: item.lastTested ?? null,
+            modelName: item.modelName ?? null,
           }))
         : [];
 
@@ -179,18 +181,28 @@ export default function AIChatPage() {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText }),
+        body: JSON.stringify({
+          message: messageText,
+          provider: selectedProvider,
+          model: validConfig?.modelName || undefined,
+          sessionId: sessionId,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.error);
 
+      // Update sessionId if this is a new chat
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
+
       // Create assistant message from response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "ASSISTANT",
-        content: data.response || "ไม่สามารถตอบได้",
+        content: data.reply || data.response || "ไม่สามารถตอบได้",
         createdAt: new Date().toISOString(),
       };
 

@@ -167,6 +167,9 @@ enum NotificationType {
   SUCCESS
   ERROR
   BUDGET_REQUEST
+  LOW_STOCK
+  CAMPAIGN_COMPLETE
+  AI_ALERT
 }
 
 model AIProvider {

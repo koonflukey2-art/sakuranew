@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET /api/notifications - Fetch notifications
 export async function GET(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 // POST /api/notifications - Create a new notification
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/notifications - Mark notification(s) as read
 export async function PUT(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -126,7 +126,7 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/notifications - Delete a notification
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

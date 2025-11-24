@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 <parameter name="content">import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET - Get messages for a specific session
@@ -9,17 +9,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
+    const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Verify the session belongs to the user

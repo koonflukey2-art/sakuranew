@@ -15,23 +15,32 @@ import { formatRelativeTime } from "@/lib/utils";
 
 interface Notification {
   id: string;
-  type: "LOW_STOCK" | "BUDGET_REQUEST" | "CAMPAIGN_COMPLETE" | "AI_ALERT";
+  type: "INFO" | "WARNING" | "SUCCESS" | "ERROR" | "BUDGET_REQUEST" | "LOW_STOCK" | "CAMPAIGN_COMPLETE" | "AI_ALERT";
+  title: string;
   message: string;
   link: string | null;
   isRead: boolean;
   createdAt: string;
 }
 
-const notificationIcons = {
-  LOW_STOCK: Package,
+const notificationIcons: Record<string, any> = {
+  INFO: Bell,
+  WARNING: Package,
+  SUCCESS: Megaphone,
+  ERROR: Bell,
   BUDGET_REQUEST: Wallet,
+  LOW_STOCK: Package,
   CAMPAIGN_COMPLETE: Megaphone,
   AI_ALERT: Bell,
 };
 
-const notificationColors = {
-  LOW_STOCK: "text-orange-500",
+const notificationColors: Record<string, string> = {
+  INFO: "text-blue-500",
+  WARNING: "text-orange-500",
+  SUCCESS: "text-green-500",
+  ERROR: "text-red-500",
   BUDGET_REQUEST: "text-blue-500",
+  LOW_STOCK: "text-orange-500",
   CAMPAIGN_COMPLETE: "text-green-500",
   AI_ALERT: "text-purple-500",
 };
@@ -44,12 +53,21 @@ export function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       const res = await fetch("/api/notifications?unreadOnly=true");
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.error("Failed to fetch notifications: HTTP", res.status);
+        // ไม่ให้ throw error แต่เซ็ต state เป็นค่าเริ่มต้น
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
       const data = await res.json();
       setNotifications(data.slice(0, 5)); // Show only 5 most recent
       setUnreadCount(data.length);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
+      // ไม่ให้ throw error
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
@@ -78,6 +96,23 @@ export function NotificationBell() {
       }
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllAsRead: true }),
+      });
+
+      if (res.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
     }
   };
 
@@ -116,8 +151,8 @@ export function NotificationBell() {
         ) : (
           <>
             {notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const color = notificationColors[notification.type];
+              const Icon = notificationIcons[notification.type] || Bell;
+              const color = notificationColors[notification.type] || "text-gray-500";
 
               return (
                 <DropdownMenuItem
@@ -141,10 +176,17 @@ export function NotificationBell() {
                 </DropdownMenuItem>
               );
             })}
-            <div className="border-t p-2">
+            <div className="border-t p-2 space-y-1">
               <Button
                 variant="ghost"
-                className="w-full"
+                className="w-full text-sm"
+                onClick={markAllAsRead}
+              >
+                อ่านแล้วทั้งหมด
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-sm"
                 onClick={() => router.push("/notifications")}
               >
                 ดูทั้งหมด

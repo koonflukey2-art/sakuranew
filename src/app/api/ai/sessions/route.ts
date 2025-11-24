@@ -1,31 +1,19 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET - ดึง chat sessions ทั้งหมด
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
+    const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const sessions = await prisma.chatSession.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
       include: {
-        messages: {
-          orderBy: { createdAt: "asc" },
-          take: 1,
-        },
         _count: {
           select: { messages: true },
         },
@@ -42,8 +30,8 @@ export async function GET() {
 // DELETE - ลบ session
 export async function DELETE(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -54,9 +42,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Session ID required" }, { status: 400 });
     }
 
-    await prisma.chatSession.delete({
-      where: { id: sessionId },
+    // ลบเฉพาะ session ที่เป็นของ user คนนี้
+    const deleted = await prisma.chatSession.deleteMany({
+      where: {
+        id: sessionId,
+        userId: user.id,
+      },
     });
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
