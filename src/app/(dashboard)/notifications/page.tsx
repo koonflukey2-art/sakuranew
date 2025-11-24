@@ -36,14 +36,14 @@ const notificationIcons = {
   WARNING: Package,
   SUCCESS: Megaphone,
   ERROR: Wallet,
-};
+} as const;
 
 const notificationColors = {
   INFO: "text-blue-500",
   WARNING: "text-yellow-500",
   SUCCESS: "text-green-500",
   ERROR: "text-red-500",
-};
+} as const;
 
 export default function NotificationsPage() {
   const { toast } = useToast();
@@ -236,8 +236,8 @@ export default function NotificationsPage() {
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const color = notificationColors[notification.type];
+              const Icon = notificationIcons[notification.type] ?? Bell;
+              const color = notificationColors[notification.type] ?? "text-muted-foreground";
 
               return (
                 <Card
@@ -246,11 +246,11 @@ export default function NotificationsPage() {
                     !notification.isRead ? "bg-blue-50/50 border-blue-200" : ""
                   }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className={`${color} mt-1`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                <div className={`${color} mt-1`}>
+                  <Icon className="h-6 w-6" />
+                </div>
                       <div
                         className="flex-1"
                         onClick={() => handleNotificationClick(notification)}
@@ -319,8 +319,8 @@ export default function NotificationsPage() {
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const color = notificationColors[notification.type];
+              const Icon = notificationIcons[notification.type] ?? Bell;
+              const color = notificationColors[notification.type] ?? "text-muted-foreground";
 
               return (
                 <Card
