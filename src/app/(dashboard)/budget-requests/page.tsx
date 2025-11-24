@@ -48,6 +48,7 @@ interface BudgetRequest {
   reviewedAt?: string;
   reviewedBy?: {
     name: string;
+    email?: string;
   };
 }
 
@@ -76,7 +77,7 @@ export default function BudgetRequestsPage() {
       const response = await fetch("/api/budget-requests");
       if (!response.ok) throw new Error("Failed to fetch");
       const data = await response.json();
-      setRequests(data);
+      setRequests(data || []);
     } catch (error) {
       setError("ไม่สามารถโหลดข้อมูลได้");
       toast({
@@ -108,7 +109,9 @@ export default function BudgetRequestsPage() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) throw new Error("Failed to create");
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "Failed to create");
 
       toast({
         title: "สำเร็จ!",
@@ -137,7 +140,9 @@ export default function BudgetRequestsPage() {
         body: JSON.stringify({ status }),
       });
 
-      if (!response.ok) throw new Error("Failed to review");
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "Failed to review");
 
       toast({
         title: "สำเร็จ!",
@@ -298,7 +303,10 @@ export default function BudgetRequestsPage() {
                 type="number"
                 value={formData.amount || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, amount: parseFloat(e.target.value) })
+                  setFormData({
+                    ...formData,
+                    amount: parseFloat(e.target.value) || 0,
+                  })
                 }
                 placeholder="0"
                 disabled={submitting}

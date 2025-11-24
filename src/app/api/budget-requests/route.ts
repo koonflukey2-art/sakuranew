@@ -1,39 +1,72 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+
+interface BudgetRequestPayload {
+  purpose?: string;
+  amount?: number;
+  reason?: string;
+}
 
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const whereClause = user.role === "ADMIN" ? {} : { userId: user.id };
+    const requests = await prisma.budgetRequest.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    const reviewerIds = requests
+      .map((req) => req.reviewedBy)
+      .filter((id): id is string => Boolean(id));
 
-    // For now, return mock data since we don't have BudgetRequest table yet
-    const mockRequests = [
-      {
-        id: "1",
-        purpose: "งบประมาณโฆษณา Facebook Q1",
-        amount: 50000,
-        reason: "เพิ่มยอดขายในช่วงเทศกาลปีใหม่",
-        status: "PENDING",
-        requestedBy: {
-          name: user.name || "User",
-          email: user.email,
-        },
-        createdAt: new Date().toISOString(),
+    const reviewers = await prisma.user.findMany({
+      where: { id: { in: reviewerIds } },
+      select: { id: true, name: true, email: true },
+    });
+
+    const reviewerMap = reviewers.reduce<Record<string, { name: string; email: string }>>(
+      (acc, reviewer) => {
+        acc[reviewer.id] = {
+          name: reviewer.name || "ผู้ตรวจสอบ",
+          email: reviewer.email,
+        };
+        return acc;
       },
-    ];
+      {}
+    );
 
-    return NextResponse.json(mockRequests);
+    const response = requests.map((request) => ({
+      id: request.id,
+      purpose: request.purpose,
+      amount: request.amount,
+      reason: request.reason,
+      status: request.status,
+      requestedBy: {
+        name: request.user?.name || "User",
+        email: request.user?.email || "",
+      },
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt,
+      reviewedBy: request.reviewedBy
+        ? reviewerMap[request.reviewedBy]
+        : undefined,
+    }));
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Budget requests fetch error:", error);
     return NextResponse.json(
@@ -45,24 +78,30 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
+    const body: BudgetRequestPayload = await request.json();
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!body.purpose || !body.reason || typeof body.amount !== "number") {
+      return NextResponse.json(
+        { error: "กรุณาระบุวัตถุประสงค์ จำนวนเงิน และเหตุผล" },
+        { status: 400 }
+      );
     }
 
-    const body = await request.json();
+    const created = await prisma.budgetRequest.create({
+      data: {
+        purpose: body.purpose,
+        amount: body.amount,
+        reason: body.reason,
+        userId: user.id,
+      },
+    });
 
-    // For now, just return success
-    // In production, you'd create a BudgetRequest record
-    return NextResponse.json({ success: true });
+    return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Budget request creation error:", error);
     return NextResponse.json(
