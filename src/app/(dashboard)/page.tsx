@@ -183,12 +183,17 @@ export default function DashboardPage() {
 
       setAiInsights(insights);
 
-      if (typeof window !== "undefined" && insights.length > 0) {
-        const summaryForAssistant =
-          "สรุปภาพรวมธุรกิจจากแดชบอร์ดวันนี้:\n" +
-          insights.map((t, i) => `${i + 1}. ${t}`).join("\n");
+        if (typeof window !== "undefined" && insights.length > 0) {
+          const summaryForAssistant =
+            "สรุปภาพรวมธุรกิจจากแดชบอร์ดวันนี้:\n" +
+            insights.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n");
 
         window.localStorage.setItem("sakura_auto_insight", summaryForAssistant);
+        window.dispatchEvent(
+          new CustomEvent("sakura:auto_insight", {
+            detail: summaryForAssistant,
+          })
+        );
       }
       setAiError(null);
     } catch (error) {

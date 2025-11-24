@@ -31,26 +31,44 @@ export function FloatingAssistant() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const autoInsight = window.localStorage.getItem("sakura_auto_insight");
-    if (!autoInsight) return;
+    const applyAutoInsight = () => {
+      if (typeof window === "undefined") return;
 
-    setMessages((prev) => {
-      if (prev.some((m) => m.id.startsWith("auto-insight-"))) {
-        return prev;
-      }
+      const autoInsight = window.localStorage.getItem("sakura_auto_insight");
+      if (!autoInsight) return;
 
-      return [
-        ...prev,
-        {
-          id: `auto-insight-${Date.now()}`,
-          role: "ASSISTANT",
-          content: autoInsight,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-    });
+      setMessages((prev) => {
+        if (
+          prev.some(
+            (m) =>
+              m.id.startsWith("auto-insight-") || m.content.trim() === autoInsight.trim()
+          )
+        ) {
+          return prev;
+        }
 
-    window.localStorage.removeItem("sakura_auto_insight");
+        return [
+          ...prev,
+          {
+            id: `auto-insight-${Date.now()}`,
+            role: "ASSISTANT",
+            content: autoInsight,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      });
+
+      window.localStorage.removeItem("sakura_auto_insight");
+    };
+
+    applyAutoInsight();
+
+    const handleAutoInsight = () => applyAutoInsight();
+    window.addEventListener("sakura:auto_insight", handleAutoInsight);
+
+    return () => {
+      window.removeEventListener("sakura:auto_insight", handleAutoInsight);
+    };
   }, []);
 
   useEffect(() => {
