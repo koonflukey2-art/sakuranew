@@ -106,10 +106,20 @@ export default function BudgetRequestsPage() {
       const response = await fetch("/api/budget-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+<<<<<<< HEAD
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
+=======
+        body: JSON.stringify({
+          ...formData,
+          amount: Number(formData.amount),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+>>>>>>> codex/fix-budget-requests-page-404-error-alybq3
 
       if (!response.ok) throw new Error(data.error || "Failed to create");
 
