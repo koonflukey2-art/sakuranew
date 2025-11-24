@@ -21,6 +21,7 @@ export default function AIAssistantPage() {
   const [loading, setLoading] = useState(false);
   const [hasProvider, setHasProvider] = useState(false);
   const [checkingProvider, setCheckingProvider] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -64,29 +65,50 @@ export default function AIAssistantPage() {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({
+          message: input,
+          sessionId: sessionId || undefined,
+        }),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to chat");
-      }
 
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.error || "เกิดข้อผิดพลาดในการเรียก AI Assistant");
+      }
+
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
+
       const aiMessage: Message = {
         role: "assistant",
-        content: data.response,
+        content: data.reply || data.response,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
+      console.error("AI Assistant error", error);
+      const description =
+        error?.message || "เกิดข้อผิดพลาดในการเรียก AI Assistant";
+
       toast({
-        title: "ผิดพลาด",
-        description: error.message || "ไม่สามารถส่งข้อความได้",
+        title: "เกิดข้อผิดพลาดในการเรียก AI Assistant",
+        description,
         variant: "destructive",
       });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            description ||
+            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง", 
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }

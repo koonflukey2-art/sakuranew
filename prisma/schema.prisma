@@ -88,6 +88,7 @@ model Budget {
 model BudgetRequest {
   id          String                @id @default(cuid())
   amount      Float
+  purpose     String
   reason      String
   status      BudgetRequestStatus   @default(PENDING)
   createdAt   DateTime              @default(now())
@@ -166,6 +167,8 @@ enum NotificationType {
   WARNING
   SUCCESS
   ERROR
+  BUDGET_APPROVED
+  BUDGET_ALERT
   BUDGET_REQUEST
   LOW_STOCK
   CAMPAIGN_COMPLETE

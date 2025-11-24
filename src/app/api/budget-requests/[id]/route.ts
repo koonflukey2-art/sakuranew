@@ -1,214 +1,93 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireRole, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
-// GET - Get specific budget request
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await requireRole(["ADMIN", "STOCK", "EMPLOYEE"]);
-
-    const budgetRequest = await prisma.budgetRequest.findUnique({
-      where: { id: params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
-
-    if (!budgetRequest) {
-      return NextResponse.json(
-        { error: "ไม่พบคำขออนุมัติงบประมาณ" },
-        { status: 404 }
-      );
-    }
-
-    // Non-admin users can only see their own requests
-    if (!isAdmin(user) && budgetRequest.userId !== user.id) {
-      return NextResponse.json(
-        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้" },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(budgetRequest);
-  } catch (error: any) {
-    console.error("Error fetching budget request:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch budget request" },
-      { status: error.status || 500 }
-    );
-  }
+interface UpdateBudgetRequestBody {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  amount?: number;
+  purpose?: string;
+  reason?: string;
+  reviewNote?: string;
 }
 
-// PATCH - Approve or reject budget request (ADMIN only)
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireRole(["ADMIN"]);
-    const body = await request.json();
-    const { action, reviewNote } = body;
-
-    if (!action || !["approve", "reject"].includes(action)) {
-      return NextResponse.json(
-        { error: "กรุณาระบุ action ที่ถูกต้อง (approve หรือ reject)" },
-        { status: 400 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const budgetRequest = await prisma.budgetRequest.findUnique({
+    const body: UpdateBudgetRequestBody = await request.json();
+
+    const existing = await prisma.budgetRequest.findUnique({
       where: { id: params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
     });
 
-    if (!budgetRequest) {
-      return NextResponse.json(
-        { error: "ไม่พบคำขออนุมัติงบประมาณ" },
-        { status: 404 }
-      );
+    if (!existing) {
+      return NextResponse.json({ error: "ไม่พบคำขอ" }, { status: 404 });
     }
 
-    if (budgetRequest.status !== "PENDING") {
-      return NextResponse.json(
-        { error: "คำขออนุมัติงบประมาณนี้ได้รับการพิจารณาแล้ว" },
-        { status: 400 }
-      );
+    if (existing.userId !== user.id && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const newStatus = action === "approve" ? "APPROVED" : "REJECTED";
+    const dataToUpdate: Prisma.BudgetRequestUpdateInput = {};
 
-    // Update the budget request
+    if (typeof body.amount === "number") dataToUpdate.amount = body.amount;
+    if (body.purpose) dataToUpdate.purpose = body.purpose;
+    if (body.reason) dataToUpdate.reason = body.reason;
+    if (body.reviewNote) dataToUpdate.reviewNote = body.reviewNote;
+
+    if (body.status) {
+      dataToUpdate.status = body.status;
+      dataToUpdate.reviewedAt = new Date();
+      dataToUpdate.reviewedBy = user.id;
+    }
+
     const updated = await prisma.budgetRequest.update({
       where: { id: params.id },
-      data: {
-        status: newStatus,
-        reviewedBy: user.id,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote || null,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
+      data: dataToUpdate,
     });
 
-    // If approved, optionally create a Budget record
-    if (action === "approve") {
-      const now = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 1); // 1 month budget period
+    let createdBudget = null;
 
-      await prisma.budget.create({
+    if (existing.status !== "APPROVED" && body.status === "APPROVED") {
+      const now = new Date();
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(now.getMonth() + 1);
+
+      createdBudget = await prisma.budget.create({
         data: {
-          userId: budgetRequest.userId,
-          amount: budgetRequest.amount,
-          purpose: `อนุมัติจากคำขอ: ${budgetRequest.reason}`,
+          amount: updated.amount,
+          purpose: updated.purpose,
           spent: 0,
           startDate: now,
-          endDate: endDate,
+          endDate: nextMonth,
+          userId: existing.userId,
+        },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: existing.userId,
+          type: "BUDGET_APPROVED",
+          title: "คำขอเพิ่มงบได้รับการอนุมัติ",
+          message: `อนุมัติคำขอเพิ่มงบ "${updated.purpose}" จำนวน ${updated.amount.toLocaleString()} บาทแล้ว`,
+          link: "/budget-requests",
         },
       });
     }
 
-    // Notify the requester
-    await prisma.notification.create({
-      data: {
-        userId: budgetRequest.userId,
-        type: action === "approve" ? "SUCCESS" : "WARNING",
-        title:
-          action === "approve"
-            ? "คำขออนุมัติงบประมาณได้รับการอนุมัติ"
-            : "คำขออนุมัติงบประมาณถูกปฏิเสธ",
-        message:
-          action === "approve"
-            ? `งบประมาณ ฿${budgetRequest.amount.toLocaleString()} ของคุณได้รับการอนุมัติแล้ว`
-            : `คำขออนุมัติงบประมาณ ฿${budgetRequest.amount.toLocaleString()} ถูกปฏิเสธ${
-                reviewNote ? `: ${reviewNote}` : ""
-              }`,
-        link: `/budgets`,
-        isRead: false,
-      },
-    });
-
-    return NextResponse.json(updated);
-  } catch (error: any) {
-    console.error("Error updating budget request:", error);
+    return NextResponse.json({ request: updated, budget: createdBudget });
+  } catch (error) {
+    console.error("Budget request review error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to update budget request" },
-      { status: error.status || 500 }
-    );
-  }
-}
-
-// DELETE - Delete budget request (Creator or ADMIN only)
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await requireRole(["ADMIN", "STOCK"]);
-
-    const budgetRequest = await prisma.budgetRequest.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!budgetRequest) {
-      return NextResponse.json(
-        { error: "ไม่พบคำขออนุมัติงบประมาณ" },
-        { status: 404 }
-      );
-    }
-
-    // Only creator or admin can delete
-    if (!isAdmin(user) && budgetRequest.userId !== user.id) {
-      return NextResponse.json(
-        { error: "คุณไม่มีสิทธิ์ลบคำขออนุมัตินี้" },
-        { status: 403 }
-      );
-    }
-
-    // Can only delete pending requests
-    if (budgetRequest.status !== "PENDING") {
-      return NextResponse.json(
-        { error: "ไม่สามารถลบคำขออนุมัติที่ได้รับการพิจารณาแล้ว" },
-        { status: 400 }
-      );
-    }
-
-    await prisma.budgetRequest.delete({
-      where: { id: params.id },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("Error deleting budget request:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to delete budget request" },
-      { status: error.status || 500 }
+      { error: "Failed to review budget request" },
+      { status: 500 }
     );
   }
 }
