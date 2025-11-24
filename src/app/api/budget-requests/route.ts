@@ -1,123 +1,128 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAuth, requireRole, isAdmin, UserRole } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
-// GET - List budget requests (with role-based filtering)
-export async function GET(request: Request) {
+interface BudgetRequestPayload {
+  purpose?: string;
+  amount?: number;
+  reason?: string;
+}
+
+export async function GET() {
   try {
-    const user = await requireAuth();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // ADMIN can see all requests, STOCK/USER can see only their own
-    const where = isAdmin(user)
-      ? {}
-      : { userId: user.id };
-
+    const whereClause = user.role === "ADMIN" ? {} : { userId: user.id };
     const requests = await prisma.budgetRequest.findMany({
-      where,
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
       include: {
         user: {
           select: {
-            id: true,
             name: true,
             email: true,
-            role: true,
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
     });
 
-    return NextResponse.json(requests);
-  } catch (error: any) {
-    console.error("Error fetching budget requests:", error);
+    const reviewerIds = requests
+      .map((req) => req.reviewedBy)
+      .filter((id): id is string => Boolean(id));
+
+    const reviewers = await prisma.user.findMany({
+      where: { id: { in: reviewerIds } },
+      select: { id: true, name: true, email: true },
+    });
+
+    const reviewerMap = reviewers.reduce<Record<string, { name: string; email: string }>>(
+      (acc, reviewer) => {
+        acc[reviewer.id] = {
+          name: reviewer.name || "ผู้ตรวจสอบ",
+          email: reviewer.email,
+        };
+        return acc;
+      },
+      {}
+    );
+
+    const response = requests.map((request) => ({
+      id: request.id,
+      purpose: request.purpose,
+      amount: request.amount,
+      reason: request.reason,
+      status: request.status,
+      requestedBy: {
+        name: request.user?.name || "User",
+        email: request.user?.email || "",
+      },
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt,
+      reviewedBy: request.reviewedBy
+        ? reviewerMap[request.reviewedBy]
+        : undefined,
+    }));
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error("Budget requests fetch error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch budget requests" },
-      { status: error.status || 500 }
+      { error: "Failed to fetch budget requests" },
+      { status: 500 }
     );
   }
 }
 
-// POST - Create a budget request (STOCK or ADMIN only)
 export async function POST(request: Request) {
   try {
-    const user = await requireAuth();
-
-    // Only STOCK and ADMIN can create budget requests
-    if (user.role === "EMPLOYEE") {
-      return NextResponse.json(
-        { error: "คุณไม่มีสิทธิ์ขออนุมัติงบประมาณ" },
-        { status: 403 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { amount, reason } = body;
+    const body: BudgetRequestPayload = await request.json();
 
-    if (!amount || amount <= 0) {
+    const purpose = typeof body.purpose === "string" ? body.purpose.trim() : "";
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    const amount = typeof body.amount === "number" && !Number.isNaN(body.amount)
+      ? body.amount
+      : NaN;
+
+    if (!purpose || !reason || amount <= 0) {
       return NextResponse.json(
-        { error: "กรุณาระบุจำนวนเงินที่ถูกต้อง" },
+        { error: "กรุณาระบุวัตถุประสงค์ จำนวนเงินที่ถูกต้อง และเหตุผล" },
         { status: 400 }
       );
     }
 
-    if (!reason || reason.trim().length === 0) {
-      return NextResponse.json(
-        { error: "กรุณาระบุเหตุผลในการขออนุมัติ" },
-        { status: 400 }
-      );
-    }
+    const created = await prisma.budgetRequest.create({
+      data: {
+        purpose,
+        amount,
+        reason,
+        userId: user.id,
+      },
+    });
 
-    // Create the budget request
-    const budgetRequest = await prisma.budgetRequest.create({
+    await prisma.notification.create({
       data: {
         userId: user.id,
-        amount: parseFloat(amount),
-        reason: reason.trim(),
-        status: "PENDING",
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
+        type: "BUDGET_REQUEST",
+        title: "สร้างคำขอเพิ่มงบแล้ว",
+        message: `ส่งคำขอเพิ่มงบ "${purpose}" จำนวน ${amount.toLocaleString()} บาท`,
+        link: "/budget-requests",
       },
     });
 
-    // Create notifications for all ADMIN users
-    const adminUsers = await prisma.user.findMany({
-      where: {
-        role: "ADMIN",
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    const notifications = adminUsers.map((admin) => ({
-      userId: admin.id,
-      type: "BUDGET_REQUEST" as const,
-      title: "คำขออนุมัติงบประมาณใหม่",
-      message: `${user.name || user.email} ขออนุมัติงบประมาณ ฿${amount.toLocaleString()} - ${reason}`,
-      link: `/budget-requests/${budgetRequest.id}`,
-      isRead: false,
-    }));
-
-    await prisma.notification.createMany({
-      data: notifications,
-    });
-
-    return NextResponse.json(budgetRequest, { status: 201 });
-  } catch (error: any) {
-    console.error("Error creating budget request:", error);
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    console.error("Budget request creation error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create budget request" },
-      { status: error.status || 500 }
+      { error: "Failed to create budget request" },
+      { status: 500 }
     );
   }
 }

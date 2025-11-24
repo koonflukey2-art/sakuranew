@@ -24,6 +24,7 @@ export function FloatingAssistant() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -50,7 +51,10 @@ export function FloatingAssistant() {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({
+          message: userMessage.content,
+          sessionId: sessionId || undefined,
+        }),
       });
 
       const data = await response.json();
@@ -59,20 +63,51 @@ export function FloatingAssistant() {
         throw new Error(data.error || "Failed to get response");
       }
 
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
+
+      const reply =
+        typeof data.reply === "string"
+          ? data.reply
+          : typeof data.response === "string"
+          ? data.response
+          : "";
+
+      if (!reply) {
+        throw new Error("ไม่ได้รับคำตอบจาก AI");
+      }
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "ASSISTANT",
-        content: data.response || "ไม่สามารถตอบได้",
+        content: reply,
         createdAt: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
+      console.error("AI Assistant error", error);
+      const description =
+        error?.message || "ไม่สามารถส่งข้อความได้ กรุณาลองใหม่อีกครั้ง";
+
       toast({
-        title: "ผิดพลาด",
-        description: error.message || "ไม่สามารถส่งข้อความได้",
+        title: "เกิดข้อผิดพลาดในการเรียก AI Assistant",
+        description,
         variant: "destructive",
       });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 2).toString(),
+          role: "ASSISTANT",
+          content:
+            description ||
+            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }

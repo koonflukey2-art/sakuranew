@@ -70,11 +70,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Fetch all data from APIs
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setAiError(null);
 
       const [productsRes, campaignsRes, budgetsRes] = await Promise.all([
         fetch("/api/products"),
@@ -90,7 +92,22 @@ export default function DashboardPage() {
       setCampaigns(campaignsData);
       setBudgets(budgetsData);
 
-      calculateStats(productsData, campaignsData, budgetsData);
+      const metrics = calculateStats(productsData, campaignsData, budgetsData);
+
+      const budgetRemaining = budgetsData.reduce(
+        (sum: number, b: Budget) => sum + (b.amount - b.spent),
+        0
+      );
+
+      fetchAIInsights({
+        ...metrics,
+        budgetRemaining,
+        campaignCount: campaignsData.length,
+        budgetCount: budgetsData.length,
+        lowStockCount: productsData.filter(
+          (p: Product) => p.quantity < p.minStockLevel
+        ).length,
+      });
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
       toast({
@@ -108,40 +125,72 @@ export default function DashboardPage() {
   }, []);
 
   // Fetch AI Insights
-  const fetchAIInsights = async () => {
+  const fetchAIInsights = async (
+    metrics: Stats & {
+      budgetRemaining: number;
+      campaignCount: number;
+      budgetCount: number;
+      lowStockCount: number;
+    }
+  ) => {
     try {
       setLoadingInsights(true);
+      setAiError(null);
+
+      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(0)}\n- กำไร: ${metrics.totalProfit.toFixed(0)}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(2)}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(0)}\n- จำนวนแคมเปญ: ${metrics.campaignCount}\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${metrics.lowStockCount}`;
+
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: "วิเคราะห์สถานการณ์ธุรกิจปัจจุบันและให้คำแนะนำสั้นๆ 3-5 ข้อ ในรูปแบบ bullet points",
+          message: prompt,
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const insights = data.response
-          .split("\n")
-          .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
-          .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
-          .filter((line: string) => line.length > 0)
-          .slice(0, 5);
+      const data = await response.json().catch(() => ({}));
 
-        setAiInsights(insights);
+      if (!response.ok) {
+        console.warn("AI insights request failed", data?.error || response.statusText);
+        setAiInsights([]);
+        setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
+        return;
       }
+
+      const raw =
+        typeof data.reply === "string"
+          ? data.reply
+          : typeof data.response === "string"
+          ? data.response
+          : typeof data.message === "string"
+          ? data.message
+          : "";
+
+      if (!raw) {
+        setAiInsights([]);
+        setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
+        return;
+      }
+
+      const insights = raw
+        .split("\n")
+        .filter(
+          (line: string) =>
+            line.trim().startsWith("-") || line.trim().startsWith("•")
+        )
+        .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 5);
+
+      setAiInsights(insights);
+      setAiError(null);
     } catch (error) {
       console.error("AI Insights error:", error);
+      setAiInsights([]);
+      setAiError("ไม่สามารถโหลดคำแนะนำจาก AI ได้ในขณะนี้");
     } finally {
       setLoadingInsights(false);
     }
   };
-
-  useEffect(() => {
-    if (products.length > 0 && campaigns.length > 0) {
-      fetchAIInsights();
-    }
-  }, [products, campaigns]);
 
   // Calculate statistics from real data
   const calculateStats = (
@@ -170,7 +219,9 @@ export default function DashboardPage() {
         ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
         : 0;
 
-    setStats({ totalRevenue, totalProfit, totalOrders, avgROAS });
+    const computed = { totalRevenue, totalProfit, totalOrders, avgROAS };
+    setStats(computed);
+    return computed;
   };
 
   // Format currency
@@ -607,32 +658,34 @@ export default function DashboardPage() {
               <Sparkles className="w-5 h-5 text-yellow-400" />
               AI Insights & Recommendations
             </CardTitle>
-            <CardDescription className="text-blue-200">
-              คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingInsights ? (
-              <div className="flex items-center gap-2 text-blue-200">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                AI กำลังวิเคราะห์...
-              </div>
-            ) : aiInsights.length > 0 ? (
-              <ul className="space-y-3">
-                {aiInsights.map((insight, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-white">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
-                      {idx + 1}
-                    </span>
-                    <span className="flex-1">{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-blue-200">
-                เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
-              </p>
-            )}
+          <CardDescription className="text-blue-200">
+            คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingInsights ? (
+            <div className="flex items-center gap-2 text-blue-200">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              AI กำลังวิเคราะห์ข้อมูลของคุณ...
+            </div>
+          ) : aiInsights.length > 0 ? (
+            <ul className="space-y-3">
+              {aiInsights.map((insight, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-white">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          ) : aiError ? (
+            <p className="text-red-200">{aiError}</p>
+          ) : (
+            <p className="text-blue-200">
+              เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
+            </p>
+          )}
 
             <Button
               variant="outline"

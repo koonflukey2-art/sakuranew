@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-<parameter name="content">import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 

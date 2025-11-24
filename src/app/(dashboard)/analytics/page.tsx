@@ -62,6 +62,7 @@ interface AnalyticsData {
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState("30");
 
   useEffect(() => {
@@ -71,17 +72,33 @@ export default function AnalyticsPage() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch(`/api/analytics?days=${dateRange}`);
-      const analytics = await res.json();
+
+      if (!res.ok) {
+        console.warn("Analytics fetch failed", res.statusText);
+        setError("ไม่สามารถโหลดข้อมูลการวิเคราะห์ได้");
+        setData(null);
+        return;
+      }
+
+      const analytics = await res.json().catch(() => null);
+      if (!analytics) {
+        setError("ไม่สามารถโหลดข้อมูลการวิเคราะห์ได้");
+        setData(null);
+        return;
+      }
+
       setData(analytics);
     } catch (error) {
       console.error("Error fetching analytics:", error);
+      setError("ไม่สามารถโหลดข้อมูลการวิเคราะห์ได้");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading || !data) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -96,27 +113,45 @@ export default function AnalyticsPage() {
     );
   }
 
-  const { overview, topProducts, topCategories, revenueByMonth, campaignPerformance } = data;
+  const safeOverview = data?.overview ?? {
+    totalRevenue: 0,
+    revenueChange: 0,
+    totalOrders: 0,
+    ordersChange: 0,
+    totalProducts: 0,
+    productsChange: 0,
+    avgOrderValue: 0,
+    avgOrderChange: 0,
+  };
 
-  const exportProducts = formatDataForExport(topProducts, {
+  const topProducts = data?.topProducts ?? [];
+  const topCategories = data?.topCategories ?? [];
+  const revenueByMonth = data?.revenueByMonth ?? [];
+  const campaignPerformance = data?.campaignPerformance ?? [];
+
+  // Product Analysis Export Data
+  const exportProducts = formatDataForExport(topProducts || [], {
     name: "สินค้า",
     category: "หมวดหมู่",
     revenue: "รายได้",
     quantity: "จำนวนที่ขาย",
   });
 
-  const exportCategories = formatDataForExport(topCategories, {
+  // Category Analysis Export Data
+  const exportCategories = formatDataForExport(topCategories || [], {
     category: "หมวดหมู่",
     revenue: "รายได้",
     percentage: "เปอร์เซ็นต์",
   });
 
-  const exportRevenue = formatDataForExport(revenueByMonth, {
+  // Revenue Export Data
+  const exportRevenue = formatDataForExport(revenueByMonth || [], {
     month: "เดือน",
     revenue: "รายได้",
   });
 
-  const exportCampaigns = formatDataForExport(campaignPerformance, {
+  // Campaign Analysis Export Data
+  const exportCampaigns = formatDataForExport(campaignPerformance || [], {
     platform: "แพลตฟอร์ม",
     spent: "ค่าใช้จ่าย",
     roi: "ROI",
@@ -147,6 +182,22 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Overview Stats */}
+      {loading && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="text-center text-slate-400">กำลังโหลด...</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && error && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="text-center text-slate-400">{error}</div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -157,19 +208,21 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              ฿{overview.totalRevenue.toLocaleString("th-TH")}
+              ฿{safeOverview.totalRevenue.toLocaleString("th-TH")}
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.revenueChange >= 0 ? "text-green-500" : "text-red-500"
+                safeOverview.revenueChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
-              {overview.revenueChange >= 0 ? (
+              {safeOverview.revenueChange >= 0 ? (
                 <TrendingUp className="w-3 h-3 mr-1" />
               ) : (
                 <TrendingDown className="w-3 h-3 mr-1" />
               )}
-              {Math.abs(overview.revenueChange).toFixed(1)}% จากช่วงก่อนหน้า
+              {Math.abs(safeOverview.revenueChange).toFixed(1)}% จากช่วงก่อนหน้า
             </p>
           </CardContent>
         </Card>
@@ -183,19 +236,21 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {overview.totalOrders.toLocaleString("th-TH")}
+              {safeOverview.totalOrders.toLocaleString("th-TH")}
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.ordersChange >= 0 ? "text-green-500" : "text-red-500"
+                safeOverview.ordersChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
-              {overview.ordersChange >= 0 ? (
+              {safeOverview.ordersChange >= 0 ? (
                 <TrendingUp className="w-3 h-3 mr-1" />
               ) : (
                 <TrendingDown className="w-3 h-3 mr-1" />
               )}
-              {Math.abs(overview.ordersChange).toFixed(1)}% จากช่วงก่อนหน้า
+              {Math.abs(safeOverview.ordersChange).toFixed(1)}% จากช่วงก่อนหน้า
             </p>
           </CardContent>
         </Card>
@@ -209,19 +264,21 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {overview.totalProducts.toLocaleString("th-TH")}
+              {safeOverview.totalProducts.toLocaleString("th-TH")}
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.productsChange >= 0 ? "text-green-500" : "text-red-500"
+                safeOverview.productsChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
-              {overview.productsChange >= 0 ? (
+              {safeOverview.productsChange >= 0 ? (
                 <TrendingUp className="w-3 h-3 mr-1" />
               ) : (
                 <TrendingDown className="w-3 h-3 mr-1" />
               )}
-              {Math.abs(overview.productsChange).toFixed(1)}% จากช่วงก่อนหน้า
+              {Math.abs(safeOverview.productsChange).toFixed(1)}% จากช่วงก่อนหน้า
             </p>
           </CardContent>
         </Card>
@@ -235,19 +292,21 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              ฿{overview.avgOrderValue.toLocaleString("th-TH")}
+              ฿{safeOverview.avgOrderValue.toLocaleString("th-TH")}
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.avgOrderChange >= 0 ? "text-green-500" : "text-red-500"
+                safeOverview.avgOrderChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
-              {overview.avgOrderChange >= 0 ? (
+              {safeOverview.avgOrderChange >= 0 ? (
                 <TrendingUp className="w-3 h-3 mr-1" />
               ) : (
                 <TrendingDown className="w-3 h-3 mr-1" />
               )}
-              {Math.abs(overview.avgOrderChange).toFixed(1)}% จากช่วงก่อนหน้า
+              {Math.abs(safeOverview.avgOrderChange).toFixed(1)}% จากช่วงก่อนหน้า
             </p>
           </CardContent>
         </Card>
