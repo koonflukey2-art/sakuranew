@@ -165,23 +165,23 @@ export default function BudgetRequestsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
-        return <Badge className="bg-yellow-600"><Clock className="w-3 h-3 mr-1" /> รอพิจารณา</Badge>;
+        return <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/40"><Clock className="w-3 h-3 mr-1" /> รอพิจารณา</Badge>;
       case "APPROVED":
-        return <Badge className="bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> อนุมัติ</Badge>;
+        return <Badge className="bg-green-500/10 text-green-400 border border-green-500/40"><CheckCircle className="w-3 h-3 mr-1" /> อนุมัติ</Badge>;
       case "REJECTED":
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> ปฏิเสธ</Badge>;
+        return <Badge variant="destructive" className="bg-red-500/10 text-red-400 border border-red-500/40"><XCircle className="w-3 h-3 mr-1" /> ปฏิเสธ</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Budget Requests</h1>
-          <p className="text-slate-400 mt-1">คำของบประมาณ</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Budget Requests</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">คำของบประมาณ</p>
         </div>
         <Button onClick={() => setIsDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -199,10 +199,10 @@ export default function BudgetRequestsPage() {
 
       {/* Requests Table */}
       {!loading && !error && (
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">คำขอทั้งหมด</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-slate-900 dark:text-white">คำขอทั้งหมด</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
               รายการคำของบประมาณทั้งหมด
             </CardDescription>
           </CardHeader>

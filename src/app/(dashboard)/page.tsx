@@ -336,10 +336,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-50">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-white mt-1">ภาพรวมธุรกิจของคุณ</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+        <p className="text-slate-700 dark:text-slate-300 mt-1">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Stats Cards */}
@@ -424,10 +424,10 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardTitle className="text-slate-900 dark:text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-300">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -512,10 +512,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">ROI แต่ละ Platform</CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardTitle className="text-slate-900 dark:text-white">ROI แต่ละ Platform</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-300">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -567,9 +567,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="text-slate-900 dark:text-white">สัดส่วนงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
@@ -615,9 +615,9 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
@@ -713,19 +713,19 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activities */}
-      <Card className="bg-slate-800 border-slate-700 animate-fade-in hover-lift">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-fade-in hover-lift">
         <CardHeader>
-          <CardTitle className="text-white">กิจกรรมล่าสุด</CardTitle>
+          <CardTitle className="text-slate-900 dark:text-white">กิจกรรมล่าสุด</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
             {/* Recent Campaigns */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
                 📢 แคมเปญล่าสุด
               </h3>
               {campaigns.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
                   ไม่มีแคมเปญ
                 </div>
               ) : (
@@ -744,23 +744,23 @@ export default function DashboardPage() {
                     .map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between py-2 border-b border-slate-700"
+                        className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
                       >
                         <div>
-                          <p className="text-sm text-white font-medium">
+                          <p className="text-sm text-slate-900 dark:text-white font-medium">
                             {c.campaignName}
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
                             {c.platform} • ROI: {c.roi.toFixed(2)}x
                           </p>
                         </div>
                         <Badge
                           className={
                             c.status === "ACTIVE"
-                              ? "bg-green-500"
+                              ? "bg-green-500/10 text-green-400 border border-green-500/40"
                               : c.status === "PAUSED"
-                              ? "bg-yellow-500"
-                              : "bg-gray-500"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
+                              : "bg-slate-500/10 text-slate-300 border border-slate-500/40"
                           }
                         >
                           {c.status}
@@ -777,20 +777,20 @@ export default function DashboardPage() {
                 💰 สถานะงบประมาณ
               </h3>
               {budgets.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
                   ไม่มีงบประมาณ
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-4 bg-slate-800 rounded-lg">
+                  <div className="p-4 rounded-lg bg-slate-100 dark:bg-slate-800">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-400">งบประมาณรวม</span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">งบประมาณรวม</span>
+                      <span className="text-lg font-bold text-slate-900 dark:text-white">
                         {formatCurrency(totalBudget)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-400">คงเหลือ</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">คงเหลือ</span>
                       <span
                         className={`text-lg font-bold ${
                           budgetRemaining >= 0 ? "text-green-500" : "text-red-500"
@@ -800,8 +800,8 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">จำนวนรายการ</span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">จำนวนรายการ</span>
+                      <span className="text-lg font-bold text-slate-900 dark:text-white">
                         {budgets.length}
                       </span>
                     </div>
@@ -815,13 +815,13 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={b.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-700"
+                          className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
                         >
                           <div className="flex-1">
-                            <p className="text-sm text-white font-medium">
+                            <p className="text-sm text-slate-900 dark:text-white font-medium">
                               {b.purpose}
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
                               ใช้ไป {formatCurrency(b.spent)} /{" "}
                               {formatCurrency(b.amount)}
                             </p>
@@ -829,10 +829,10 @@ export default function DashboardPage() {
                           <Badge
                             className={
                               percentage > 90
-                                ? "bg-red-500"
+                                ? "bg-red-500/10 text-red-400 border border-red-500/40"
                                 : percentage > 70
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
+                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
+                                : "bg-green-500/10 text-green-400 border border-green-500/40"
                             }
                           >
                             {percentage.toFixed(0)}%

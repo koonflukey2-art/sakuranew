@@ -191,10 +191,10 @@ export function FloatingAssistant() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-96 h-[600px] shadow-2xl">
-      <Card className="h-full bg-slate-900 border-slate-700 flex flex-col">
-        <CardHeader className="border-b border-slate-700 py-3">
+      <Card className="h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col">
+        <CardHeader className="border-b border-slate-200 dark:border-slate-700 py-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
               <Bot className="w-5 h-5 text-blue-500" />
               AI Assistant
             </CardTitle>
@@ -225,15 +225,15 @@ export function FloatingAssistant() {
         <CardContent className="flex-1 p-0 flex flex-col overflow-hidden">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
-              <Bot className="w-16 h-16 text-slate-600" />
-              <p className="text-sm text-slate-400 text-center">
+              <Bot className="w-16 h-16 text-slate-500 dark:text-slate-600" />
+              <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
                 ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ
               </p>
               <div className="grid grid-cols-2 gap-2 w-full">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-auto py-2"
+                  className="text-xs h-auto py-2 text-slate-700 dark:text-slate-200"
                   onClick={() => handleQuickPrompt("สินค้าใกล้หมดมีอะไรบ้าง?")}
                 >
                   สินค้าใกล้หมด?
@@ -241,7 +241,7 @@ export function FloatingAssistant() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-auto py-2"
+                  className="text-xs h-auto py-2 text-slate-700 dark:text-slate-200"
                   onClick={() => handleQuickPrompt("แคมเปญไหนมี ROI ดีที่สุด?")}
                 >
                   แคมเปญไหนดี?
@@ -249,7 +249,7 @@ export function FloatingAssistant() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-auto py-2"
+                  className="text-xs h-auto py-2 text-slate-700 dark:text-slate-200"
                   onClick={() => handleQuickPrompt("งบประมาณเหลือเท่าไหร่?")}
                 >
                   งบเหลือเท่าไหร่?
@@ -257,7 +257,7 @@ export function FloatingAssistant() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-auto py-2"
+                  className="text-xs h-auto py-2 text-slate-700 dark:text-slate-200"
                   onClick={() => handleQuickPrompt("วิเคราะห์ธุรกิจให้หน่อย")}
                 >
                   วิเคราะห์ธุรกิจ
@@ -280,7 +280,7 @@ export function FloatingAssistant() {
                         className={`max-w-[85%] rounded-lg p-3 ${
                           msg.role === "USER"
                             ? "bg-blue-600 text-white"
-                            : "bg-slate-800 text-white"
+                            : "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white"
                         }`}
                       >
                         {msg.role === "ASSISTANT" && (
@@ -291,7 +291,7 @@ export function FloatingAssistant() {
                             </span>
                           </div>
                         )}
-                        <div className="prose prose-sm prose-invert max-w-none">
+                        <div className="prose prose-sm max-w-none text-slate-900 dark:prose-invert dark:text-white">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                       </div>

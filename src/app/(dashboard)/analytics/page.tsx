@@ -100,13 +100,13 @@ export default function AnalyticsPage() {
 
   if (loading && !data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 text-slate-900 dark:text-slate-50">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">การวิเคราะห์</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">การวิเคราะห์</h1>
         </div>
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardContent className="p-6">
-            <div className="text-center text-slate-400">กำลังโหลด...</div>
+            <div className="text-center text-slate-600 dark:text-slate-400">กำลังโหลด...</div>
           </CardContent>
         </Card>
       </div>
@@ -159,19 +159,19 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">การวิเคราะห์</h1>
-          <p className="text-slate-400 mt-1">ภาพรวมธุรกิจและประสิทธิภาพ</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">การวิเคราะห์</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">ภาพรวมธุรกิจและประสิทธิภาพ</p>
         </div>
         <div className="flex gap-2 items-center">
           <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-40 bg-slate-800 border-slate-700">
+            <SelectTrigger className="w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700">
+            <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <SelectItem value="7">7 วันที่แล้ว</SelectItem>
               <SelectItem value="30">30 วันที่แล้ว</SelectItem>
               <SelectItem value="90">90 วันที่แล้ว</SelectItem>
@@ -183,7 +183,7 @@ export default function AnalyticsPage() {
 
       {/* Overview Stats */}
       {loading && (
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardContent className="p-6">
             <div className="text-center text-slate-400">กำลังโหลด...</div>
           </CardContent>
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
       )}
 
       {!loading && error && (
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardContent className="p-6">
             <div className="text-center text-slate-400">{error}</div>
           </CardContent>
@@ -199,15 +199,15 @@ export default function AnalyticsPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
               รายได้รวม
             </CardTitle>
-            <DollarSign className="w-4 h-4 text-slate-400" />
+            <DollarSign className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
               ฿{safeOverview.totalRevenue.toLocaleString("th-TH")}
             </div>
             <p
@@ -215,7 +215,7 @@ export default function AnalyticsPage() {
                 safeOverview.revenueChange >= 0
                   ? "text-green-500"
                   : "text-red-500"
-              }`}
+            }`}
             >
               {safeOverview.revenueChange >= 0 ? (
                 <TrendingUp className="w-3 h-3 mr-1" />
@@ -227,15 +227,15 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
               คำสั่งซื้อ
             </CardTitle>
-            <ShoppingCart className="w-4 h-4 text-slate-400" />
+            <ShoppingCart className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
               {safeOverview.totalOrders.toLocaleString("th-TH")}
             </div>
             <p
@@ -255,15 +255,15 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
               สินค้าทั้งหมด
             </CardTitle>
-            <Package className="w-4 h-4 text-slate-400" />
+            <Package className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
               {safeOverview.totalProducts.toLocaleString("th-TH")}
             </div>
             <p
@@ -283,15 +283,15 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
               ค่าเฉลี่ยต่อคำสั่งซื้อ
             </CardTitle>
-            <BarChart3 className="w-4 h-4 text-slate-400" />
+            <BarChart3 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
               ฿{safeOverview.avgOrderValue.toLocaleString("th-TH")}
             </div>
             <p
@@ -313,9 +313,9 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Top Products */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white">สินค้าขายดี</CardTitle>
+          <CardTitle className="text-slate-900 dark:text-white">สินค้าขายดี</CardTitle>
           <ExportButton
             data={exportProducts}
             filename={`top-products-${dateRange}days`}
@@ -333,22 +333,22 @@ export default function AnalyticsPage() {
             {topProducts.map((product, index) => (
               <div
                 key={product.id}
-                className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-slate-600 rounded-full text-white font-bold">
+                  <div className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 rounded-full text-slate-900 dark:text-white font-bold">
                     {index + 1}
                   </div>
                   <div>
-                    <p className="font-medium text-white">{product.name}</p>
-                    <p className="text-sm text-slate-400">{product.category}</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{product.name}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{product.category}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-white">
+                  <p className="font-medium text-slate-900 dark:text-white">
                     ฿{product.revenue.toLocaleString("th-TH")}
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     ขาย {product.quantity} ชิ้น
                   </p>
                 </div>
@@ -359,9 +359,9 @@ export default function AnalyticsPage() {
       </Card>
 
       {/* Top Categories */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white">หมวดหมู่ยอดนิยม</CardTitle>
+          <CardTitle className="text-slate-900 dark:text-white">หมวดหมู่ยอดนิยม</CardTitle>
           <ExportButton
             data={exportCategories}
             filename={`top-categories-${dateRange}days`}
@@ -378,13 +378,13 @@ export default function AnalyticsPage() {
             {topCategories.map((category) => (
               <div key={category.category} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-white">{category.category}</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-medium text-slate-900 dark:text-white">{category.category}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     ฿{category.revenue.toLocaleString("th-TH")} (
                     {category.percentage.toFixed(1)}%)
                   </p>
                 </div>
-                <div className="w-full bg-slate-700 rounded-full h-2">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full"
                     style={{ width: `${category.percentage}%` }}
@@ -397,9 +397,9 @@ export default function AnalyticsPage() {
       </Card>
 
       {/* Campaign Performance */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white">ประสิทธิภาพแคมเปญ</CardTitle>
+          <CardTitle className="text-slate-900 dark:text-white">ประสิทธิภาพแคมเปญ</CardTitle>
           <ExportButton
             data={exportCampaigns}
             filename={`campaigns-${dateRange}days`}
@@ -417,17 +417,17 @@ export default function AnalyticsPage() {
             {campaignPerformance.map((campaign) => (
               <div
                 key={campaign.platform}
-                className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
               >
                 <div>
-                  <p className="font-medium text-white">{campaign.platform}</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-medium text-slate-900 dark:text-white">{campaign.platform}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     ค่าใช้จ่าย: ฿{campaign.spent.toLocaleString("th-TH")}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-white">ROI: {campaign.roi}x</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-medium text-slate-900 dark:text-white">ROI: {campaign.roi}x</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     {campaign.conversions} การแปลง
                   </p>
                 </div>
