@@ -3,21 +3,67 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Loader2, TrendingUp, Download } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Package,
+  AlertTriangle,
+  Pencil,
+  Trash2,
+  Loader2,
+  TrendingUp,
+  Download,
+} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
 import { ProductsPageSkeleton, ButtonLoading } from "@/components/loading-states";
 import { EmptyProducts, ErrorState } from "@/components/empty-states";
@@ -197,13 +243,13 @@ export default function StockPage() {
     if (selectedIds.length === filteredProducts.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredProducts.map(p => p.id));
+      setSelectedIds(filteredProducts.map((p) => p.id));
     }
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
@@ -213,7 +259,7 @@ export default function StockPage() {
     try {
       setBulkDeleting(true);
       await Promise.all(
-        selectedIds.map(id =>
+        selectedIds.map((id) =>
           fetch(`/api/products?id=${id}`, { method: "DELETE" })
         )
       );
@@ -236,7 +282,7 @@ export default function StockPage() {
   };
 
   const handleBulkExport = () => {
-    const selectedProducts = products.filter(p => selectedIds.includes(p.id));
+    const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
 
     if (selectedProducts.length === 0) {
       toast({
@@ -247,7 +293,7 @@ export default function StockPage() {
       return;
     }
 
-    const data = selectedProducts.map(p => ({
+    const data = selectedProducts.map((p) => ({
       ชื่อสินค้า: p.name,
       หมวดหมู่: p.category,
       จำนวน: p.quantity,
@@ -268,7 +314,13 @@ export default function StockPage() {
     setSelectedProduct(product);
     editForm.reset({
       name: product.name,
-      category: product.category as "Skincare" | "Makeup" | "Haircare" | "Supplement" | "Fashion" | "Other",
+      category: product.category as
+        | "Skincare"
+        | "Makeup"
+        | "Haircare"
+        | "Supplement"
+        | "Fashion"
+        | "Other",
       quantity: product.quantity,
       minStockLevel: product.minStockLevel,
       costPrice: product.costPrice,
@@ -284,14 +336,20 @@ export default function StockPage() {
   };
 
   // Filter products
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.category.toLowerCase().includes(search.toLowerCase())
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.category.toLowerCase().includes(search.toLowerCase())
   );
 
   // Calculate stats
-  const lowStockCount = products.filter((p) => p.quantity < p.minStockLevel).length;
-  const totalValue = products.reduce((acc, p) => acc + p.costPrice * p.quantity, 0);
+  const lowStockCount = products.filter(
+    (p) => p.quantity < p.minStockLevel
+  ).length;
+  const totalValue = products.reduce(
+    (acc, p) => acc + p.costPrice * p.quantity,
+    0
+  );
 
   // Prepare chart data (group by category)
   const chartData = products.reduce((acc: any[], product) => {
@@ -319,6 +377,7 @@ export default function StockPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header + Bulk actions */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Stock Management</h1>
@@ -352,9 +411,10 @@ export default function StockPage() {
               </Button>
             </>
           )}
+
           {products.length > 0 && (
             <ExportButton
-              data={products.map(p => ({
+              data={products.map((p) => ({
                 ชื่อสินค้า: p.name,
                 หมวดหมู่: p.category,
                 จำนวน: p.quantity,
@@ -374,6 +434,7 @@ export default function StockPage() {
               pdfTitle="รายงานสต็อกสินค้า"
             />
           )}
+
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
               <Button onClick={() => addForm.reset()}>
@@ -381,59 +442,23 @@ export default function StockPage() {
                 เพิ่มสินค้า
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
-            </DialogHeader>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
-                <FormField
-                  control={addForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ชื่อสินค้า</FormLabel>
-                      <FormControl>
-                        <Input placeholder="กรอกชื่อสินค้า" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>หมวดหมู่</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="เลือกหมวดหมู่" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Skincare">Skincare</SelectItem>
-                          <SelectItem value="Makeup">Makeup</SelectItem>
-                          <SelectItem value="Haircare">Haircare</SelectItem>
-                          <SelectItem value="Supplement">Supplement</SelectItem>
-                          <SelectItem value="Fashion">Fashion</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
+              </DialogHeader>
+              <Form {...addForm}>
+                <form
+                  onSubmit={addForm.handleSubmit(handleCreate)}
+                  className="space-y-4 py-4"
+                >
                   <FormField
                     control={addForm.control}
-                    name="quantity"
+                    name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>จำนวน</FormLabel>
+                        <FormLabel>ชื่อสินค้า</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
+                          <Input placeholder="กรอกชื่อสินค้า" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -441,58 +466,107 @@ export default function StockPage() {
                   />
                   <FormField
                     control={addForm.control}
-                    name="minStockLevel"
+                    name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>สต็อกขั้นต่ำ</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="10" {...field} />
-                        </FormControl>
+                        <FormLabel>หมวดหมู่</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="เลือกหมวดหมู่" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Skincare">Skincare</SelectItem>
+                            <SelectItem value="Makeup">Makeup</SelectItem>
+                            <SelectItem value="Haircare">Haircare</SelectItem>
+                            <SelectItem value="Supplement">
+                              Supplement
+                            </SelectItem>
+                            <SelectItem value="Fashion">Fashion</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={addForm.control}
-                    name="costPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ราคาทุน</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="sellPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ราคาขาย</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" type="button" onClick={() => setOpenAddDialog(false)}>
-                    ยกเลิก
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? <ButtonLoading /> : "บันทึก"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>จำนวน</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="minStockLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>สต็อกขั้นต่ำ</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="10" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="costPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ราคาทุน</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="sellPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ราคาขาย</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => setOpenAddDialog(false)}
+                    >
+                      ยกเลิก
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? <ButtonLoading /> : "บันทึก"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -512,16 +586,22 @@ export default function StockPage() {
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{lowStockCount}</div>
+            <div className="text-2xl font-bold text-orange-500">
+              {lowStockCount}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">มูลค่าสินค้าคงคลัง</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              มูลค่าสินค้าคงคลัง
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">฿{totalValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ฿{totalValue.toLocaleString()}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -540,7 +620,7 @@ export default function StockPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="quantity" fill="#10b981" name="จำนวน" />
+                <Bar dataKey="quantity" name="จำนวน" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -569,54 +649,94 @@ export default function StockPage() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0}
+                      checked={
+                        filteredProducts.length > 0 &&
+                        selectedIds.length === filteredProducts.length
+                      }
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
                   <TableHead className="text-slate-300">ชื่อสินค้า</TableHead>
                   <TableHead className="text-slate-300">หมวดหมู่</TableHead>
-                  <TableHead className="text-right text-slate-300">จำนวน</TableHead>
-                  <TableHead className="text-right text-slate-300">ราคาทุน</TableHead>
-                  <TableHead className="text-right text-slate-300">ราคาขาย</TableHead>
+                  <TableHead className="text-right text-slate-300">
+                    จำนวน
+                  </TableHead>
+                  <TableHead className="text-right text-slate-300">
+                    ราคาทุน
+                  </TableHead>
+                  <TableHead className="text-right text-slate-300">
+                    ราคาขาย
+                  </TableHead>
                   <TableHead className="text-slate-300">สถานะ</TableHead>
-                  <TableHead className="text-right text-slate-300">จัดการ</TableHead>
+                  <TableHead className="text-right text-slate-300">
+                    จัดการ
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={8}
+                      className="text-center text-muted-foreground"
+                    >
                       ไม่พบสินค้า
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => {
                     const profit = product.sellPrice - product.costPrice;
-                    const profitPercent = ((profit / product.costPrice) * 100).toFixed(1);
-                    const isLowStock = product.quantity < product.minStockLevel;
+                    const profitPercent = (
+                      (profit / (product.costPrice || 1)) *
+                      100
+                    ).toFixed(1);
+                    const isLowStock =
+                      product.quantity < product.minStockLevel;
 
                     return (
-                      <TableRow key={product.id} className={selectedIds.includes(product.id) ? "bg-slate-700/50" : ""}>
+                      <TableRow
+                        key={product.id}
+                        className={
+                          selectedIds.includes(product.id)
+                            ? "bg-slate-700/50"
+                            : ""
+                        }
+                      >
                         <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(product.id)}
                             onCheckedChange={() => toggleSelect(product.id)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {product.name}
+                        </TableCell>
                         <TableCell>{product.category}</TableCell>
-                        <TableCell className="text-right">{product.quantity}</TableCell>
-                        <TableCell className="text-right">฿{product.costPrice.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">฿{product.sellPrice.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          {product.quantity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ฿{product.costPrice.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ฿{product.sellPrice.toLocaleString()}
+                        </TableCell>
                         <TableCell>
-                          {product.quantity < product.minStockLevel ? (
+                          {isLowStock ? (
                             <Badge variant="destructive">สต็อกต่ำ</Badge>
-                          ) : product.quantity < product.minStockLevel * 1.5 ? (
-                            <Badge variant="secondary" className="bg-orange-500/10 text-orange-500">
+                          ) : product.quantity <
+                            product.minStockLevel * 1.5 ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-orange-500/10 text-orange-500"
+                            >
                               ใกล้หมด
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                            <Badge
+                              variant="secondary"
+                              className="bg-green-500/10 text-green-500"
+                            >
                               ปกติ
                             </Badge>
                           )}
@@ -643,10 +763,10 @@ export default function StockPage() {
                     );
                   })
                 )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {/* Edit Dialog */}
@@ -656,7 +776,10 @@ export default function StockPage() {
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4 py-4">
+            <form
+              onSubmit={editForm.handleSubmit(handleUpdate)}
+              className="space-y-4 py-4"
+            >
               <FormField
                 control={editForm.control}
                 name="name"
@@ -676,7 +799,10 @@ export default function StockPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>หมวดหมู่</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="เลือกหมวดหมู่" />
@@ -752,7 +878,11 @@ export default function StockPage() {
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setOpenEditDialog(false)}>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setOpenEditDialog(false)}
+                >
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={submitting}>

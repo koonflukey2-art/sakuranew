@@ -16,42 +16,39 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
-  Users,
   BarChart3,
-  PieChart,
-  Download,
 } from "lucide-react";
 import { ExportButton } from "@/components/export-button";
 import { formatDataForExport } from "@/lib/export";
 
 interface AnalyticsData {
-  overview: {
-    totalRevenue: number;
-    revenueChange: number;
-    totalOrders: number;
-    ordersChange: number;
-    totalProducts: number;
-    productsChange: number;
-    avgOrderValue: number;
-    avgOrderChange: number;
+  overview?: {
+    totalRevenue?: number;
+    revenueChange?: number;
+    totalOrders?: number;
+    ordersChange?: number;
+    totalProducts?: number;
+    productsChange?: number;
+    avgOrderValue?: number;
+    avgOrderChange?: number;
   };
-  topProducts: Array<{
+  topProducts?: Array<{
     id: string;
     name: string;
     category: string;
     revenue: number;
     quantity: number;
   }>;
-  topCategories: Array<{
+  topCategories?: Array<{
     category: string;
     revenue: number;
     percentage: number;
   }>;
-  revenueByMonth: Array<{
+  revenueByMonth?: Array<{
     month: string;
     revenue: number;
   }>;
-  campaignPerformance: Array<{
+  campaignPerformance?: Array<{
     platform: string;
     spent: number;
     roi: number;
@@ -66,16 +63,22 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/analytics?days=${dateRange}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch analytics");
+      }
       const analytics = await res.json();
-      setData(analytics);
+      setData(analytics || {});
     } catch (error) {
       console.error("Error fetching analytics:", error);
+      // ถ้า error ให้เซ็ต data เป็น object ว่าง ๆ เพื่อไม่ให้พัง
+      setData({});
     } finally {
       setLoading(false);
     }
@@ -96,10 +99,28 @@ export default function AnalyticsPage() {
     );
   }
 
-  const { overview, topProducts, topCategories, revenueByMonth, campaignPerformance } = data;
+  // ป้องกัน overview เป็น undefined ด้วยค่า default
+  const rawOverview = data.overview ?? {};
+
+  const overview = {
+    totalRevenue: rawOverview.totalRevenue ?? 0,
+    revenueChange: rawOverview.revenueChange ?? 0,
+    totalOrders: rawOverview.totalOrders ?? 0,
+    ordersChange: rawOverview.ordersChange ?? 0,
+    totalProducts: rawOverview.totalProducts ?? 0,
+    productsChange: rawOverview.productsChange ?? 0,
+    avgOrderValue: rawOverview.avgOrderValue ?? 0,
+    avgOrderChange: rawOverview.avgOrderChange ?? 0,
+  };
+
+  // ใส่ค่า default ให้ array ต่าง ๆ กัน error map บน undefined
+  const topProducts = data.topProducts ?? [];
+  const topCategories = data.topCategories ?? [];
+  const revenueByMonth = data.revenueByMonth ?? [];
+  const campaignPerformance = data.campaignPerformance ?? [];
 
   // Product Analysis Export Data
-  const exportProducts = formatDataForExport(topProducts || [], {
+  const exportProducts = formatDataForExport(topProducts, {
     name: "สินค้า",
     category: "หมวดหมู่",
     revenue: "รายได้",
@@ -107,20 +128,20 @@ export default function AnalyticsPage() {
   });
 
   // Category Analysis Export Data
-  const exportCategories = formatDataForExport(topCategories || [], {
+  const exportCategories = formatDataForExport(topCategories, {
     category: "หมวดหมู่",
     revenue: "รายได้",
     percentage: "เปอร์เซ็นต์",
   });
 
   // Revenue Export Data
-  const exportRevenue = formatDataForExport(revenueByMonth || [], {
+  const exportRevenue = formatDataForExport(revenueByMonth, {
     month: "เดือน",
     revenue: "รายได้",
   });
 
   // Campaign Analysis Export Data
-  const exportCampaigns = formatDataForExport(campaignPerformance || [], {
+  const exportCampaigns = formatDataForExport(campaignPerformance, {
     platform: "แพลตฟอร์ม",
     spent: "ค่าใช้จ่าย",
     roi: "ROI",
@@ -138,7 +159,7 @@ export default function AnalyticsPage() {
         <div className="flex gap-2 items-center">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-40 bg-slate-800 border-slate-700">
-              <SelectValue />
+              <SelectValue placeholder="เลือกช่วงเวลา" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700">
               <SelectItem value="7">7 วันที่แล้ว</SelectItem>
@@ -165,7 +186,9 @@ export default function AnalyticsPage() {
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.revenueChange >= 0 ? "text-green-500" : "text-red-500"
+                overview.revenueChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
               {overview.revenueChange >= 0 ? (
@@ -217,7 +240,9 @@ export default function AnalyticsPage() {
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.productsChange >= 0 ? "text-green-500" : "text-red-500"
+                overview.productsChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
               {overview.productsChange >= 0 ? (
@@ -243,7 +268,9 @@ export default function AnalyticsPage() {
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.avgOrderChange >= 0 ? "text-green-500" : "text-red-500"
+                overview.avgOrderChange >= 0
+                  ? "text-green-500"
+                  : "text-red-500"
               }`}
             >
               {overview.avgOrderChange >= 0 ? (
@@ -299,6 +326,11 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             ))}
+            {topProducts.length === 0 && (
+              <p className="text-center text-slate-400">
+                ยังไม่มีข้อมูลสินค้าขายดี
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -323,7 +355,9 @@ export default function AnalyticsPage() {
             {topCategories.map((category) => (
               <div key={category.category} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-white">{category.category}</p>
+                  <p className="font-medium text-white">
+                    {category.category}
+                  </p>
                   <p className="text-sm text-slate-400">
                     ฿{category.revenue.toLocaleString("th-TH")} (
                     {category.percentage.toFixed(1)}%)
@@ -337,6 +371,11 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             ))}
+            {topCategories.length === 0 && (
+              <p className="text-center text-slate-400">
+                ยังไม่มีข้อมูลหมวดหมู่
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -371,13 +410,20 @@ export default function AnalyticsPage() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-white">ROI: {campaign.roi}x</p>
+                  <p className="font-medium text-white">
+                    ROI: {campaign.roi}x
+                  </p>
                   <p className="text-sm text-slate-400">
                     {campaign.conversions} การแปลง
                   </p>
                 </div>
               </div>
             ))}
+            {campaignPerformance.length === 0 && (
+              <p className="text-center text-slate-400">
+                ยังไม่มีข้อมูลแคมเปญโฆษณา
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

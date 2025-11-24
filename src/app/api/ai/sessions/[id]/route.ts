@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-<parameter name="content">import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -14,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify the session belongs to the user
+    // ตรวจสอบว่า session นี้เป็นของ user คนนี้จริง ๆ
     const session = await prisma.chatSession.findFirst({
       where: {
         id: params.id,
@@ -28,7 +27,10 @@ export async function GET(
     });
 
     if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Session not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(session);

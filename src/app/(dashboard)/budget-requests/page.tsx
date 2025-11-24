@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,7 +120,7 @@ export default function BudgetRequestsPage() {
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) throw new Error(data.error || "Failed to create");
+      if (!response.ok) throw new Error((data as any).error || "Failed to create");
 
       toast({
         title: "สำเร็จ!",
@@ -149,7 +155,9 @@ export default function BudgetRequestsPage() {
 
       toast({
         title: "สำเร็จ!",
-        description: `${status === "APPROVED" ? "อนุมัติ" : "ปฏิเสธ"}คำขอเรียบร้อยแล้ว`,
+        description: `${
+          status === "APPROVED" ? "อนุมัติ" : "ปฏิเสธ"
+        }คำขอเรียบร้อยแล้ว`,
       });
 
       fetchRequests();
@@ -165,11 +173,23 @@ export default function BudgetRequestsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
-        return <Badge className="bg-yellow-600"><Clock className="w-3 h-3 mr-1" /> รอพิจารณา</Badge>;
+        return (
+          <Badge className="bg-yellow-600">
+            <Clock className="w-3 h-3 mr-1" /> รอพิจารณา
+          </Badge>
+        );
       case "APPROVED":
-        return <Badge className="bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> อนุมัติ</Badge>;
+        return (
+          <Badge className="bg-green-600">
+            <CheckCircle className="w-3 h-3 mr-1" /> อนุมัติ
+          </Badge>
+        );
       case "REJECTED":
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> ปฏิเสธ</Badge>;
+        return (
+          <Badge variant="destructive">
+            <XCircle className="w-3 h-3 mr-1" /> ปฏิเสธ
+          </Badge>
+        );
       default:
         return <Badge>{status}</Badge>;
     }
@@ -216,12 +236,16 @@ export default function BudgetRequestsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-slate-300">วัตถุประสงค์</TableHead>
+                    <TableHead className="text-slate-300">
+                      วัตถุประสงค์
+                    </TableHead>
                     <TableHead className="text-slate-300">จำนวน</TableHead>
                     <TableHead className="text-slate-300">ผู้ขอ</TableHead>
                     <TableHead className="text-slate-300">สถานะ</TableHead>
                     <TableHead className="text-slate-300">วันที่</TableHead>
-                    <TableHead className="text-right text-slate-300">จัดการ</TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      จัดการ
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -248,7 +272,9 @@ export default function BudgetRequestsPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>
                       <TableCell className="text-slate-300">
-                        {new Date(request.createdAt).toLocaleDateString("th-TH")}
+                        {new Date(request.createdAt).toLocaleDateString(
+                          "th-TH"
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         {request.status === "PENDING" && (
@@ -256,7 +282,9 @@ export default function BudgetRequestsPage() {
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleReview(request.id, "APPROVED")}
+                              onClick={() =>
+                                handleReview(request.id, "APPROVED")
+                              }
                             >
                               <CheckCircle className="w-3 h-3 mr-1" />
                               อนุมัติ
@@ -264,7 +292,9 @@ export default function BudgetRequestsPage() {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => handleReview(request.id, "REJECTED")}
+                              onClick={() =>
+                                handleReview(request.id, "REJECTED")
+                              }
                             >
                               <XCircle className="w-3 h-3 mr-1" />
                               ปฏิเสธ
@@ -304,7 +334,7 @@ export default function BudgetRequestsPage() {
               <Label>จำนวนเงิน (บาท)</Label>
               <Input
                 type="number"
-                value={formData.amount || ""}
+                value={formData.amount || 0}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -339,7 +369,9 @@ export default function BudgetRequestsPage() {
                 ยกเลิก
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {submitting && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
                 ส่งคำขอ
               </Button>
             </DialogFooter>
