@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
       setData(analytics || {});
     } catch (error) {
       console.error("Error fetching analytics:", error);
-      // ถ้า error ให้เซ็ต data เป็น object ว่าง ๆ เพื่อไม่ให้พัง
+      // กันไม่ให้หน้าพังเวลามี error จาก API
       setData({});
     } finally {
       setLoading(false);
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  // ป้องกัน overview เป็น undefined ด้วยค่า default
+  // ป้องกัน overview เป็น undefined
   const rawOverview = data.overview ?? {};
 
   const overview = {
@@ -113,7 +113,7 @@ export default function AnalyticsPage() {
     avgOrderChange: rawOverview.avgOrderChange ?? 0,
   };
 
-  // ใส่ค่า default ให้ array ต่าง ๆ กัน error map บน undefined
+  // default array กัน error เวลา map
   const topProducts = data.topProducts ?? [];
   const topCategories = data.topCategories ?? [];
   const revenueByMonth = data.revenueByMonth ?? [];

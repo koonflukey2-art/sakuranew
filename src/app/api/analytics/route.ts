@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
-    const days = parseInt(searchParams.get("days") || "30");
+    const days = parseInt(searchParams.get("days") || "30", 10);
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Calculate previous period for comparison
+    // ช่วงก่อนหน้า
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - days);
 
-    // Fetch products
+    // products ของ user นี้
     const products = await prisma.product.findMany({
       where: { userId: user.id },
     });
@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
         new Date(p.createdAt) < startDate
     );
 
-    // Fetch campaigns
-    const campaigns = await prisma.campaign.findMany({
+    // แคมเปญของ user นี้ (ใช้ AdCampaign ตาม schema จริง)
+    const campaigns = await prisma.adCampaign.findMany({
       where: { userId: user.id },
     });
 
@@ -42,19 +42,26 @@ export async function GET(req: NextRequest) {
       (c) => new Date(c.startDate) >= startDate
     );
 
-    // Calculate analytics
-    const totalRevenue = products.reduce(
-      (sum, p) => sum + p.sellPrice * p.quantity,
-      0
-    );
-    const currentRevenue = currentProducts.reduce(
-      (sum, p) => sum + p.sellPrice * p.quantity,
-      0
-    );
-    const previousRevenue = previousProducts.reduce(
-      (sum, p) => sum + p.sellPrice * p.quantity,
-      0
-    );
+    // ===== คำนวณ overview =====
+
+    const totalRevenue = products.reduce((sum, p) => {
+      const sellPrice = p.sellPrice ?? 0;
+      const quantity = p.quantity ?? 0;
+      return sum + sellPrice * quantity;
+    }, 0);
+
+    const currentRevenue = currentProducts.reduce((sum, p) => {
+      const sellPrice = p.sellPrice ?? 0;
+      const quantity = p.quantity ?? 0;
+      return sum + sellPrice * quantity;
+    }, 0);
+
+    const previousRevenue = previousProducts.reduce((sum, p) => {
+      const sellPrice = p.sellPrice ?? 0;
+      const quantity = p.quantity ?? 0;
+      return sum + sellPrice * quantity;
+    }, 0);
+
     const revenueChange =
       previousRevenue > 0
         ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
@@ -63,6 +70,7 @@ export async function GET(req: NextRequest) {
     const totalOrders = products.length;
     const currentOrders = currentProducts.length;
     const previousOrders = previousProducts.length;
+
     const ordersChange =
       previousOrders > 0
         ? ((currentOrders - previousOrders) / previousOrders) * 100
@@ -71,6 +79,7 @@ export async function GET(req: NextRequest) {
     const totalProducts = products.length;
     const currentProductCount = currentProducts.length;
     const previousProductCount = previousProducts.length;
+
     const productsChange =
       previousProductCount > 0
         ? ((currentProductCount - previousProductCount) /
@@ -83,25 +92,27 @@ export async function GET(req: NextRequest) {
       currentOrders > 0 ? currentRevenue / currentOrders : 0;
     const previousAvg =
       previousOrders > 0 ? previousRevenue / previousOrders : 0;
+
     const avgOrderChange =
       previousAvg > 0 ? ((currentAvg - previousAvg) / previousAvg) * 100 : 0;
 
-    // Top products by revenue
+    // ===== Top products =====
     const topProducts = products
       .map((p) => ({
         id: p.id,
         name: p.name,
         category: p.category,
-        revenue: p.sellPrice * p.quantity,
-        quantity: p.quantity,
+        revenue: (p.sellPrice ?? 0) * (p.quantity ?? 0),
+        quantity: p.quantity ?? 0,
       }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
-    // Top categories by revenue
+    // ===== Top categories =====
     const categoryRevenue = products.reduce((acc, p) => {
-      const revenue = p.sellPrice * p.quantity;
-      acc[p.category] = (acc[p.category] || 0) + revenue;
+      const category = p.category || "ไม่ระบุ";
+      const revenue = (p.sellPrice ?? 0) * (p.quantity ?? 0);
+      acc[category] = (acc[category] || 0) + revenue;
       return acc;
     }, {} as Record<string, number>);
 
@@ -109,19 +120,19 @@ export async function GET(req: NextRequest) {
       .map(([category, revenue]) => ({
         category,
         revenue,
-        percentage: (revenue / totalRevenue) * 100,
+        percentage: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
       }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
-    // Revenue by month (simplified - using product creation date)
+    // ===== Revenue by month (จาก createdAt ของ product) =====
     const monthlyRevenue: Record<string, number> = {};
     products.forEach((p) => {
       const month = new Date(p.createdAt).toLocaleDateString("th-TH", {
         year: "numeric",
         month: "short",
       });
-      const revenue = p.sellPrice * p.quantity;
+      const revenue = (p.sellPrice ?? 0) * (p.quantity ?? 0);
       monthlyRevenue[month] = (monthlyRevenue[month] || 0) + revenue;
     });
 
@@ -129,12 +140,12 @@ export async function GET(req: NextRequest) {
       .map(([month, revenue]) => ({ month, revenue }))
       .slice(-6);
 
-    // Campaign performance
+    // ===== Campaign performance =====
     const campaignPerformance = currentCampaigns.map((c) => ({
       platform: c.platform,
-      spent: c.spent,
-      roi: c.roi,
-      conversions: c.conversions,
+      spent: c.spent ?? 0,
+      roi: c.roi ?? 0,
+      conversions: c.conversions ?? 0,
     }));
 
     const analytics = {
