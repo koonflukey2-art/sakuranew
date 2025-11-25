@@ -31,6 +31,9 @@ model User {
 
   // ฝั่งตรงข้ามของ AdAccount.user
   adAccounts AdAccount[]
+  aiConversations      AIConversation[]
+  facebookAdInsights   FacebookAdInsight[]
+  aiProductSuggestions AIProductSuggestion[]
 }
 
 enum Role {
@@ -53,6 +56,7 @@ model Product {
 
   user         User           @relation(fields: [userId], references: [id])
   stockHistory StockHistory[]
+  aiSuggestions AIProductSuggestion[]
 }
 
 model StockHistory {
@@ -125,8 +129,13 @@ model AdCampaign {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   userId       String
+  adAccountId  String?
 
-  user User @relation(fields: [userId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([adAccountId])
 }
 
 enum Platform {
@@ -232,18 +241,23 @@ enum MessageRole {
 }
 
 model AutomationRule {
-  id        String   @id @default(cuid())
-  platform  String // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
-  tool      String // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
-  ruleName  String
-  condition Json // { metric: "CPA", operator: ">", value: 200 }
-  action    Json // { type: "pauseCampaign", value: "" }
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  userId    String
+  id          String   @id @default(cuid())
+  platform    String // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
+  tool        String // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
+  ruleName    String
+  condition   Json // { metric: "CPA", operator: ">", value: 200 }
+  action      Json // { type: "pauseCampaign", value: "" }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  adAccountId String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([adAccountId])
 }
 
 model WorkflowTemplate {
@@ -269,33 +283,114 @@ model MetricsPlan {
 
 enum AdPlatform {
   FACEBOOK
+  GOOGLE
   TIKTOK
-  SHOPEE
-  LAZADA
-}
-
-enum AdTestStatus {
-  SUCCESS
-  FAILED
-  PENDING
+  LINE
 }
 
 model AdAccount {
-  id                String        @id @default(cuid())
-  userId            String
-  platform          AdPlatform
-  name              String
-  apiKey            String?
-  apiSecret         String?
-  accessToken       String?
-  refreshToken      String?
-  accountId         String?
-  pixelOrTrackingId String?
-  isActive          Boolean       @default(true)
-  lastTestedAt      DateTime?
-  lastTestStatus    AdTestStatus?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform     AdPlatform
+  accountName  String
+  accountId    String
+  apiKey       String
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isActive     Boolean  @default(true)
+  isDefault    Boolean  @default(false)
+  isValid      Boolean  @default(false)
+
+  lastTested   DateTime?
+  testMessage  String?
+
+  currency     String   @default("THB")
+  timezone     String   @default("Asia/Bangkok")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campaigns       AdCampaign[]
+  automationRules AutomationRule[]
+  facebookInsights FacebookAdInsight[]
+
+  @@unique([userId, platform, accountId])
+  @@index([userId])
+}
+
+model AIConversation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String   @default("New Conversation")
+  provider    String   // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
+  messages    Json     // Array of {role, content, timestamp}
+
+  context     Json?    // Business context (products, campaigns, etc.)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model FacebookAdInsight {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  adAccountId     String
+  adAccount       AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  campaignId      String
+  campaignName    String
+
+  // Metrics
+  impressions     Int      @default(0)
+  clicks          Int      @default(0)
+  spend           Float    @default(0)
+  reach           Int      @default(0)
+  conversions     Int      @default(0)
+  ctr             Float    @default(0)
+  cpc             Float    @default(0)
+  cpm             Float    @default(0)
+  roas            Float    @default(0)
+
+  // AI Analysis
+  aiRecommendation String?
+  optimizationScore Float?
+
+  date            DateTime
+  createdAt       DateTime @default(now())
+
+  @@unique([adAccountId, campaignId, date])
+  @@index([userId])
+  @@index([adAccountId])
+}
+
+model AIProductSuggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productName String
+  category    String
+  description String   @db.Text
+
+  aiProvider  String
+  confidence  Float
+
+  isApplied   Boolean  @default(false)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }

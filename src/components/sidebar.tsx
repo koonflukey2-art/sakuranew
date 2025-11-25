@@ -27,6 +27,7 @@ import {
   Menu,
   X,
   FileText,
+  Sparkles,
 } from "lucide-react";
 
 type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
@@ -45,6 +46,7 @@ const navItems = [
   { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta", color: "text-indigo-400", roles: ["ADMIN"] },
   { href: "/ai-chat", label: "AI Chat", icon: Bot, badge: "New", color: "text-emerald-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/ai-assistant", label: "AI Assistant", icon: Bot, badge: "AI", color: "text-blue-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+  { href: "/ai-dashboard", label: "AI Dashboard", icon: Sparkles, badge: "New", color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/notifications", label: "การแจ้งเตือน", icon: Bell, color: "text-red-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users, color: "text-teal-400", roles: ["ADMIN"] },
   { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-slate-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
