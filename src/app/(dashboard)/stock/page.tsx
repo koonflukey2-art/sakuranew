@@ -15,7 +15,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
@@ -374,125 +383,126 @@ export default function StockPage() {
               pdfTitle="รายงานสต็อกสินค้า"
             />
           )}
-          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => addForm.reset()}>
-                <Plus className="w-4 h-4 mr-2" />
-                เพิ่มสินค้า
-              </Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
-            </DialogHeader>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
-                <FormField
-                  control={addForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ชื่อสินค้า</FormLabel>
-                      <FormControl>
-                        <Input placeholder="กรอกชื่อสินค้า" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>หมวดหมู่</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="เลือกหมวดหมู่" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Skincare">Skincare</SelectItem>
-                          <SelectItem value="Makeup">Makeup</SelectItem>
-                          <SelectItem value="Haircare">Haircare</SelectItem>
-                          <SelectItem value="Supplement">Supplement</SelectItem>
-                          <SelectItem value="Fashion">Fashion</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={addForm.control}
-                    name="quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>จำนวน</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="minStockLevel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>สต็อกขั้นต่ำ</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="10" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={addForm.control}
-                    name="costPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ราคาทุน</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="sellPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ราคาขาย</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" type="button" onClick={() => setOpenAddDialog(false)}>
-                    ยกเลิก
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? <ButtonLoading /> : "บันทึก"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+              <DialogTrigger asChild>
+                <Button onClick={() => addForm.reset()}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  เพิ่มสินค้า
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
+                </DialogHeader>
+                <Form {...addForm}>
+                  <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
+                    <FormField
+                      control={addForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ชื่อสินค้า</FormLabel>
+                          <FormControl>
+                            <Input placeholder="กรอกชื่อสินค้า" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>หมวดหมู่</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกหมวดหมู่" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Skincare">Skincare</SelectItem>
+                              <SelectItem value="Makeup">Makeup</SelectItem>
+                              <SelectItem value="Haircare">Haircare</SelectItem>
+                              <SelectItem value="Supplement">Supplement</SelectItem>
+                              <SelectItem value="Fashion">Fashion</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={addForm.control}
+                        name="quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>จำนวน</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="0" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={addForm.control}
+                        name="minStockLevel"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>สต็อกขั้นต่ำ</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="10" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={addForm.control}
+                        name="costPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ราคาทุน</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="0" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={addForm.control}
+                        name="sellPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ราคาขาย</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="0" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" type="button" onClick={() => setOpenAddDialog(false)}>
+                        ยกเลิก
+                      </Button>
+                      <Button type="submit" disabled={submitting}>
+                        {submitting ? <ButtonLoading /> : "บันทึก"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
       </div>
 
       {/* Stats Cards */}
@@ -591,12 +601,13 @@ export default function StockPage() {
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => {
-                    const profit = product.sellPrice - product.costPrice;
-                    const profitPercent = ((profit / product.costPrice) * 100).toFixed(1);
                     const isLowStock = product.quantity < product.minStockLevel;
 
                     return (
-                      <TableRow key={product.id} className={selectedIds.includes(product.id) ? "bg-slate-700/50" : ""}>
+                      <TableRow
+                        key={product.id}
+                        className={selectedIds.includes(product.id) ? "bg-slate-700/50" : ""}
+                      >
                         <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(product.id)}
@@ -609,7 +620,7 @@ export default function StockPage() {
                         <TableCell className="text-right">฿{product.costPrice.toLocaleString()}</TableCell>
                         <TableCell className="text-right">฿{product.sellPrice.toLocaleString()}</TableCell>
                         <TableCell>
-                          {product.quantity < product.minStockLevel ? (
+                          {isLowStock ? (
                             <Badge variant="destructive">สต็อกต่ำ</Badge>
                           ) : product.quantity < product.minStockLevel * 1.5 ? (
                             <Badge variant="secondary" className="bg-orange-500/10 text-orange-500">
@@ -623,18 +634,10 @@ export default function StockPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEdit(product)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openDelete(product)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
@@ -643,11 +646,11 @@ export default function StockPage() {
                     );
                   })
                 )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        )}
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>

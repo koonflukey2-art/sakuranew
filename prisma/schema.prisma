@@ -88,6 +88,7 @@ model Budget {
 model BudgetRequest {
   id          String                @id @default(cuid())
   amount      Float
+  purpose     String
   reason      String
   status      BudgetRequestStatus   @default(PENDING)
   createdAt   DateTime              @default(now())
@@ -166,6 +167,8 @@ enum NotificationType {
   WARNING
   SUCCESS
   ERROR
+  BUDGET_APPROVED
+  BUDGET_ALERT
   BUDGET_REQUEST
   LOW_STOCK
   CAMPAIGN_COMPLETE
@@ -260,4 +263,37 @@ model MetricsPlan {
   userId       String
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum AdPlatform {
+  FACEBOOK
+  TIKTOK
+  SHOPEE
+  LAZADA
+}
+
+enum AdTestStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+model AdAccount {
+  id               String        @id @default(cuid())
+  userId           String
+  platform         AdPlatform
+  name             String
+  apiKey           String?
+  apiSecret        String?
+  accessToken      String?
+  refreshToken     String?
+  accountId        String?
+  pixelOrTrackingId String?
+  isActive         Boolean       @default(true)
+  lastTestedAt     DateTime?
+  lastTestStatus   AdTestStatus?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

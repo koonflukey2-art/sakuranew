@@ -15,7 +15,17 @@ import { formatRelativeTime } from "@/lib/utils";
 
 interface Notification {
   id: string;
-  type: "INFO" | "WARNING" | "SUCCESS" | "ERROR" | "BUDGET_REQUEST" | "LOW_STOCK" | "CAMPAIGN_COMPLETE" | "AI_ALERT";
+  type:
+    | "INFO"
+    | "WARNING"
+    | "SUCCESS"
+    | "ERROR"
+    | "BUDGET_APPROVED"
+    | "BUDGET_ALERT"
+    | "BUDGET_REQUEST"
+    | "LOW_STOCK"
+    | "CAMPAIGN_COMPLETE"
+    | "AI_ALERT";
   title: string;
   message: string;
   link: string | null;
@@ -28,6 +38,8 @@ const notificationIcons: Record<string, any> = {
   WARNING: Package,
   SUCCESS: Megaphone,
   ERROR: Bell,
+  BUDGET_APPROVED: Wallet,
+  BUDGET_ALERT: Wallet,
   BUDGET_REQUEST: Wallet,
   LOW_STOCK: Package,
   CAMPAIGN_COMPLETE: Megaphone,
@@ -39,6 +51,8 @@ const notificationColors: Record<string, string> = {
   WARNING: "text-orange-500",
   SUCCESS: "text-green-500",
   ERROR: "text-red-500",
+  BUDGET_APPROVED: "text-green-500",
+  BUDGET_ALERT: "text-amber-500",
   BUDGET_REQUEST: "text-blue-500",
   LOW_STOCK: "text-orange-500",
   CAMPAIGN_COMPLETE: "text-green-500",
