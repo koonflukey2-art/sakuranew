@@ -1,44 +1,45 @@
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
-
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
-
-interface AdAccountPayload {
-  platform?: string;
-  name?: string;
-  apiKey?: string;
-  apiSecret?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  accountId?: string;
-  pixelOrTrackingId?: string;
-  isActive?: boolean;
-}
-
-function normalizePlatform(value?: string): AllowedPlatform | null {
-  const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
-    : null;
-}
+import { encrypt } from "@/lib/crypto";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const accounts = await prisma.adAccount.findMany({
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const adAccounts = await prisma.adAccount.findMany({
       where: { userId: user.id },
+      select: {
+        id: true,
+        platform: true,
+        accountName: true,
+        accountId: true,
+        isActive: true,
+        isDefault: true,
+        isValid: true,
+        lastTested: true,
+        testMessage: true,
+        currency: true,
+        timezone: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(accounts);
+    return NextResponse.json(adAccounts);
   } catch (error) {
-    console.error("Error fetching ad accounts", error);
+    console.error("Ad accounts fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch ad accounts" },
       { status: 500 }
@@ -48,44 +49,120 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: AdAccountPayload = await request.json();
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
 
-    const platform = normalizePlatform(body.platform);
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
-    if (!platform || !name) {
+    const body = await request.json();
+    const {
+      platform,
+      accountName,
+      accountId,
+      apiKey,
+      apiSecret,
+      accessToken,
+      refreshToken,
+      currency = "THB",
+      timezone = "Asia/Bangkok",
+    } = body;
+
+    if (!platform || !accountName || !accountId) {
       return NextResponse.json(
-        { error: "กรุณาระบุ platform และชื่อบัญชีให้ถูกต้อง" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const created = await prisma.adAccount.create({
-      data: {
-        userId: user.id,
-        platform,
-        name,
-        apiKey: body.apiKey?.trim() || null,
-        apiSecret: body.apiSecret?.trim() || null,
-        accessToken: body.accessToken?.trim() || null,
-        refreshToken: body.refreshToken?.trim() || null,
-        accountId: body.accountId?.trim() || null,
-        pixelOrTrackingId: body.pixelOrTrackingId?.trim() || null,
-        isActive: body.isActive ?? true,
-        lastTestStatus: "PENDING",
+    const existing = await prisma.adAccount.findUnique({
+      where: {
+        userId_platform_accountId: {
+          userId: user.id,
+          platform,
+          accountId,
+        },
       },
     });
 
-    return NextResponse.json(created, { status: 201 });
+    if (existing) {
+      return NextResponse.json(
+        { error: "Ad account already exists" },
+        { status: 400 }
+      );
+    }
+
+    const encryptedApiKey = apiKey ? encrypt(apiKey) : "";
+    const encryptedApiSecret = apiSecret ? encrypt(apiSecret) : null;
+    const encryptedAccessToken = accessToken ? encrypt(accessToken) : null;
+    const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : null;
+
+    const adAccount = await prisma.adAccount.create({
+      data: {
+        userId: user.id,
+        platform,
+        accountName,
+        accountId,
+        apiKey: encryptedApiKey,
+        apiSecret: encryptedApiSecret,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        currency,
+        timezone,
+      },
+    });
+
+    return NextResponse.json(adAccount);
   } catch (error) {
-    console.error("Error creating ad account", error);
+    console.error("Ad account creation error:", error);
     return NextResponse.json(
       { error: "Failed to create ad account" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Ad account ID required" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.adAccount.delete({
+      where: { id, userId: user.id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Ad account deletion error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete ad account" },
       { status: 500 }
     );
   }

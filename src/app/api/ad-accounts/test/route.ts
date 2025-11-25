@@ -1,72 +1,204 @@
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { decrypt } from "@/lib/crypto";
 
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
+async function testFacebookConnection(apiKey: string, accountId: string) {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${accountId}?fields=name,account_status&access_token=${apiKey}`
+    );
 
-interface TestPayload {
-  id?: string;
-  platform?: string;
-  apiKey?: string;
-  apiSecret?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  accountId?: string;
-  pixelOrTrackingId?: string;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "Invalid credentials");
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: `Connected to ${data.name}`,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Connection failed",
+    };
+  }
 }
 
-function normalizePlatform(value?: string): AllowedPlatform | null {
-  const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
-    : null;
+async function testGoogleAdsConnection(apiKey: string, accountId: string) {
+  try {
+    const response = await fetch(
+      `https://googleads.googleapis.com/v15/customers/${accountId}:listAccessibleCustomers`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Invalid credentials");
+    }
+
+    return {
+      success: true,
+      message: "Successfully connected to Google Ads",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Connection failed",
+    };
+  }
+}
+
+async function testTikTokConnection(apiKey: string) {
+  try {
+    const response = await fetch(
+      `https://business-api.tiktok.com/open_api/v1.3/advertiser/info/`,
+      {
+        method: "GET",
+        headers: {
+          "Access-Token": apiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Invalid credentials");
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 0) {
+      throw new Error(data.message || "Connection failed");
+    }
+
+    return {
+      success: true,
+      message: "Successfully connected to TikTok Ads",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Connection failed",
+    };
+  }
+}
+
+async function testLINEConnection(apiKey: string, accountId: string) {
+  try {
+    const response = await fetch(
+      `https://api.line.me/v2/bot/profile/${accountId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Invalid credentials");
+    }
+
+    return {
+      success: true,
+      message: "Successfully connected to LINE",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Connection failed",
+    };
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: TestPayload = await request.json();
-    const platform = normalizePlatform(body.platform);
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
 
-    if (!platform) {
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, message: "platform ไม่ถูกต้อง" },
+        { error: "Ad account ID required" },
         { status: 400 }
       );
     }
 
-    const hasKey = Boolean(body.apiKey?.trim() || body.accessToken?.trim());
-    const success = hasKey;
-    const message = success
-      ? "เชื่อมต่อสำเร็จ"
-      : "API Key หรือ Access Token ว่าง";
+    const adAccount = await prisma.adAccount.findUnique({
+      where: { id, userId: user.id },
+    });
 
-    if (body.id) {
-      const existing = await prisma.adAccount.findFirst({
-        where: { id: body.id, userId: user.id },
-      });
-
-      if (existing) {
-        await prisma.adAccount.update({
-          where: { id: existing.id },
-          data: {
-            lastTestedAt: new Date(),
-            lastTestStatus: success ? "SUCCESS" : "FAILED",
-          },
-        });
-      }
+    if (!adAccount) {
+      return NextResponse.json(
+        { error: "Ad account not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ success, message, status: success ? "SUCCESS" : "FAILED" });
+    const apiKey = decrypt(adAccount.apiKey);
+    const accessToken = adAccount.accessToken
+      ? decrypt(adAccount.accessToken)
+      : null;
+
+    let result;
+    switch (adAccount.platform) {
+      case "FACEBOOK":
+        result = await testFacebookConnection(
+          accessToken || apiKey,
+          adAccount.accountId
+        );
+        break;
+      case "GOOGLE":
+        result = await testGoogleAdsConnection(
+          accessToken || apiKey,
+          adAccount.accountId
+        );
+        break;
+      case "TIKTOK":
+        result = await testTikTokConnection(apiKey);
+        break;
+      case "LINE":
+        result = await testLINEConnection(apiKey, adAccount.accountId);
+        break;
+      default:
+        return NextResponse.json(
+          { error: "Unsupported platform" },
+          { status: 400 }
+        );
+    }
+
+    await prisma.adAccount.update({
+      where: { id },
+      data: {
+        isValid: result.success,
+        lastTested: new Date(),
+        testMessage: result.message,
+      },
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Error testing ad account", error);
+    console.error("Ad account test error:", error);
     return NextResponse.json(
-      { success: false, message: "ไม่สามารถทดสอบการเชื่อมต่อได้" },
+      { error: "Failed to test connection" },
       { status: 500 }
     );
   }

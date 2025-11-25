@@ -29,7 +29,6 @@ model User {
   aiProviders     AIProvider[]
   chatSessions    ChatSession[]
 
-  // ฝั่งตรงข้ามของ AdAccount.user
   adAccounts AdAccount[]
 }
 
@@ -126,7 +125,12 @@ model AdCampaign {
   updatedAt    DateTime       @updatedAt
   userId       String
 
-  user User @relation(fields: [userId], references: [id])
+  adAccountId String?
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+  user        User       @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([adAccountId])
 }
 
 enum Platform {
@@ -243,7 +247,12 @@ model AutomationRule {
   updatedAt DateTime @updatedAt
   userId    String
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccountId String?
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([adAccountId])
 }
 
 model WorkflowTemplate {
@@ -269,33 +278,40 @@ model MetricsPlan {
 
 enum AdPlatform {
   FACEBOOK
+  GOOGLE
   TIKTOK
-  SHOPEE
-  LAZADA
-}
-
-enum AdTestStatus {
-  SUCCESS
-  FAILED
-  PENDING
+  LINE
 }
 
 model AdAccount {
-  id                String        @id @default(cuid())
-  userId            String
-  platform          AdPlatform
-  name              String
-  apiKey            String?
-  apiSecret         String?
-  accessToken       String?
-  refreshToken      String?
-  accountId         String?
-  pixelOrTrackingId String?
-  isActive          Boolean       @default(true)
-  lastTestedAt      DateTime?
-  lastTestStatus    AdTestStatus?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform     AdPlatform
+  accountName  String
+  accountId    String
+  apiKey       String
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+  isValid   Boolean @default(false)
+
+  lastTested  DateTime?
+  testMessage String?
+
+  currency String @default("THB")
+  timezone String @default("Asia/Bangkok")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns       AdCampaign[]
+  automationRules AutomationRule[]
+
+  @@unique([userId, platform, accountId])
+  @@index([userId])
 }

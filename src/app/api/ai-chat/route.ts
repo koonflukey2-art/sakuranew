@@ -1,7 +1,71 @@
 import { NextResponse } from "next/server";
+import { AdAccount } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+
+interface SystemSummary {
+  totalProducts: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  inventoryValue: number;
+  totalCampaigns: number;
+  activeCampaigns: number;
+  totalAdSpend: number;
+  avgROI: number;
+  totalBudget: number;
+  totalSpent: number;
+  budgetRemaining: number;
+}
+
+interface SystemProduct {
+  name: string;
+  category: string | null;
+  quantity: number;
+  minStock: number;
+  costPrice: number;
+  sellPrice: number;
+  profit: number;
+}
+
+interface SystemCampaign {
+  name: string;
+  platform: string;
+  budget: number;
+  spent: number;
+  roi: number;
+  conversions: number;
+  status: string;
+}
+
+interface SystemBudget {
+  purpose: string;
+  amount: number;
+  spent: number;
+  remaining: number;
+}
+
+interface SystemAdAccount {
+  platform: string;
+  accountName: string;
+  isValid: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  status: string;
+}
+
+interface SystemContext {
+  summary: SystemSummary;
+  products: SystemProduct[];
+  campaigns: SystemCampaign[];
+  budgets: SystemBudget[];
+  adAccounts: SystemAdAccount[];
+  alerts: {
+    lowStock: { name: string; current: number; min: number; shortage: number }[];
+    outOfStock: string[];
+    overBudget: string[];
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -19,10 +83,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { message, provider: requestedProvider, model: requestedModel, sessionId } = await request.json();
+    const {
+      message,
+      provider: requestedProvider,
+      model: requestedModel,
+      sessionId,
+    } = await request.json();
 
     // หา provider ที่ขอมา หรือใช้ default
-    const providerToUse = requestedProvider || user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
+    const providerToUse =
+      requestedProvider || user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
     const aiProvider = user.aiProviders.find(
       (p) => p.provider === providerToUse && p.isValid
     );
@@ -116,11 +186,24 @@ export async function POST(request: Request) {
 }
 
 // ดึงข้อมูลทั้งระบบ
-async function getSystemContext(userId: string) {
-  const [products, campaigns, budgets] = await Promise.all([
+async function getSystemContext(userId: string): Promise<SystemContext> {
+  const [products, campaigns, budgets, adAccounts] = await Promise.all([
     prisma.product.findMany({ where: { userId } }),
     prisma.adCampaign.findMany({ where: { userId } }),
     prisma.budget.findMany({ where: { userId } }),
+    prisma.adAccount.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        platform: true,
+        accountName: true,
+        isActive: true,
+        isDefault: true,
+        isValid: true,
+        lastTested: true,
+        testMessage: true,
+      },
+    }),
   ]);
 
   // คำนวณสถิติ
@@ -132,14 +215,9 @@ async function getSystemContext(userId: string) {
     0
   );
 
-  const totalRevenue = campaigns.reduce(
-    (sum, c) => sum + (c.conversions * (c.spent / (c.conversions || 1))),
-    0
-  );
-
   const totalAdSpend = campaigns.reduce((sum, c) => sum + c.spent, 0);
-  const avgROI = campaigns.length > 0
-    ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
+  const avgROIValue = campaigns.length > 0
+    ? Number((campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length).toFixed(2))
     : 0;
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
@@ -154,7 +232,7 @@ async function getSystemContext(userId: string) {
       totalCampaigns: campaigns.length,
       activeCampaigns: campaigns.filter((c) => c.status === "ACTIVE").length,
       totalAdSpend,
-      avgROI: avgROI.toFixed(2),
+      avgROI: avgROIValue,
       totalBudget,
       totalSpent,
       budgetRemaining: totalBudget - totalSpent,
@@ -183,6 +261,7 @@ async function getSystemContext(userId: string) {
       spent: b.spent,
       remaining: b.amount - b.spent,
     })),
+    adAccounts: formatAdAccounts(adAccounts),
     alerts: {
       lowStock: lowStockProducts.map((p) => ({
         name: p.name,
@@ -198,49 +277,93 @@ async function getSystemContext(userId: string) {
   };
 }
 
+function formatPlatformName(platform: string) {
+  const normalized = platform.toUpperCase();
+
+  switch (normalized) {
+    case "FACEBOOK":
+      return "Facebook";
+    case "GOOGLE":
+      return "Google";
+    case "TIKTOK":
+      return "TikTok";
+    case "LINE":
+      return "LINE";
+    default:
+      return platform;
+  }
+}
+
+function formatAdAccounts(
+  adAccounts: Pick<
+    AdAccount,
+    "id" | "platform" | "accountName" | "isActive" | "isDefault" | "isValid" | "testMessage" | "lastTested"
+  >[]
+): SystemAdAccount[] {
+  const defaultId = adAccounts.find((a) => a.isDefault)?.id;
+
+  return adAccounts.map((account, index) => ({
+    platform: formatPlatformName(account.platform),
+    accountName: account.accountName,
+    isValid: account.isValid,
+    isDefault: defaultId ? account.id === defaultId : index === 0,
+    isActive: account.isActive,
+    status:
+      account.testMessage ||
+      (account.lastTested ? `Tested on ${new Date(account.lastTested).toLocaleString()}` : "PENDING"),
+  }));
+}
+
+function buildSystemPrompt(context: SystemContext) {
+  const businessData = {
+    products: context.products,
+    campaigns: context.campaigns,
+    budgets: context.budgets,
+    adAccounts: context.adAccounts,
+  };
+
+  const adAccountsOverview =
+    businessData.adAccounts.length > 0
+      ? businessData.adAccounts
+          .map(
+            (acc) =>
+              `- ${acc.platform}: ${acc.accountName} - ${acc.isValid ? "✅ Connected" : "❌ Disconnected"}${acc.isDefault ? " [Default]" : ""}`
+          )
+          .join("\n")
+      : "- ยังไม่มีการเชื่อมต่อ Ad Account";
+
+  return `คุณคือผู้ช่วย AI สำหรับระบบจัดการธุรกิจและโฆษณาออนไลน์ของผู้ใช้
+
+ข้อมูลปัจจุบัน:
+- สินค้า: ${businessData.products.length} รายการ
+- แคมเปญโฆษณา: ${businessData.campaigns.length} แคมเปญ
+- งบประมาณ: ${businessData.budgets.length} รายการ
+- Ad Accounts: ${businessData.adAccounts.length} บัญชี
+
+Ad Accounts:
+${adAccountsOverview}
+
+ฟีเจอร์ที่ระบบรองรับแล้ว (สำคัญสำหรับการตอบ):
+- ผู้ใช้สามารถจัดการ Ad Accounts ได้ในหน้า Settings (เพิ่ม / ลบ / แก้ไข / ทดสอบการเชื่อมต่อ และตั้งเป็น Default)
+- หน้า Ads ผู้ใช้ต้องเลือก Ad Account เมื่อสร้างแคมเปญใหม่ และแคมเปญจะถูกผูกกับ Ad Account ที่เลือก
+- หน้า Automation ผู้ใช้สามารถเลือก Ad Account เฉพาะ หรือใช้ทุกบัญชี เมื่อสร้างกฎอัตโนมัติ
+- ข้อมูล API key / access token ของ Ad Accounts ถูกเข้ารหัสก่อนเก็บในฐานข้อมูล (ผ่านโมดูล crypto)
+- AI สามารถใช้ข้อมูลสินค้า แคมเปญ งบประมาณ และสถานะของแต่ละ Ad Account เพื่อช่วยวิเคราะห์และให้คำแนะนำ
+
+หลักการตอบ:
+- ใช้ข้อมูลจาก businessData.products, businessData.campaigns, businessData.budgets และ businessData.adAccounts เท่านั้น ห้ามเดาข้อมูลที่ไม่มีอยู่จริง
+- ถ้า Ad Account ใด isValid = false ให้แจ้งผู้ใช้ตามจริง และแนะนำให้กลับไปทดสอบการเชื่อมต่อในหน้า Settings
+- ถ้าผู้ใช้ไม่ได้ระบุแพลตฟอร์ม ให้ถามย้อนว่าต้องการดูข้อมูลของแพลตฟอร์มใด (Facebook / Google / TikTok / LINE) หรือดูภาพรวมทุกแพลตฟอร์ม
+- ถ้าข้อมูลในระบบยังว่าง (ไม่มี Ad Account / แคมเปญ / งบประมาณ) ให้ตอบตรงไปตรงมา และแนะนำขั้นตอนเริ่มต้น เช่น ให้ไปเพิ่ม Ad Account หรือสร้างแคมเปญใหม่
+- ให้ตอบเป็นภาษาไทยที่เข้าใจง่าย เน้นเชื่อมโยงกับข้อมูลจริงในระบบ และแนะนำขั้นตอนปฏิบัติที่ผู้ใช้ทำได้จากหน้า UI ปัจจุบัน
+
+ข้อมูลดิบ (businessData):
+${JSON.stringify(businessData, null, 2)}`;
+}
+
 // Gemini API
-async function callGemini(apiKey: string, message: string, context: any) {
-  const systemPrompt = `คุณคือ AI Assistant ที่เชี่ยวชาญด้านการจัดการธุรกิจ E-commerce
-
-ข้อมูลธุรกิจปัจจุบัน:
-📦 สินค้า: ${context.summary.totalProducts} รายการ
-- สต็อกต่ำ: ${context.summary.lowStockCount} รายการ
-- หมด: ${context.summary.outOfStockCount} รายการ
-- มูลค่าสต็อก: ฿${context.summary.inventoryValue.toLocaleString()}
-
-📢 แคมเปญ: ${context.summary.totalCampaigns} แคมเปญ
-- กำลังดำเนินการ: ${context.summary.activeCampaigns} แคมเปญ
-- ค่าโฆษณาทั้งหมด: ฿${context.summary.totalAdSpend.toLocaleString()}
-- ROI เฉลี่ย: ${context.summary.avgROI}x
-
-💰 งบประมาณ:
-- งบทั้งหมด: ฿${context.summary.totalBudget.toLocaleString()}
-- ใช้ไป: ฿${context.summary.totalSpent.toLocaleString()}
-- เหลือ: ฿${context.summary.budgetRemaining.toLocaleString()}
-
-⚠️ แจ้งเตือน:
-${context.alerts.lowStock.length > 0 ? `- สินค้าสต็อกต่ำ: ${context.alerts.lowStock.map((p: any) => p.name).join(", ")}` : ""}
-${context.alerts.outOfStock.length > 0 ? `- สินค้าหมด: ${context.alerts.outOfStock.join(", ")}` : ""}
-${context.alerts.overBudget.length > 0 ? `- เกินงบ: ${context.alerts.overBudget.join(", ")}` : ""}
-
-รายละเอียดสินค้า:
-${context.products.slice(0, 10).map((p: any) =>
-  `- ${p.name} (${p.category}): ${p.quantity} ชิ้น, ราคาขาย ฿${p.sellPrice}, กำไร/ชิ้น ฿${p.profit}`
-).join("\n")}
-
-รายละเอียดแคมเปญ:
-${context.campaigns.slice(0, 10).map((c: any) =>
-  `- ${c.name} (${c.platform}): ROI ${c.roi}x, Conversions ${c.conversions}, Status: ${c.status}`
-).join("\n")}
-
-คำสั่ง:
-1. ตอบคำถามโดยใช้ข้อมูลจริงจากระบบ
-2. แนะนำอย่างเฉพาะเจาะจง มีตัวเลขประกอบ
-3. ถ้าถามเรื่องสต็อก ให้ดูจาก products
-4. ถ้าถามเรื่องโฆษณา ให้ดูจาก campaigns
-5. ถ้าถามเรื่องงบ ให้ดูจาก budgets
-6. ตอบเป็นภาษาไทย กระชับ ชัดเจน
-7. ใช้ emoji ประกอบเล็กน้อย`;
+async function callGemini(apiKey: string, message: string, context: SystemContext) {
+  const systemPrompt = buildSystemPrompt(context);
 
   try {
     const response = await fetch(
@@ -260,7 +383,9 @@ ${context.campaigns.slice(0, 10).map((c: any) =>
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดอายุ";
-      throw new Error(`ไม่สามารถเชื่อมต่อกับ Gemini ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือลองใช้ AI Provider อื่น`);
+      throw new Error(
+        `ไม่สามารถเชื่อมต่อกับ Gemini ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือลองใช้ AI Provider อื่น`
+      );
     }
 
     const data = await response.json();
@@ -284,15 +409,10 @@ ${context.campaigns.slice(0, 10).map((c: any) =>
 async function callOpenAI(
   apiKey: string,
   message: string,
-  context: any,
+  context: SystemContext,
   modelName?: string
 ): Promise<string> {
-  const systemPrompt = `คุณคือ AI Assistant สำหรับระบบ E-commerce
-
-ข้อมูลธุรกิจ:
-${JSON.stringify(context, null, 2)}
-
-ตอบคำถามโดยใช้ข้อมูลจริง แนะนำอย่างเฉพาะเจาะจง ตอบเป็นภาษาไทย`;
+  const systemPrompt = buildSystemPrompt(context);
 
   // ใช้ model จากการตั้งค่า ถ้ามี, ถ้าไม่มีก็ใช้ gpt-4o-mini เป็นค่าเริ่มต้น
   const model = (modelName && modelName.trim()) || "gpt-4o-mini";
@@ -318,7 +438,9 @@ ${JSON.stringify(context, null, 2)}
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดโควต้า";
-      throw new Error(`ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings (ตรวจดูชื่อโมเดล: ปัจจุบันใช้ "${model}") หรือเปลี่ยนไปใช้ Gemini (ฟรี)`);
+      throw new Error(
+        `ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings (ตรวจดูชื่อโมเดล: ปัจจุบันใช้ "${model}") หรือเปลี่ยนไปใช้ Gemini (ฟรี)`
+      );
     }
 
     const data = await response.json();
@@ -337,9 +459,8 @@ ${JSON.stringify(context, null, 2)}
     throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenAI กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง");
   }
 }
-
 // n8n Webhook
-async function callN8N(webhookUrl: string, message: string, context: any) {
+async function callN8N(webhookUrl: string, message: string, context: SystemContext) {
   try {
     const response = await fetch(webhookUrl, {
       method: "POST",

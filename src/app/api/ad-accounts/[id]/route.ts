@@ -1,27 +1,20 @@
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
-
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
+import { encrypt } from "@/lib/crypto";
 
 interface AdAccountUpdatePayload {
   platform?: string;
-  name?: string;
+  accountName?: string;
+  accountId?: string;
   apiKey?: string;
   apiSecret?: string;
   accessToken?: string;
   refreshToken?: string;
-  accountId?: string;
-  pixelOrTrackingId?: string;
+  currency?: string;
+  timezone?: string;
   isActive?: boolean;
-}
-
-function normalizePlatform(value?: string): AllowedPlatform | null {
-  const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
-    : null;
+  isDefault?: boolean;
 }
 
 async function findUserAdAccount(id: string, userId: string) {
@@ -30,9 +23,14 @@ async function findUserAdAccount(id: string, userId: string) {
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const { id } = await params;
@@ -49,23 +47,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const updateData: Record<string, any> = {};
 
-    if (body.platform) {
-      const platform = normalizePlatform(body.platform);
-      if (!platform) {
-        return NextResponse.json({ error: "platform ไม่ถูกต้อง" }, { status: 400 });
-      }
-      updateData.platform = platform;
-    }
-
-    if (typeof body.name === "string") updateData.name = body.name.trim();
-    if (typeof body.apiKey === "string") updateData.apiKey = body.apiKey.trim();
-    if (typeof body.apiSecret === "string") updateData.apiSecret = body.apiSecret.trim();
-    if (typeof body.accessToken === "string") updateData.accessToken = body.accessToken.trim();
-    if (typeof body.refreshToken === "string") updateData.refreshToken = body.refreshToken.trim();
+    if (typeof body.platform === "string") updateData.platform = body.platform;
+    if (typeof body.accountName === "string") updateData.accountName = body.accountName.trim();
     if (typeof body.accountId === "string") updateData.accountId = body.accountId.trim();
-    if (typeof body.pixelOrTrackingId === "string")
-      updateData.pixelOrTrackingId = body.pixelOrTrackingId.trim();
+    if (typeof body.apiKey === "string") updateData.apiKey = encrypt(body.apiKey.trim());
+    if (typeof body.apiSecret === "string") updateData.apiSecret = body.apiSecret ? encrypt(body.apiSecret.trim()) : null;
+    if (typeof body.accessToken === "string")
+      updateData.accessToken = body.accessToken ? encrypt(body.accessToken.trim()) : null;
+    if (typeof body.refreshToken === "string")
+      updateData.refreshToken = body.refreshToken ? encrypt(body.refreshToken.trim()) : null;
+    if (typeof body.currency === "string") updateData.currency = body.currency;
+    if (typeof body.timezone === "string") updateData.timezone = body.timezone;
     if (typeof body.isActive === "boolean") updateData.isActive = body.isActive;
+    if (typeof body.isDefault === "boolean") updateData.isDefault = body.isDefault;
 
     const updated = await prisma.adAccount.update({
       where: { id: existing.id },
@@ -84,9 +78,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const { id } = await params;
