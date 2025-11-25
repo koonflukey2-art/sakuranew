@@ -21,8 +21,15 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, ShoppingBag, Sparkles, Target, Zap } from "lucide-react";
-import { toast } from "sonner";
+import {
+  Loader2,
+  TrendingUp,
+  ShoppingBag,
+  Sparkles,
+  Target,
+  Zap,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdAccount {
   id: string;
@@ -61,13 +68,19 @@ interface ProductSuggestion {
   reason: string;
 }
 
-export default function AIDashboard() {
+export default function AIDashboardPage() {
+  const { toast } = useToast();
+
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<string>("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
+    null
+  );
   const [analysis, setAnalysis] = useState<CampaignAnalysis | null>(null);
-  const [productSuggestions, setProductSuggestions] = useState<ProductSuggestion[]>([]);
+  const [productSuggestions, setProductSuggestions] = useState<
+    ProductSuggestion[]
+  >([]);
 
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
@@ -95,14 +108,20 @@ export default function AIDashboard() {
       const response = await fetch("/api/ad-accounts");
       if (response.ok) {
         const data = await response.json();
-        const facebookAccounts = data.filter((acc: AdAccount) => acc.platform === "FACEBOOK");
+        const facebookAccounts = data.filter(
+          (acc: AdAccount) => acc.platform === "FACEBOOK"
+        );
         setAdAccounts(facebookAccounts);
         if (facebookAccounts.length > 0) {
           setSelectedAccount(facebookAccounts[0].id);
         }
       }
     } catch (error) {
-      toast.error("Failed to load ad accounts");
+      toast({
+        title: "Failed to load ad accounts",
+        description: "Something went wrong while loading ad accounts.",
+        variant: "destructive",
+      });
     } finally {
       setLoadingAccounts(false);
     }
@@ -112,15 +131,25 @@ export default function AIDashboard() {
     if (!selectedAccount) return;
     setLoadingCampaigns(true);
     try {
-      const response = await fetch(`/api/facebook-ads/campaigns?adAccountId=${selectedAccount}`);
+      const response = await fetch(
+        `/api/facebook-ads/campaigns?adAccountId=${selectedAccount}`
+      );
       if (response.ok) {
         const data = await response.json();
         setCampaigns(data.data || []);
       } else {
-        toast.error("Failed to fetch campaigns");
+        toast({
+          title: "Failed to fetch campaigns",
+          description: "The server returned an error while fetching campaigns.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast.error("Failed to fetch campaigns");
+      toast({
+        title: "Failed to fetch campaigns",
+        description: "Network or server error while fetching campaigns.",
+        variant: "destructive",
+      });
     } finally {
       setLoadingCampaigns(false);
     }
@@ -134,7 +163,9 @@ export default function AIDashboard() {
     try {
       // First fetch insights
       const insightsResponse = await fetch(
-        `/api/facebook-ads/insights?adAccountId=${selectedAccount}&campaignId=${campaign.id}&campaignName=${campaign.name}`
+        `/api/facebook-ads/insights?adAccountId=${selectedAccount}&campaignId=${campaign.id}&campaignName=${encodeURIComponent(
+          campaign.name
+        )}`
       );
 
       if (!insightsResponse.ok) {
@@ -144,7 +175,11 @@ export default function AIDashboard() {
       const insightsData = await insightsResponse.json();
 
       if (!insightsData.data || insightsData.data.length === 0) {
-        toast.error("No insights data available for this campaign");
+        toast({
+          title: "No insights data",
+          description: "No insights data available for this campaign.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -166,9 +201,16 @@ export default function AIDashboard() {
 
       const analysisData = await analyzeResponse.json();
       setAnalysis(analysisData);
-      toast.success("Campaign analyzed successfully!");
+      toast({
+        title: "Campaign analyzed",
+        description: "Campaign analyzed successfully!",
+      });
     } catch (error: any) {
-      toast.error(error.message || "Failed to analyze campaign");
+      toast({
+        title: "Failed to analyze campaign",
+        description: error?.message || "Something went wrong.",
+        variant: "destructive",
+      });
     } finally {
       setAnalyzingCampaign(false);
     }
@@ -193,9 +235,16 @@ export default function AIDashboard() {
 
       const suggestions = await response.json();
       setProductSuggestions(suggestions);
-      toast.success(`Generated ${suggestions.length} product suggestions!`);
+      toast({
+        title: "Suggestions generated",
+        description: `Generated ${suggestions.length} product suggestions!`,
+      });
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate suggestions");
+      toast({
+        title: "Failed to generate suggestions",
+        description: error?.message || "Something went wrong.",
+        variant: "destructive",
+      });
     } finally {
       setGeneratingProducts(false);
     }
@@ -246,10 +295,15 @@ export default function AIDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Select Facebook Ad Account</CardTitle>
-            <CardDescription>Choose an account to analyze campaigns</CardDescription>
+            <CardDescription>
+              Choose an account to analyze campaigns
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+            <Select
+              value={selectedAccount}
+              onValueChange={setSelectedAccount}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select ad account" />
               </SelectTrigger>
@@ -314,7 +368,13 @@ export default function AIDashboard() {
                           <div className="flex-1">
                             <h3 className="font-semibold">{campaign.name}</h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={campaign.status === "ACTIVE" ? "default" : "secondary"}>
+                              <Badge
+                                variant={
+                                  campaign.status === "ACTIVE"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                              >
                                 {campaign.status}
                               </Badge>
                               <span className="text-sm text-muted-foreground">
@@ -325,10 +385,14 @@ export default function AIDashboard() {
                         </div>
                         <Button
                           onClick={() => analyzeCampaign(campaign)}
-                          disabled={analyzingCampaign}
+                          disabled={
+                            analyzingCampaign &&
+                            selectedCampaign?.id === campaign.id
+                          }
                           className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                         >
-                          {analyzingCampaign && selectedCampaign?.id === campaign.id ? (
+                          {analyzingCampaign &&
+                          selectedCampaign?.id === campaign.id ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                               Analyzing...
@@ -351,7 +415,9 @@ export default function AIDashboard() {
                 <CardHeader>
                   <CardTitle>AI Analysis</CardTitle>
                   <CardDescription>
-                    {selectedCampaign ? selectedCampaign.name : "Select a campaign to see analysis"}
+                    {selectedCampaign
+                      ? selectedCampaign.name
+                      : "Select a campaign to see analysis"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -366,16 +432,24 @@ export default function AIDashboard() {
                       >
                         {/* Score */}
                         <div className="text-center">
-                          <div className={`text-6xl font-bold ${getScoreColor(analysis.score)}`}>
+                          <div
+                            className={`text-6xl font-bold ${getScoreColor(
+                              analysis.score
+                            )}`}
+                          >
                             {analysis.score}
                           </div>
-                          <p className="text-sm text-muted-foreground mt-2">Optimization Score</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Optimization Score
+                          </p>
                         </div>
 
                         {/* Analysis */}
                         <div>
                           <h4 className="font-semibold mb-2">Analysis</h4>
-                          <p className="text-sm text-muted-foreground">{analysis.analysis}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {analysis.analysis}
+                          </p>
                         </div>
 
                         {/* Strengths */}
@@ -453,7 +527,9 @@ export default function AIDashboard() {
                       >
                         <Sparkles className="w-16 h-16 mb-4 opacity-20" />
                         <p>No analysis yet</p>
-                        <p className="text-sm mt-1">Select a campaign and click "Analyze with AI"</p>
+                        <p className="text-sm mt-1">
+                          Select a campaign and click &quot;Analyze with AI&quot;
+                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -544,40 +620,66 @@ export default function AIDashboard() {
                         <CardHeader>
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <CardTitle className="text-lg">{product.name}</CardTitle>
-                              <CardDescription>{product.category}</CardDescription>
+                              <CardTitle className="text-lg">
+                                {product.name}
+                              </CardTitle>
+                              <CardDescription>
+                                {product.category}
+                              </CardDescription>
                             </div>
-                            <Badge className={getCompetitionColor(product.competitionLevel)}>
+                            <Badge
+                              className={getCompetitionColor(
+                                product.competitionLevel
+                              )}
+                            >
                               {product.competitionLevel}
                             </Badge>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <p className="text-sm text-muted-foreground">{product.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.description}
+                          </p>
 
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>
                               <p className="text-muted-foreground">Cost</p>
-                              <p className="font-semibold">฿{product.estimatedCost.toLocaleString()}</p>
+                              <p className="font-semibold">
+                                ฿{product.estimatedCost.toLocaleString()}
+                              </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">Price</p>
-                              <p className="font-semibold">฿{product.estimatedPrice.toLocaleString()}</p>
+                              <p className="font-semibold">
+                                ฿{product.estimatedPrice.toLocaleString()}
+                              </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Profit Margin</p>
-                              <p className="font-semibold text-green-600">{product.profitMargin}%</p>
+                              <p className="text-muted-foreground">
+                                Profit Margin
+                              </p>
+                              <p className="font-semibold text-green-600">
+                                {product.profitMargin}%
+                              </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Demand Score</p>
-                              <p className={`font-semibold ${getScoreColor(product.demandScore)}`}>
+                              <p className="text-muted-foreground">
+                                Demand Score
+                              </p>
+                              <p
+                                className={`font-semibold ${getScoreColor(
+                                  product.demandScore
+                                )}`}
+                              >
                                 {product.demandScore}/100
                               </p>
                             </div>
                           </div>
 
                           <div className="pt-2 border-t">
-                            <p className="text-xs text-muted-foreground mb-1">Why this product?</p>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Why this product?
+                            </p>
                             <p className="text-sm bg-gradient-to-r from-purple-50 to-pink-50 p-2 rounded">
                               {product.reason}
                             </p>
