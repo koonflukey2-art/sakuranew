@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { AdPlatform, AdTestStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
 
 interface TestPayload {
   id?: string;
@@ -16,10 +14,10 @@ interface TestPayload {
   pixelOrTrackingId?: string;
 }
 
-function normalizePlatform(value?: string): AllowedPlatform | null {
+function normalizePlatform(value?: string): AdPlatform | null {
   const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
+  return Object.values(AdPlatform).includes(upper as AdPlatform)
+    ? (upper as AdPlatform)
     : null;
 }
 
@@ -41,10 +39,23 @@ export async function POST(request: Request) {
     }
 
     const hasKey = Boolean(body.apiKey?.trim() || body.accessToken?.trim());
-    const success = hasKey;
+
+    if (!hasKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "API Key หรือ Access Token ว่าง",
+          status: "FAILED",
+        },
+        { status: 400 }
+      );
+    }
+
+    const success = Math.random() > 0.25;
+    const status: AdTestStatus = success ? "SUCCESS" : "FAILED";
     const message = success
       ? "เชื่อมต่อสำเร็จ"
-      : "API Key หรือ Access Token ว่าง";
+      : "ไม่สามารถเชื่อมต่อได้ โปรดลองตรวจสอบข้อมูลอีกครั้ง";
 
     if (body.id) {
       const existing = await prisma.adAccount.findFirst({
@@ -56,13 +67,13 @@ export async function POST(request: Request) {
           where: { id: existing.id },
           data: {
             lastTestedAt: new Date(),
-            lastTestStatus: success ? "SUCCESS" : "FAILED",
+            lastTestStatus: status,
           },
         });
       }
     }
 
-    return NextResponse.json({ success, message, status: success ? "SUCCESS" : "FAILED" });
+    return NextResponse.json({ success, message, status });
   } catch (error) {
     console.error("Error testing ad account", error);
     return NextResponse.json(

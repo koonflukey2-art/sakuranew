@@ -31,6 +31,18 @@ interface AnalyticsData {
     productsChange?: number;
     avgOrderValue?: number;
     avgOrderChange?: number;
+    totalAdSpend?: number;
+    activeCampaigns?: number;
+    avgCampaignROI?: number;
+  overview?: {
+    totalRevenue?: number;
+    revenueChange?: number;
+    totalOrders?: number;
+    ordersChange?: number;
+    totalProducts?: number;
+    productsChange?: number;
+    avgOrderValue?: number;
+    avgOrderChange?: number;
 
     // เพิ่มตรงนี้
     totalAdSpend?: number;
@@ -84,71 +96,32 @@ export default function AnalyticsPage() {
       setLoading(true);
       setError(null);
       const res = await fetch(`/api/analytics?days=${dateRange}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch analytics");
-      }
       const analytics = await res.json();
-      setData(analytics || {});
+      setData(analytics);
     } catch (error) {
       console.error("Error fetching analytics:", error);
-      setError("ไม่สามารถโหลดข้อมูลการวิเคราะห์ได้");
-      // กันหน้าแตก: เซ็ต data เป็น object ว่าง
-      setData({});
     } finally {
       setLoading(false);
     }
   };
 
-  // first render – ยังไม่โหลดเสร็จ
-  if (loading && !data) {
+  if (loading || !data) {
     return (
       <div className="space-y-6 text-slate-900 dark:text-slate-50">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            การวิเคราะห์
-          </h1>
+          <h1 className="text-3xl font-bold text-white">การวิเคราะห์</h1>
         </div>
         <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardContent className="p-6">
-            <div className="text-center text-slate-600 dark:text-slate-400">
-              กำลังโหลด...
-            </div>
+            <div className="text-center text-slate-400">กำลังโหลด...</div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // กัน data เป็น null ซ้ำอีกชั้น
-  const safeData = data ?? {};
+  const { overview, topProducts, topCategories, revenueByMonth, campaignPerformance } = data;
 
-  // ป้องกัน overview เป็น undefined + ใส่ default ทุก field
-  const rawOverview = safeData.overview ?? {};
-
-  const overview = {
-    totalRevenue: rawOverview.totalRevenue ?? 0,
-    revenueChange: rawOverview.revenueChange ?? 0,
-    totalOrders: rawOverview.totalOrders ?? 0,
-    ordersChange: rawOverview.ordersChange ?? 0,
-    totalProducts: rawOverview.totalProducts ?? 0,
-    productsChange: rawOverview.productsChange ?? 0,
-    avgOrderValue: rawOverview.avgOrderValue ?? 0,
-    avgOrderChange: rawOverview.avgOrderChange ?? 0,
-
-    // ค่า default ใหม่
-    totalAdSpend: rawOverview.totalAdSpend ?? 0,
-    activeCampaigns: rawOverview.activeCampaigns ?? 0,
-    avgCampaignROI: rawOverview.avgCampaignROI ?? 0,
-  };
-
-  // default array กัน error เวลา map
-  const topProducts = safeData.topProducts ?? [];
-  const topCategories = safeData.topCategories ?? [];
-  const revenueByMonth = safeData.revenueByMonth ?? [];
-  const campaignPerformance = safeData.campaignPerformance ?? [];
-  const adPerformanceByPlatform = safeData.adPerformanceByPlatform ?? [];
-
-  // Product Analysis Export Data
   const exportProducts = formatDataForExport(topProducts, {
     name: "สินค้า",
     category: "หมวดหมู่",
@@ -156,20 +129,17 @@ export default function AnalyticsPage() {
     quantity: "จำนวนที่ขาย",
   });
 
-  // Category Analysis Export Data
   const exportCategories = formatDataForExport(topCategories, {
     category: "หมวดหมู่",
     revenue: "รายได้",
     percentage: "เปอร์เซ็นต์",
   });
 
-  // Revenue Export Data
   const exportRevenue = formatDataForExport(revenueByMonth, {
     month: "เดือน",
     revenue: "รายได้",
   });
 
-  // Campaign Analysis Export Data
   const exportCampaigns = formatDataForExport(campaignPerformance, {
     platform: "แพลตฟอร์ม",
     spent: "ค่าใช้จ่าย",
@@ -182,19 +152,15 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            การวิเคราะห์
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            ภาพรวมธุรกิจและประสิทธิภาพ
-          </p>
+          <h1 className="text-3xl font-bold text-white">การวิเคราะห์</h1>
+          <p className="text-slate-400 mt-1">ภาพรวมธุรกิจและประสิทธิภาพ</p>
         </div>
         <div className="flex gap-2 items-center">
           <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
-              <SelectValue placeholder="เลือกช่วงเวลา" />
+            <SelectTrigger className="w-40 bg-slate-800 border-slate-700">
+              <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
+            <SelectContent className="bg-slate-800 border-slate-700">
               <SelectItem value="7">7 วันที่แล้ว</SelectItem>
               <SelectItem value="30">30 วันที่แล้ว</SelectItem>
               <SelectItem value="90">90 วันที่แล้ว</SelectItem>
@@ -222,6 +188,22 @@ export default function AnalyticsPage() {
       )}
 
       {/* Overview Stats */}
+      {loading && (
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-6">
+            <div className="text-center text-slate-400">กำลังโหลด...</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && error && (
+        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-6">
+            <div className="text-center text-slate-400">{error}</div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -236,9 +218,7 @@ export default function AnalyticsPage() {
             </div>
             <p
               className={`text-xs flex items-center mt-1 ${
-                overview.revenueChange >= 0
-                  ? "text-green-500"
-                  : "text-red-500"
+                overview.revenueChange >= 0 ? "text-green-500" : "text-red-500"
               }`}
             >
               {overview.revenueChange >= 0 ? (
@@ -334,59 +314,12 @@ export default function AnalyticsPage() {
             </p>
           </CardContent>
         </Card>
-
-        {/* ค่าใช้จ่ายโฆษณารวม */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              ค่าใช้จ่ายโฆษณารวม
-            </CardTitle>
-            <DollarSign className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">
-              ฿{overview.totalAdSpend.toLocaleString("th-TH")}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* แคมเปญที่กำลังรันอยู่ */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              แคมเปญที่กำลังรันอยู่
-            </CardTitle>
-            <BarChart3 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">
-              {overview.activeCampaigns.toLocaleString("th-TH")}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ROI เฉลี่ยแคมเปญ */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              ROI เฉลี่ยแคมเปญ
-            </CardTitle>
-            <BarChart3 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">
-              {overview.avgCampaignROI.toFixed(2)}x
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Top Products */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
-            สินค้าขายดี
-          </CardTitle>
+          <CardTitle className="text-white">สินค้าขายดี</CardTitle>
           <ExportButton
             data={exportProducts}
             filename={`top-products-${dateRange}days`}
@@ -411,12 +344,8 @@ export default function AnalyticsPage() {
                     {index + 1}
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {product.name}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {product.category}
-                    </p>
+                    <p className="font-medium text-white">{product.name}</p>
+                    <p className="text-sm text-slate-400">{product.category}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -441,9 +370,7 @@ export default function AnalyticsPage() {
       {/* Top Categories */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
-            หมวดหมู่ยอดนิยม
-          </CardTitle>
+          <CardTitle className="text-white">หมวดหมู่ยอดนิยม</CardTitle>
           <ExportButton
             data={exportCategories}
             filename={`top-categories-${dateRange}days`}
@@ -460,10 +387,8 @@ export default function AnalyticsPage() {
             {topCategories.map((category) => (
               <div key={category.category} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-slate-900 dark:text-white">
-                    {category.category}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="font-medium text-white">{category.category}</p>
+                  <p className="text-sm text-slate-400">
                     ฿{category.revenue.toLocaleString("th-TH")} (
                     {category.percentage.toFixed(1)}%)
                   </p>
@@ -488,9 +413,7 @@ export default function AnalyticsPage() {
       {/* Campaign Performance */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
-            ประสิทธิภาพแคมเปญ
-          </CardTitle>
+          <CardTitle className="text-white">ประสิทธิภาพแคมเปญ</CardTitle>
           <ExportButton
             data={exportCampaigns}
             filename={`campaigns-${dateRange}days`}
@@ -511,19 +434,14 @@ export default function AnalyticsPage() {
                 className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
               >
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-white">
-                    {campaign.platform}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    ค่าใช้จ่าย: ฿
-                    {campaign.spent.toLocaleString("th-TH")}
+                  <p className="font-medium text-white">{campaign.platform}</p>
+                  <p className="text-sm text-slate-400">
+                    ค่าใช้จ่าย: ฿{campaign.spent.toLocaleString("th-TH")}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-slate-900 dark:text-white">
-                    ROI: {campaign.roi}x
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="font-medium text-white">ROI: {campaign.roi}x</p>
+                  <p className="text-sm text-slate-400">
                     {campaign.conversions} การแปลง
                   </p>
                 </div>
@@ -535,50 +453,6 @@ export default function AnalyticsPage() {
               </p>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Ad performance by platform */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
-            ประสิทธิภาพโฆษณาต่อแพลตฟอร์ม
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {adPerformanceByPlatform.length === 0 ? (
-            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
-              ยังไม่มีข้อมูลแคมเปญโฆษณา
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {adPerformanceByPlatform.map((item) => (
-                <div
-                  key={item.platform}
-                  className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {item.platform}
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      แคมเปญ: {item.campaigns} | การแปลง:{" "}
-                      {item.totalConversions}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-slate-800 dark:text-slate-200">
-                      ใช้จ่าย: ฿
-                      {item.totalSpend.toLocaleString("th-TH")}
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      ROI เฉลี่ย: {item.avgROI.toFixed(2)}x
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

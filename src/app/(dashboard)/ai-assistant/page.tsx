@@ -81,9 +81,20 @@ export default function AIAssistantPage() {
         setSessionId(data.sessionId);
       }
 
+      const reply =
+        typeof data.reply === "string"
+          ? data.reply
+          : typeof data.response === "string"
+          ? data.response
+          : "";
+
+      if (!reply) {
+        throw new Error("ไม่ได้รับคำตอบจาก AI");
+      }
+
       const aiMessage: Message = {
         role: "assistant",
-        content: data.reply || data.response,
+        content: reply,
         timestamp: new Date(),
       };
 
