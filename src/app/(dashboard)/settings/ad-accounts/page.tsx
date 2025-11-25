@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -84,7 +83,6 @@ export default function AdAccountsSettingsPage() {
     shopee: { ...defaultForm },
     lazada: { ...defaultForm },
   });
-  const [activeTab, setActiveTab] = useState<AdPlatform>("facebook");
   const [savingPlatform, setSavingPlatform] = useState<AdPlatform | null>(null);
   const [testingPlatform, setTestingPlatform] = useState<AdPlatform | null>(null);
 
@@ -430,26 +428,15 @@ export default function AdAccountsSettingsPage() {
           <CardTitle className="text-white">จัดการการเชื่อมต่อ</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdPlatform)}>
-            <TabsList className="grid grid-cols-4 bg-slate-800">
-              <TabsTrigger value="facebook">Facebook</TabsTrigger>
-              <TabsTrigger value="tiktok">TikTok</TabsTrigger>
-              <TabsTrigger value="shopee">Shopee</TabsTrigger>
-              <TabsTrigger value="lazada">Lazada</TabsTrigger>
-            </TabsList>
-            <TabsContent value="facebook" className="mt-6">
-              {renderPlatformForm("facebook")}
-            </TabsContent>
-            <TabsContent value="tiktok" className="mt-6">
-              {renderPlatformForm("tiktok")}
-            </TabsContent>
-            <TabsContent value="shopee" className="mt-6">
-              {renderPlatformForm("shopee")}
-            </TabsContent>
-            <TabsContent value="lazada" className="mt-6">
-              {renderPlatformForm("lazada")}
-            </TabsContent>
-          </Tabs>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {(Object.keys(platformConfigs) as AdPlatform[]).map((platform) => (
+              <Card key={platform} className="bg-slate-800 border-slate-700">
+                <CardContent className="p-6 space-y-4">
+                  {renderPlatformForm(platform)}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

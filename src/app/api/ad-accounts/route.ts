@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AdPlatform } from "@prisma/client";
+import { AdPlatform, AdTestStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -32,6 +32,18 @@ export async function GET() {
     const accounts = await prisma.adAccount.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        platform: true,
+        name: true,
+        accountId: true,
+        pixelOrTrackingId: true,
+        isActive: true,
+        lastTestedAt: true,
+        lastTestStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json(accounts);
@@ -67,6 +79,12 @@ export async function POST(request: Request) {
       where: { userId: user.id, platform },
     });
 
+    const credentialsChanged =
+      body.apiKey?.trim() !== existing?.apiKey ||
+      body.apiSecret?.trim() !== existing?.apiSecret ||
+      body.accessToken?.trim() !== existing?.accessToken ||
+      body.refreshToken?.trim() !== existing?.refreshToken;
+
     const data = {
       userId: user.id,
       platform,
@@ -78,6 +96,7 @@ export async function POST(request: Request) {
       accountId: body.accountId?.trim() || null,
       pixelOrTrackingId: body.pixelOrTrackingId?.trim() || null,
       isActive: body.isActive ?? true,
+      lastTestStatus: credentialsChanged ? AdTestStatus.PENDING : existing?.lastTestStatus,
     } as const;
 
     const saved = existing
@@ -86,7 +105,7 @@ export async function POST(request: Request) {
           data,
         })
       : await prisma.adAccount.create({
-          data: { ...data, lastTestStatus: "PENDING" },
+          data: { ...data, lastTestStatus: AdTestStatus.PENDING },
         });
 
     return NextResponse.json(saved, { status: existing ? 200 : 201 });
