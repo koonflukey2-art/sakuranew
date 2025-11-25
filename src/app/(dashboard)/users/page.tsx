@@ -2,14 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,27 +45,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Shield, Trash2, MoreVertical, UserCog, Search, Filter, ShieldAlert } from "lucide-react";
+
+import {
+  Users,
+  Shield,
+  Trash2,
+  MoreVertical,
+  UserCog,
+  Search,
+  Filter,
+  ShieldAlert,
+} from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
 import { TableSkeleton } from "@/components/loading-states";
 import { EmptyUsers } from "@/components/empty-states";
+
+type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
 
 interface User {
   id: string;
   email: string;
   name: string | null;
-  role: "ADMIN" | "STOCK" | "EMPLOYEE";
+  role: UserRole;
   createdAt: string;
   lastLogin: string | null;
 }
 
-const roleColors: Record<string, string> = {
+const roleColors: Record<UserRole, string> = {
   ADMIN: "bg-red-500",
   STOCK: "bg-blue-500",
   EMPLOYEE: "bg-gray-500",
 };
 
-const roleLabels: Record<string, string> = {
+const roleLabels: Record<UserRole, string> = {
   ADMIN: "ผู้ดูแลระบบ",
   STOCK: "พนักงานสต็อก",
   EMPLOYEE: "พนักงาน",
@@ -55,18 +87,20 @@ const roleLabels: Record<string, string> = {
 export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("ALL");
 
-  // Role change dialog state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
+
+  // Role dialog
   const [showRoleDialog, setShowRoleDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [newRole, setNewRole] = useState<string>("");
+  const [newRole, setNewRole] = useState<UserRole | "">("");
 
-  // Delete dialog state
+  // Delete dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
@@ -78,24 +112,21 @@ export default function UsersPage() {
     try {
       setLoading(true);
       setError(null);
+
       const res = await fetch("/api/users");
 
-      // Handle specific status codes
       if (res.status === 401) {
-        // Session expired or not authenticated
         setError("กรุณาเข้าสู่ระบบใหม่");
         toast({
           title: "Session หมดอายุ",
           description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
           variant: "destructive",
         });
-        // Redirect to sign-in after a short delay
         setTimeout(() => router.push("/sign-in"), 2000);
         return;
       }
 
       if (res.status === 403) {
-        // Forbidden - user doesn't have permission
         setError("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
         setUsers([]);
         return;
@@ -105,10 +136,10 @@ export default function UsersPage() {
         throw new Error("Failed to fetch users");
       }
 
-      const data = await res.json();
+      const data: User[] = await res.json();
       setUsers(data);
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
       setError("ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
       toast({
         title: "เกิดข้อผิดพลาด",
@@ -133,19 +164,23 @@ export default function UsersPage() {
       if (!res.ok) throw new Error("Failed to update role");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole as any } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, role: newRole } : u
+        )
       );
 
       toast({
         title: "อัปเดตสำเร็จ",
-        description: `เปลี่ยนบทบาทของ ${selectedUser.email} เป็น ${roleLabels[newRole as keyof typeof roleLabels]} แล้ว`,
+        description: `เปลี่ยนบทบาทของ ${selectedUser.email} เป็น ${
+          roleLabels[newRole]
+        } แล้ว`,
       });
 
       setShowRoleDialog(false);
       setSelectedUser(null);
       setNewRole("");
-    } catch (error) {
-      console.error("Failed to update role:", error);
+    } catch (err) {
+      console.error("Failed to update role:", err);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเปลี่ยนบทบาทได้",
@@ -173,8 +208,8 @@ export default function UsersPage() {
 
       setShowDeleteDialog(false);
       setUserToDelete(null);
-    } catch (error) {
-      console.error("Failed to delete user:", error);
+    } catch (err) {
+      console.error("Failed to delete user:", err);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถลบผู้ใช้ได้",
@@ -194,22 +229,23 @@ export default function UsersPage() {
     setShowDeleteDialog(true);
   };
 
-  // Filter users based on search and role filter
+  // filters
   const filteredUsers = users.filter((user) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+      user.email.toLowerCase().includes(q) ||
+      (user.name?.toLowerCase() || "").includes(q);
 
     const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
 
     return matchesSearch && matchesRole;
   });
 
-  // Calculate statistics
+  // stats
   const totalUsers = users.length;
   const adminCount = users.filter((u) => u.role === "ADMIN").length;
-  const staffCount = users.filter((u) => u.role === "STOCK").length;
-  const userCount = users.filter((u) => u.role === "EMPLOYEE").length;
+  const stockCount = users.filter((u) => u.role === "STOCK").length;
+  const employeeCount = users.filter((u) => u.role === "EMPLOYEE").length;
 
   return (
     <div className="space-y-6">
@@ -224,7 +260,7 @@ export default function UsersPage() {
         </Badge>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -243,16 +279,22 @@ export default function UsersPage() {
             <CardTitle className="text-sm font-medium">Admin</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{adminCount}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {adminCount}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-blue-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">พนักงานสต็อก</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              พนักงานสต็อก
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{staffCount}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {stockCount}
+            </div>
           </CardContent>
         </Card>
 
@@ -261,12 +303,14 @@ export default function UsersPage() {
             <CardTitle className="text-sm font-medium">ผู้ใช้ทั่วไป</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600">{userCount}</div>
+            <div className="text-2xl font-bold text-gray-600">
+              {employeeCount}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search + filter */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-4">
@@ -279,7 +323,12 @@ export default function UsersPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <Select
+              value={roleFilter}
+              onValueChange={(value) =>
+                setRoleFilter(value as UserRole | "ALL")
+              }
+            >
               <SelectTrigger className="w-[200px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="กรองตามบทบาท" />
@@ -295,7 +344,7 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
+      {/* Users table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -305,11 +354,13 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <TableSkeleton rows={10} />
+            <TableSkeleton />
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <ShieldAlert className="h-16 w-16 text-red-500" />
-              <p className="text-lg font-semibold text-slate-200">{error}</p>
+              <p className="text-lg font-semibold text-slate-200">
+                {error}
+              </p>
             </div>
           ) : filteredUsers.length === 0 ? (
             <EmptyUsers />
@@ -328,17 +379,27 @@ export default function UsersPage() {
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name || "ไม่ระบุชื่อ"}</TableCell>
+                    <TableCell className="font-medium">
+                      {user.name || "ไม่ระบุชื่อ"}
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge className={roleColors[user.role]}>{roleLabels[user.role]}</Badge>
+                      <Badge className={roleColors[user.role]}>
+                        {roleLabels[user.role]}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleString("th-TH")
+                        ? new Date(
+                            user.lastLogin
+                          ).toLocaleString("th-TH")
                         : "ยังไม่เคยเข้าสู่ระบบ"}
                     </TableCell>
-                    <TableCell>{new Date(user.createdAt).toLocaleDateString("th-TH")}</TableCell>
+                    <TableCell>
+                      {new Date(
+                        user.createdAt
+                      ).toLocaleDateString("th-TH")}
+                    </TableCell>
                     <TableCell className="text-right">
                       {user.role !== "ADMIN" && (
                         <DropdownMenu>
@@ -348,7 +409,9 @@ export default function UsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openRoleDialog(user)}>
+                            <DropdownMenuItem
+                              onClick={() => openRoleDialog(user)}
+                            >
                               <UserCog className="h-4 w-4 mr-2" />
                               เปลี่ยนบทบาท
                             </DropdownMenuItem>
@@ -371,7 +434,7 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Role Change Dialog */}
+      {/* Role dialog */}
       <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
         <DialogContent>
           <DialogHeader>
@@ -384,7 +447,10 @@ export default function UsersPage() {
             </div>
             <div>
               <Label>บทบาทใหม่</Label>
-              <Select value={newRole} onValueChange={setNewRole}>
+              <Select
+                value={newRole}
+                onValueChange={(value) => setNewRole(value as UserRole)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="เลือกบทบาท" />
                 </SelectTrigger>
@@ -396,7 +462,10 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowRoleDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowRoleDialog(false)}
+              >
                 ยกเลิก
               </Button>
               <Button onClick={handleRoleChange}>บันทึก</Button>
@@ -405,19 +474,21 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบผู้ใช้</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณต้องการลบผู้ใช้ <strong>{userToDelete?.email}</strong> ใช่หรือไม่?
-              การกระทำนี้ไม่สามารถย้อนกลับได้
+              คุณต้องการลบผู้ใช้ {userToDelete?.email} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600"
+            >
               ลบ
             </AlertDialogAction>
           </AlertDialogFooter>
