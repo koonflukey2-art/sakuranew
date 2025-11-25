@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -9,26 +8,29 @@ datasource db {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  clerkId       String?         @unique
-  email         String          @unique
-  password      String?
-  name          String?
-  role          Role            @default(EMPLOYEE)
-  lastLogin     DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id        String    @id @default(cuid())
+  clerkId   String?   @unique
+  email     String    @unique
+  password  String?
+  name      String?
+  role      Role      @default(EMPLOYEE)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  products      Product[]
-  campaigns     AdCampaign[]
-  budgets       Budget[]
-  budgetRequests BudgetRequest[]
-  notifications Notification[]
-  stockHistory  StockHistory[]
+  products        Product[]
+  campaigns       AdCampaign[]
+  budgets         Budget[]
+  budgetRequests  BudgetRequest[]
+  notifications   Notification[]
+  stockHistory    StockHistory[]
   automationRules AutomationRule[]
-  metricsPlans  MetricsPlan[]
-  aiProviders   AIProvider[]
-  chatSessions  ChatSession[]
+  metricsPlans    MetricsPlan[]
+  aiProviders     AIProvider[]
+  chatSessions    ChatSession[]
+
+  // ฝั่งตรงข้ามของ AdAccount.user
+  adAccounts AdAccount[]
 }
 
 enum Role {
@@ -38,32 +40,32 @@ enum Role {
 }
 
 model Product {
-  id              String          @id @default(cuid())
-  name            String
-  category        String
-  quantity        Int             @default(0)
-  minStockLevel   Int             @default(10)
-  costPrice       Float
-  sellPrice       Float
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  userId          String
+  id            String   @id @default(cuid())
+  name          String
+  category      String
+  quantity      Int      @default(0)
+  minStockLevel Int      @default(10)
+  costPrice     Float
+  sellPrice     Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userId        String
 
-  user            User            @relation(fields: [userId], references: [id])
-  stockHistory    StockHistory[]
+  user         User           @relation(fields: [userId], references: [id])
+  stockHistory StockHistory[]
 }
 
 model StockHistory {
-  id          String          @id @default(cuid())
-  productId   String
-  type        StockType
-  quantity    Int
-  reason      String?
-  createdAt   DateTime        @default(now())
-  userId      String
+  id        String    @id @default(cuid())
+  productId String
+  type      StockType
+  quantity  Int
+  reason    String?
+  createdAt DateTime  @default(now())
+  userId    String
 
-  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user        User            @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
 }
 
 enum StockType {
@@ -73,32 +75,32 @@ enum StockType {
 }
 
 model Budget {
-  id          String          @id @default(cuid())
-  amount      Float
-  purpose     String
-  spent       Float           @default(0)
-  startDate   DateTime
-  endDate     DateTime
-  createdAt   DateTime        @default(now())
-  userId      String
+  id        String   @id @default(cuid())
+  amount    Float
+  purpose   String
+  spent     Float    @default(0)
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  userId    String
 
-  user        User            @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model BudgetRequest {
-  id          String                @id @default(cuid())
-  amount      Float
-  purpose     String
-  reason      String
-  status      BudgetRequestStatus   @default(PENDING)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  userId      String
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewNote  String?
+  id         String              @id @default(cuid())
+  amount     Float
+  purpose    String
+  reason     String
+  status     BudgetRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  userId     String
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewNote String?
 
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum BudgetRequestStatus {
@@ -108,23 +110,23 @@ enum BudgetRequestStatus {
 }
 
 model AdCampaign {
-  id            String          @id @default(cuid())
-  platform      Platform
-  campaignName  String
-  budget        Float
-  spent         Float           @default(0)
-  reach         Int             @default(0)
-  clicks        Int             @default(0)
-  conversions   Int             @default(0)
-  roi           Float           @default(0)
-  status        CampaignStatus  @default(ACTIVE)
-  startDate     DateTime
-  endDate       DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  userId        String
+  id           String         @id @default(cuid())
+  platform     Platform
+  campaignName String
+  budget       Float
+  spent        Float          @default(0)
+  reach        Int            @default(0)
+  clicks       Int            @default(0)
+  conversions  Int            @default(0)
+  roi          Float          @default(0)
+  status       CampaignStatus @default(ACTIVE)
+  startDate    DateTime
+  endDate      DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  userId       String
 
-  user          User            @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 enum Platform {
@@ -141,25 +143,25 @@ enum CampaignStatus {
 }
 
 model Profit {
-  id          String          @id @default(cuid())
-  date        DateTime        @unique
-  revenue     Float
-  costs       Float
-  netProfit   Float
-  createdAt   DateTime        @default(now())
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  revenue   Float
+  costs     Float
+  netProfit Float
+  createdAt DateTime @default(now())
 }
 
 model Notification {
-  id          String              @id @default(cuid())
-  userId      String
-  type        NotificationType
-  title       String
-  message     String
-  link        String?
-  isRead      Boolean             @default(false)
-  createdAt   DateTime            @default(now())
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum NotificationType {
@@ -176,45 +178,45 @@ enum NotificationType {
 }
 
 model AIProvider {
-  id            String   @id @default(cuid())
-  userId        String
-  provider      ProviderType
-  apiKey        String   // Encrypted
-  modelName     String?
-  isActive      Boolean  @default(false)
-  isDefault     Boolean  @default(false)
-  isValid       Boolean  @default(false)
-  lastTested    DateTime?
-  testMessage   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String       @id @default(cuid())
+  userId      String
+  provider    ProviderType
+  apiKey      String // Encrypted
+  modelName   String?
+  isActive    Boolean      @default(false)
+  isDefault   Boolean      @default(false)
+  isValid     Boolean      @default(false)
+  lastTested  DateTime?
+  testMessage String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
 }
 
 model ChatSession {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  title     String   @default("New Chat")
+  title     String       @default("New Chat")
   provider  ProviderType
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages  ChatMessage[]
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
 }
 
 model ChatMessage {
-  id          String   @id @default(cuid())
-  sessionId   String
-  role        MessageRole
-  content     String   @db.Text
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id        String      @id @default(cuid())
+  sessionId String
+  role      MessageRole
+  content   String      @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
 
-  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
 enum ProviderType {
@@ -230,39 +232,39 @@ enum MessageRole {
 }
 
 model AutomationRule {
-  id          String   @id @default(cuid())
-  platform    String   // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
-  tool        String   // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
-  ruleName    String
-  condition   Json     // { metric: "CPA", operator: ">", value: 200 }
-  action      Json     // { type: "pauseCampaign", value: "" }
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
+  id        String   @id @default(cuid())
+  platform  String // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
+  tool      String // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
+  ruleName  String
+  condition Json // { metric: "CPA", operator: ">", value: 200 }
+  action    Json // { type: "pauseCampaign", value: "" }
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model WorkflowTemplate {
   id          String   @id @default(cuid())
   name        String
   description String?
-  template    Json     // n8n workflow JSON
-  category    String   // Profit, Lead Gen, E-commerce
+  template    Json // n8n workflow JSON
+  category    String // Profit, Lead Gen, E-commerce
   createdAt   DateTime @default(now())
 }
 
 model MetricsPlan {
   id           String   @id @default(cuid())
   templateName String
-  targets      Json     // { revenue: 100000, cac: 500, ... }
-  actual       Json?    // ค่าจริง (อัพเดททีหลัง)
-  period       String   // monthly, daily
+  targets      Json // { revenue: 100000, cac: 500, ... }
+  actual       Json? // ค่าจริง (อัพเดททีหลัง)
+  period       String // monthly, daily
   createdAt    DateTime @default(now())
   userId       String
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum AdPlatform {
@@ -279,21 +281,21 @@ enum AdTestStatus {
 }
 
 model AdAccount {
-  id               String        @id @default(cuid())
-  userId           String
-  platform         AdPlatform
-  name             String
-  apiKey           String?
-  apiSecret        String?
-  accessToken      String?
-  refreshToken     String?
-  accountId        String?
+  id                String        @id @default(cuid())
+  userId            String
+  platform          AdPlatform
+  name              String
+  apiKey            String?
+  apiSecret         String?
+  accessToken       String?
+  refreshToken      String?
+  accountId         String?
   pixelOrTrackingId String?
-  isActive         Boolean       @default(true)
-  lastTestedAt     DateTime?
-  lastTestStatus   AdTestStatus?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  isActive          Boolean       @default(true)
+  lastTestedAt      DateTime?
+  lastTestStatus    AdTestStatus?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
