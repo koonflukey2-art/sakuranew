@@ -29,6 +29,8 @@ model User {
   metricsPlans  MetricsPlan[]
   aiProviders   AIProvider[]
   chatSessions  ChatSession[]
+  adAccounts    AdAccountConfig[]
+  adRules       AdRule[]
 }
 
 enum Role {
@@ -260,4 +262,49 @@ model MetricsPlan {
   userId       String
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AdAccountConfig {
+  id          String      @id @default(cuid())
+  userId      String
+  platform    Platform
+  apiKey      String      // Encrypted
+  accountId   String?
+  isActive    Boolean     @default(true)
+  isValid     Boolean     @default(false)
+  lastTested  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+}
+
+enum AdRuleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AdRuleAction {
+  PAUSE_CAMPAIGNS
+  RESUME_CAMPAIGNS
+  INCREASE_BUDGET
+  DECREASE_BUDGET
+}
+
+model AdRule {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  platform    Platform?
+  condition   String        @db.Text
+  action      AdRuleAction
+  status      AdRuleStatus  @default(ACTIVE)
+  useAI       Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

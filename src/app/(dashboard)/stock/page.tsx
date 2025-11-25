@@ -374,7 +374,11 @@ export default function StockPage() {
               pdfTitle="รายงานสต็อกสินค้า"
             />
           )}
-          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+        </div>
+      </div>
+
+      {/* Add Product Dialog */}
+      <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
               <Button onClick={() => addForm.reset()}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -493,7 +497,6 @@ export default function StockPage() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">

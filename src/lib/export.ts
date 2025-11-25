@@ -4,6 +4,11 @@ import autoTable from "jspdf-autotable";
 
 // Export to Excel
 export function exportToExcel(data: any[], filename: string) {
+  if (!data || data.length === 0) {
+    console.warn("No data to export");
+    return;
+  }
+
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
@@ -22,6 +27,11 @@ export function exportToPDF(
   filename: string,
   title?: string
 ) {
+  if (!data || data.length === 0) {
+    console.warn("No data to export");
+    return;
+  }
+
   const doc = new jsPDF();
 
   // Add title if provided
@@ -66,6 +76,11 @@ export function exportToPDF(
 
 // Export to CSV
 export function exportToCSV(data: any[], filename: string) {
+  if (!data || data.length === 0) {
+    console.warn("No data to export");
+    return;
+  }
+
   const worksheet = XLSX.utils.json_to_sheet(data);
   const csv = XLSX.utils.sheet_to_csv(worksheet);
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -81,9 +96,13 @@ export function exportToCSV(data: any[], filename: string) {
 
 // Helper: Format data for export
 export function formatDataForExport<T extends Record<string, any>>(
-  data: T[],
+  data: T[] | undefined,
   columnMapping: Record<keyof T, string>
 ): any[] {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+
   return data.map((item) => {
     const formatted: Record<string, any> = {};
     Object.entries(columnMapping).forEach(([key, header]) => {

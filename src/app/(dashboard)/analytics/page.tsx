@@ -59,8 +59,42 @@ interface AnalyticsData {
   }>;
 }
 
+interface AdAnalytics {
+  summary: {
+    totalCampaigns: number;
+    totalBudget: number;
+    totalSpent: number;
+    totalReach: number;
+    totalClicks: number;
+    totalConversions: number;
+    avgROI: number;
+    ctr: number;
+    cpc: number;
+    cpa: number;
+    conversionRate: number;
+    budgetRemaining: number;
+    budgetUsedPercent: number;
+  };
+  byPlatform: Array<{
+    platform: string;
+    campaigns: number;
+    spent: number;
+    roi: number;
+    conversions: number;
+  }>;
+  topPerforming: Array<{
+    id: string;
+    name: string;
+    platform: string;
+    roi: number;
+    spent: number;
+    conversions: number;
+  }>;
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [adData, setAdData] = useState<AdAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("30");
 
@@ -71,9 +105,18 @@ export default function AnalyticsPage() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/analytics?days=${dateRange}`);
-      const analytics = await res.json();
+      const [analyticsRes, adAnalyticsRes] = await Promise.all([
+        fetch(`/api/analytics?days=${dateRange}`),
+        fetch(`/api/ad-analytics`).catch(() => null), // Gracefully handle if user doesn't have access
+      ]);
+
+      const analytics = await analyticsRes.json();
       setData(analytics);
+
+      if (adAnalyticsRes && adAnalyticsRes.ok) {
+        const adAnalytics = await adAnalyticsRes.json();
+        setAdData(adAnalytics);
+      }
     } catch (error) {
       console.error("Error fetching analytics:", error);
     } finally {
@@ -377,6 +420,152 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Ad Analytics Overview */}
+      {adData && (
+        <>
+          <div className="border-t border-slate-700 pt-6">
+            <h2 className="text-2xl font-bold text-white mb-4">ภาพรวมโฆษณา</h2>
+          </div>
+
+          {/* Ad Summary Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">
+                  งบประมาณทั้งหมด
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  ฿{adData.summary.totalBudget.toLocaleString("th-TH")}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  ใช้ไป {adData.summary.budgetUsedPercent.toFixed(1)}%
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">
+                  ค่าใช้จ่ายจริง
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  ฿{adData.summary.totalSpent.toLocaleString("th-TH")}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  เหลือ ฿{adData.summary.budgetRemaining.toLocaleString("th-TH")}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">
+                  ROI เฉลี่ย
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {adData.summary.avgROI.toFixed(2)}x
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  CPA: ฿{adData.summary.cpa.toFixed(0)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">
+                  Conversions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {adData.summary.totalConversions.toLocaleString("th-TH")}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  อัตรา {adData.summary.conversionRate.toFixed(2)}%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Ad Performance by Platform */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white">ประสิทธิภาพตาม Platform</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {adData.byPlatform.map((platform) => (
+                  <div
+                    key={platform.platform}
+                    className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{platform.platform}</p>
+                      <p className="text-sm text-slate-400">
+                        {platform.campaigns} แคมเปญ • ฿
+                        {platform.spent.toLocaleString("th-TH")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-white">
+                        ROI: {platform.roi.toFixed(2)}x
+                      </p>
+                      <p className="text-sm text-slate-400">
+                        {platform.conversions} Conversions
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Performing Campaigns */}
+          {adData.topPerforming.length > 0 && (
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">แคมเปญที่ดีที่สุด (ROI)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {adData.topPerforming.map((campaign, index) => (
+                    <div
+                      key={campaign.id}
+                      className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 flex items-center justify-center bg-slate-600 rounded-full text-white font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">{campaign.name}</p>
+                          <p className="text-sm text-slate-400">{campaign.platform}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-white">
+                          ROI: {campaign.roi.toFixed(2)}x
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          {campaign.conversions} Conversions
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }
