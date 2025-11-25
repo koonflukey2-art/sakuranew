@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { AdPlatform } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
 
 interface AdAccountUpdatePayload {
   platform?: string;
@@ -17,10 +15,10 @@ interface AdAccountUpdatePayload {
   isActive?: boolean;
 }
 
-function normalizePlatform(value?: string): AllowedPlatform | null {
+function normalizePlatform(value?: string): AdPlatform | null {
   const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
+  return Object.values(AdPlatform).includes(upper as AdPlatform)
+    ? (upper as AdPlatform)
     : null;
 }
 

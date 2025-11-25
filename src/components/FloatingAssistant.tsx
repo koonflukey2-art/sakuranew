@@ -110,20 +110,33 @@ export function FloatingAssistant() {
         setSessionId(data.sessionId);
       }
 
+      const reply =
+        typeof data.reply === "string"
+          ? data.reply
+          : typeof data.response === "string"
+          ? data.response
+          : "";
+
+      if (!reply) {
+        throw new Error("ไม่ได้รับคำตอบจาก AI");
+      }
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "ASSISTANT",
-        content: data.reply || data.response,
+        content: reply,
         createdAt: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
       console.error("AI Assistant error", error);
+      const description =
+        error?.message || "ไม่สามารถส่งข้อความได้ กรุณาลองใหม่อีกครั้ง";
+
       toast({
         title: "เกิดข้อผิดพลาดในการเรียก AI Assistant",
-        description:
-          error?.message || "ไม่สามารถส่งข้อความได้ กรุณาลองใหม่อีกครั้ง",
+        description,
         variant: "destructive",
       });
 
@@ -133,7 +146,7 @@ export function FloatingAssistant() {
           id: (Date.now() + 2).toString(),
           role: "ASSISTANT",
           content:
-            error?.message ||
+            description ||
             "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง",
           createdAt: new Date().toISOString(),
         },

@@ -5,9 +5,6 @@ import { getCurrentUser } from "@/lib/auth";
 
 interface UpdateBudgetRequestBody {
   status?: "PENDING" | "APPROVED" | "REJECTED";
-  amount?: number;
-  purpose?: string;
-  reason?: string;
   reviewNote?: string;
 }
 
@@ -37,12 +34,15 @@ export async function PATCH(
 
     const dataToUpdate: Prisma.BudgetRequestUpdateInput = {};
 
-    if (typeof body.amount === "number") dataToUpdate.amount = body.amount;
-    if (body.purpose) dataToUpdate.purpose = body.purpose;
-    if (body.reason) dataToUpdate.reason = body.reason;
-    if (body.reviewNote) dataToUpdate.reviewNote = body.reviewNote;
+    if (typeof body.reviewNote === "string") {
+      dataToUpdate.reviewNote = body.reviewNote.trim();
+    }
 
     if (body.status) {
+      if (!["PENDING", "APPROVED", "REJECTED"].includes(body.status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      }
+
       dataToUpdate.status = body.status;
       dataToUpdate.reviewedAt = new Date();
       dataToUpdate.reviewedBy = user.id;
@@ -77,6 +77,16 @@ export async function PATCH(
           type: "BUDGET_APPROVED",
           title: "คำขอเพิ่มงบได้รับการอนุมัติ",
           message: `อนุมัติคำขอเพิ่มงบ "${updated.purpose}" จำนวน ${updated.amount.toLocaleString()} บาทแล้ว`,
+          link: "/budget-requests",
+        },
+      });
+    } else if (body.status && body.status !== "APPROVED") {
+      await prisma.notification.create({
+        data: {
+          userId: existing.userId,
+          type: "INFO",
+          title: "อัปเดตคำขอเพิ่มงบ",
+          message: `คำขอเพิ่มงบ "${existing.purpose}" ถูกอัปเดตสถานะเป็น ${body.status === "REJECTED" ? "ปฏิเสธ" : "รอพิจารณา"}`,
           link: "/budget-requests",
         },
       });

@@ -85,19 +85,35 @@ export async function POST(request: Request) {
 
     const body: BudgetRequestPayload = await request.json();
 
-    if (!body.purpose || !body.reason || typeof body.amount !== "number") {
+    const purpose = typeof body.purpose === "string" ? body.purpose.trim() : "";
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    const amount = typeof body.amount === "number" && !Number.isNaN(body.amount)
+      ? body.amount
+      : NaN;
+
+    if (!purpose || !reason || amount <= 0) {
       return NextResponse.json(
-        { error: "กรุณาระบุวัตถุประสงค์ จำนวนเงิน และเหตุผล" },
+        { error: "กรุณาระบุวัตถุประสงค์ จำนวนเงินที่ถูกต้อง และเหตุผล" },
         { status: 400 }
       );
     }
 
     const created = await prisma.budgetRequest.create({
       data: {
-        purpose: body.purpose,
-        amount: body.amount,
-        reason: body.reason,
+        purpose,
+        amount,
+        reason,
         userId: user.id,
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: "BUDGET_REQUEST",
+        title: "สร้างคำขอเพิ่มงบแล้ว",
+        message: `ส่งคำขอเพิ่มงบ "${purpose}" จำนวน ${amount.toLocaleString()} บาท`,
+        link: "/budget-requests",
       },
     });
 

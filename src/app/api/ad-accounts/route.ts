@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { AdPlatform, AdTestStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
-type AllowedPlatform = (typeof allowedPlatforms)[number];
 
 interface AdAccountPayload {
   platform?: string;
@@ -17,10 +15,10 @@ interface AdAccountPayload {
   isActive?: boolean;
 }
 
-function normalizePlatform(value?: string): AllowedPlatform | null {
+function normalizePlatform(value?: string): AdPlatform | null {
   const upper = typeof value === "string" ? value.toUpperCase() : "";
-  return allowedPlatforms.includes(upper as AllowedPlatform)
-    ? (upper as AllowedPlatform)
+  return Object.values(AdPlatform).includes(upper as AdPlatform)
+    ? (upper as AdPlatform)
     : null;
 }
 
@@ -34,6 +32,18 @@ export async function GET() {
     const accounts = await prisma.adAccount.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        platform: true,
+        name: true,
+        accountId: true,
+        pixelOrTrackingId: true,
+        isActive: true,
+        lastTestedAt: true,
+        lastTestStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json(accounts);
@@ -65,23 +75,40 @@ export async function POST(request: Request) {
       );
     }
 
-    const created = await prisma.adAccount.create({
-      data: {
-        userId: user.id,
-        platform,
-        name,
-        apiKey: body.apiKey?.trim() || null,
-        apiSecret: body.apiSecret?.trim() || null,
-        accessToken: body.accessToken?.trim() || null,
-        refreshToken: body.refreshToken?.trim() || null,
-        accountId: body.accountId?.trim() || null,
-        pixelOrTrackingId: body.pixelOrTrackingId?.trim() || null,
-        isActive: body.isActive ?? true,
-        lastTestStatus: "PENDING",
-      },
+    const existing = await prisma.adAccount.findFirst({
+      where: { userId: user.id, platform },
     });
 
-    return NextResponse.json(created, { status: 201 });
+    const credentialsChanged =
+      body.apiKey?.trim() !== existing?.apiKey ||
+      body.apiSecret?.trim() !== existing?.apiSecret ||
+      body.accessToken?.trim() !== existing?.accessToken ||
+      body.refreshToken?.trim() !== existing?.refreshToken;
+
+    const data = {
+      userId: user.id,
+      platform,
+      name,
+      apiKey: body.apiKey?.trim() || null,
+      apiSecret: body.apiSecret?.trim() || null,
+      accessToken: body.accessToken?.trim() || null,
+      refreshToken: body.refreshToken?.trim() || null,
+      accountId: body.accountId?.trim() || null,
+      pixelOrTrackingId: body.pixelOrTrackingId?.trim() || null,
+      isActive: body.isActive ?? true,
+      lastTestStatus: credentialsChanged ? AdTestStatus.PENDING : existing?.lastTestStatus,
+    } as const;
+
+    const saved = existing
+      ? await prisma.adAccount.update({
+          where: { id: existing.id },
+          data,
+        })
+      : await prisma.adAccount.create({
+          data: { ...data, lastTestStatus: AdTestStatus.PENDING },
+        });
+
+    return NextResponse.json(saved, { status: existing ? 200 : 201 });
   } catch (error) {
     console.error("Error creating ad account", error);
     return NextResponse.json(

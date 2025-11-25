@@ -200,8 +200,8 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">การแจ้งเตือน</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">การแจ้งเตือน</h1>
+          <p className="text-slate-600 dark:text-slate-400">
             ติดตามข้อมูลสำคัญและการอัปเดต
           </p>
         </div>
@@ -229,31 +229,27 @@ export default function NotificationsPage() {
           {loading ? (
             <TableSkeleton rows={5} />
           ) : notifications.length === 0 ? (
-            <Card className="bg-card border-border">
+            <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Bell className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium text-foreground">
-                  ไม่มีการแจ้งเตือน
-                </p>
-                <p className="text-sm text-muted-foreground">
+                <Bell className="h-12 w-12 text-slate-500 dark:text-slate-400 mb-4" />
+                <p className="text-lg font-medium text-slate-900 dark:text-slate-50">ไม่มีการแจ้งเตือน</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
                   เมื่อมีการแจ้งเตือนใหม่ จะแสดงที่นี่
                 </p>
               </CardContent>
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon =
-                notificationIcons[notification.type] ?? Bell; // fallback icon
-              const color =
-                notificationColors[notification.type] ?? "text-primary";
+              const Icon = notificationIcons[notification.type] ?? Bell;
+              const color = notificationColors[notification.type] ?? "text-muted-foreground";
 
               return (
                 <Card
                   key={notification.id}
-                  className={`transition-all hover:shadow-md cursor-pointer border ${
+                  className={`transition-all hover:shadow-lg cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${
                     !notification.isRead
-                      ? "bg-primary/5 border-primary/40"
-                      : "bg-card border-border"
+                      ? "bg-blue-50/80 dark:bg-slate-900/80 border-blue-200 dark:border-blue-900/60"
+                      : ""
                   }`}
                 >
             <CardContent className="p-4">
@@ -267,10 +263,10 @@ export default function NotificationsPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium text-foreground">
+                            <p className="font-medium text-slate-900 dark:text-slate-50">
                               {notification.title}
                             </p>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                               {notification.message}
                             </p>
                           </div>
@@ -283,7 +279,7 @@ export default function NotificationsPage() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
                           {formatRelativeTime(new Date(notification.createdAt))}
                         </p>
                       </div>
@@ -324,28 +320,24 @@ export default function NotificationsPage() {
           {loading ? (
             <TableSkeleton rows={5} />
           ) : notifications.length === 0 ? (
-            <Card className="bg-card border-border">
+            <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <CheckCheck className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium text-foreground">
-                  คุณอ่านทุกอย่างแล้ว!
-                </p>
-                <p className="text-sm text-muted-foreground">
+                <CheckCheck className="h-12 w-12 text-slate-500 dark:text-slate-400 mb-4" />
+                <p className="text-lg font-medium text-slate-900 dark:text-slate-50">คุณอ่านทุกอย่างแล้ว!</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
                   ไม่มีการแจ้งเตือนที่ยังไม่ได้อ่าน
                 </p>
               </CardContent>
             </Card>
           ) : (
             notifications.map((notification) => {
-              const Icon =
-                notificationIcons[notification.type] ?? Bell; // fallback icon
-              const color =
-                notificationColors[notification.type] ?? "text-primary";
+              const Icon = notificationIcons[notification.type] ?? Bell;
+              const color = notificationColors[notification.type] ?? "text-muted-foreground";
 
               return (
                 <Card
                   key={notification.id}
-                  className="bg-primary/5 border-primary/40 transition-all hover:shadow-md cursor-pointer"
+                  className="transition-all hover:shadow-lg cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 bg-blue-50/80 dark:bg-slate-900/80 border-blue-200 dark:border-blue-900/60"
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
@@ -358,10 +350,8 @@ export default function NotificationsPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium text-foreground">
-                              {notification.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="font-medium text-slate-900 dark:text-slate-50">{notification.title}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                               {notification.message}
                             </p>
                           </div>
@@ -372,7 +362,7 @@ export default function NotificationsPage() {
                             ใหม่
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
                           {formatRelativeTime(new Date(notification.createdAt))}
                         </p>
                       </div>

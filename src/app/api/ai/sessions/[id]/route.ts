@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-type RouteParams = {
-  params: { id: string };
+type RouteContext = {
+  params: Promise<{ id: string }>;
 };
 
-// GET - ดึง session + message ทั้งหมดของ session นั้น
-export async function GET(_req: Request, { params }: RouteParams) {
+// GET - Get messages for a specific session
+export async function GET(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const user = await getCurrentUser();
