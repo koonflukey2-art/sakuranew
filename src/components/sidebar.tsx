@@ -49,7 +49,7 @@ const navItems = [
   { href: "/ai-dashboard", label: "AI Dashboard", icon: Sparkles, badge: "New", color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/notifications", label: "การแจ้งเตือน", icon: Bell, color: "text-red-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users, color: "text-teal-400", roles: ["ADMIN"] },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-slate-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+  { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-muted-foreground", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
 ];
 
 export function Sidebar() {
@@ -93,19 +93,19 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-r border-slate-700/50
+        w-64 bg-card border-r border-border/50
         flex flex-col overflow-hidden shadow-2xl
         transform transition-transform duration-200 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
-      <div className="p-6 border-b border-slate-700/50 bg-slate-800/50">
+      <div className="p-6 border-b border-border/50 bg-muted/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-pink-400 via-rose-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/30 ring-2 ring-pink-400/20">
             <Store className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">Sakura</h1>
-            <p className="text-xs text-slate-400">E-Commerce</p>
+            <p className="text-xs text-muted-foreground">E-Commerce</p>
           </div>
         </div>
       </div>
@@ -120,10 +120,10 @@ export function Sidebar() {
                 "flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all duration-200 group relative overflow-hidden",
                 pathname === item.href
                   ? "bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-white shadow-lg shadow-slate-900/20 ring-1 ring-slate-600/50"
-                  : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-white"
               )}
             >
-              <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", pathname === item.href ? item.color : "text-slate-400 group-hover:" + item.color)} />
+              <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", pathname === item.href ? item.color : "text-muted-foreground group-hover:" + item.color)} />
               <span className="font-medium text-sm">{item.label}</span>
               {item.badge && (
                 <Badge className="ml-auto bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-xs px-2 py-0.5 shadow-sm">
@@ -138,23 +138,23 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
-        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors mb-2">
+      <div className="p-4 border-t border-border/50 bg-muted/30">
+        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors mb-2">
           <UserButton
             appearance={{
               elements: {
                 avatarBox: "w-10 h-10 ring-2 ring-pink-400/30",
-                userButtonPopoverCard: "bg-slate-900 border-slate-700",
-                userButtonPopoverActionButton: "hover:bg-slate-800",
+                userButtonPopoverCard: "bg-slate-900 border-border",
+                userButtonPopoverActionButton: "hover:bg-muted",
               },
             }}
           />
           {user && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-100 truncate">
+              <p className="text-sm font-medium text-foreground truncate">
                 {user.fullName}
               </p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-xs text-muted-foreground truncate">
                 {user.primaryEmailAddress?.emailAddress}
               </p>
               {userRole && (
@@ -171,7 +171,7 @@ export function Sidebar() {
         <SignOutButton>
           <Button
             variant="ghost"
-            className="w-full justify-start text-slate-300 hover:text-white hover:bg-red-500/10"
+            className="w-full justify-start text-muted-foreground hover:text-white hover:bg-red-500/10"
           >
             <LogOut className="w-4 h-4 mr-2 text-red-400" />
             <span className="text-sm">ออกจากระบบ</span>
@@ -179,9 +179,9 @@ export function Sidebar() {
         </SignOutButton>
       </div>
 
-      <div className="p-4 border-t border-slate-700/50 bg-slate-950/50">
+      <div className="p-4 border-t border-border/50 bg-slate-950/50">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">Powered by AI</span>
+          <span className="text-muted-foreground">Powered by AI</span>
           <span className="text-pink-400 font-semibold">Gemini 2.0</span>
         </div>
       </div>

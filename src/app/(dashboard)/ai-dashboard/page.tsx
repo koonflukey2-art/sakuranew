@@ -22,7 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, ShoppingBag, Sparkles, Target, Zap } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdAccount {
   id: string;
@@ -79,6 +79,8 @@ export default function AIDashboard() {
   const [trend, setTrend] = useState("");
   const [budget, setBudget] = useState("");
 
+  const { toast } = useToast();
+
   useEffect(() => {
     fetchAdAccounts();
   }, []);
@@ -102,7 +104,11 @@ export default function AIDashboard() {
         }
       }
     } catch (error) {
-      toast.error("Failed to load ad accounts");
+      toast({
+        title: "ผิดพลาด",
+        description: "Failed to load ad accounts",
+        variant: "destructive",
+      });
     } finally {
       setLoadingAccounts(false);
     }
@@ -117,10 +123,18 @@ export default function AIDashboard() {
         const data = await response.json();
         setCampaigns(data.data || []);
       } else {
-        toast.error("Failed to fetch campaigns");
+        toast({
+          title: "ผิดพลาด",
+          description: "Failed to fetch campaigns",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast.error("Failed to fetch campaigns");
+      toast({
+        title: "ผิดพลาด",
+        description: "Failed to fetch campaigns",
+        variant: "destructive",
+      });
     } finally {
       setLoadingCampaigns(false);
     }
@@ -144,7 +158,11 @@ export default function AIDashboard() {
       const insightsData = await insightsResponse.json();
 
       if (!insightsData.data || insightsData.data.length === 0) {
-        toast.error("No insights data available for this campaign");
+        toast({
+          title: "ผิดพลาด",
+          description: "No insights data available for this campaign",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -166,9 +184,16 @@ export default function AIDashboard() {
 
       const analysisData = await analyzeResponse.json();
       setAnalysis(analysisData);
-      toast.success("Campaign analyzed successfully!");
+      toast({
+        title: "สำเร็จ!",
+        description: "Campaign analyzed successfully!",
+      });
     } catch (error: any) {
-      toast.error(error.message || "Failed to analyze campaign");
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "Failed to analyze campaign",
+        variant: "destructive",
+      });
     } finally {
       setAnalyzingCampaign(false);
     }
@@ -193,9 +218,16 @@ export default function AIDashboard() {
 
       const suggestions = await response.json();
       setProductSuggestions(suggestions);
-      toast.success(`Generated ${suggestions.length} product suggestions!`);
+      toast({
+        title: "สำเร็จ!",
+        description: `Generated ${suggestions.length} product suggestions!`,
+      });
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate suggestions");
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "Failed to generate suggestions",
+        variant: "destructive",
+      });
     } finally {
       setGeneratingProducts(false);
     }
