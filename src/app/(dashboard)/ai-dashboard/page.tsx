@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+<<<<<<< HEAD
 import {
   Loader2,
   TrendingUp,
@@ -29,6 +30,9 @@ import {
   Target,
   Zap,
 } from "lucide-react";
+=======
+import { Loader2, TrendingUp, ShoppingBag, Sparkles, Target, Zap } from "lucide-react";
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
 import { useToast } from "@/hooks/use-toast";
 
 interface AdAccount {
@@ -92,6 +96,8 @@ export default function AIDashboardPage() {
   const [trend, setTrend] = useState("");
   const [budget, setBudget] = useState("");
 
+  const { toast } = useToast();
+
   useEffect(() => {
     fetchAdAccounts();
   }, []);
@@ -118,8 +124,13 @@ export default function AIDashboardPage() {
       }
     } catch (error) {
       toast({
+<<<<<<< HEAD
         title: "Failed to load ad accounts",
         description: "Something went wrong while loading ad accounts.",
+=======
+        title: "ผิดพลาด",
+        description: "Failed to load ad accounts",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         variant: "destructive",
       });
     } finally {
@@ -139,15 +150,25 @@ export default function AIDashboardPage() {
         setCampaigns(data.data || []);
       } else {
         toast({
+<<<<<<< HEAD
           title: "Failed to fetch campaigns",
           description: "The server returned an error while fetching campaigns.",
+=======
+          title: "ผิดพลาด",
+          description: "Failed to fetch campaigns",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
+<<<<<<< HEAD
         title: "Failed to fetch campaigns",
         description: "Network or server error while fetching campaigns.",
+=======
+        title: "ผิดพลาด",
+        description: "Failed to fetch campaigns",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         variant: "destructive",
       });
     } finally {
@@ -176,8 +197,13 @@ export default function AIDashboardPage() {
 
       if (!insightsData.data || insightsData.data.length === 0) {
         toast({
+<<<<<<< HEAD
           title: "No insights data",
           description: "No insights data available for this campaign.",
+=======
+          title: "ผิดพลาด",
+          description: "No insights data available for this campaign",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
           variant: "destructive",
         });
         return;
@@ -202,13 +228,22 @@ export default function AIDashboardPage() {
       const analysisData = await analyzeResponse.json();
       setAnalysis(analysisData);
       toast({
+<<<<<<< HEAD
         title: "Campaign analyzed",
+=======
+        title: "สำเร็จ!",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         description: "Campaign analyzed successfully!",
       });
     } catch (error: any) {
       toast({
+<<<<<<< HEAD
         title: "Failed to analyze campaign",
         description: error?.message || "Something went wrong.",
+=======
+        title: "ผิดพลาด",
+        description: error.message || "Failed to analyze campaign",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         variant: "destructive",
       });
     } finally {
@@ -236,13 +271,22 @@ export default function AIDashboardPage() {
       const suggestions = await response.json();
       setProductSuggestions(suggestions);
       toast({
+<<<<<<< HEAD
         title: "Suggestions generated",
+=======
+        title: "สำเร็จ!",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         description: `Generated ${suggestions.length} product suggestions!`,
       });
     } catch (error: any) {
       toast({
+<<<<<<< HEAD
         title: "Failed to generate suggestions",
         description: error?.message || "Something went wrong.",
+=======
+        title: "ผิดพลาด",
+        description: error.message || "Failed to generate suggestions",
+>>>>>>> origin/claude/add-ad-accounts-system-01Y4rejpBwhCYLcotpAfhEoL
         variant: "destructive",
       });
     } finally {
