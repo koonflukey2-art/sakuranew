@@ -40,7 +40,39 @@ export async function GET(request: Request) {
       );
     }
 
-    const accessToken = decrypt(adAccount.accessToken || adAccount.apiKey);
+    // Try to get token from AdAccount first, then fallback to Platform Credentials
+    let accessToken: string | null = null;
+
+    if (adAccount.accessToken) {
+      accessToken = decrypt(adAccount.accessToken);
+    } else if (adAccount.apiKey) {
+      accessToken = decrypt(adAccount.apiKey);
+    } else {
+      // Fallback to Platform Credentials
+      const platformCred = await prisma.platformCredential.findUnique({
+        where: {
+          userId_platform: {
+            userId: user.id,
+            platform: "FACEBOOK_ADS",
+          },
+        },
+      });
+
+      if (platformCred?.accessToken || platformCred?.apiKey) {
+        accessToken = platformCred.accessToken
+          ? decrypt(platformCred.accessToken)
+          : platformCred.apiKey
+          ? decrypt(platformCred.apiKey)
+          : null;
+      }
+    }
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "No Facebook Ads credentials configured" },
+        { status: 400 }
+      );
+    }
 
     // Fetch campaigns from Facebook
     const response = await fetch(

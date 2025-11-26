@@ -34,6 +34,7 @@ model User {
   aiConversations      AIConversation[]
   facebookAdInsights   FacebookAdInsight[]
   aiProductSuggestions AIProductSuggestion[]
+  platformCredentials  PlatformCredential[]
 }
 
 enum Role {
@@ -288,6 +289,13 @@ enum AdPlatform {
   LINE
 }
 
+enum ExternalPlatform {
+  FACEBOOK_ADS
+  TIKTOK_ADS
+  LAZADA
+  SHOPEE
+}
+
 model AdAccount {
   id           String   @id @default(cuid())
   userId       String
@@ -392,5 +400,27 @@ model AIProductSuggestion {
 
   createdAt   DateTime @default(now())
 
+  @@index([userId])
+}
+
+model PlatformCredential {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  platform     ExternalPlatform
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isValid      Boolean          @default(false)
+  lastTested   DateTime?
+  testMessage  String?
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([userId, platform])
   @@index([userId])
 }
