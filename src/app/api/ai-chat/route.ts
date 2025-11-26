@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
 // ดึงข้อมูลทั้งระบบ
 async function getSystemContext(userId: string) {
-  const [products, campaigns, budgets, adAccounts] = await Promise.all([
+  const [products, campaigns, budgets, adAccounts, platformCreds] = await Promise.all([
     prisma.product.findMany({ where: { userId } }),
     prisma.adCampaign.findMany({ where: { userId } }),
     prisma.budget.findMany({ where: { userId } }),
@@ -131,9 +131,16 @@ async function getSystemContext(userId: string) {
       select: {
         id: true,
         platform: true,
-        name: true,
+        accountName: true,
         isActive: true,
-        lastTestStatus: true,
+        isValid: true,
+      },
+    }),
+    prisma.platformCredential.findMany({
+      where: { userId },
+      select: {
+        platform: true,
+        isValid: true,
       },
     }),
   ]);
@@ -199,6 +206,10 @@ async function getSystemContext(userId: string) {
       remaining: b.amount - b.spent,
     })),
     adAccounts: formatAdAccounts(adAccounts),
+    platformCreds: platformCreds.map((p) => ({
+      platform: p.platform,
+      isValid: p.isValid,
+    })),
     alerts: {
       lowStock: lowStockProducts.map((p) => ({
         name: p.name,
@@ -250,6 +261,7 @@ function buildSystemPrompt(context: any) {
     campaigns: context.campaigns,
     budgets: context.budgets,
     adAccounts: context.adAccounts,
+    platformCreds: context.platformCreds || [],
   };
 
   const adAccountsOverview =
@@ -262,6 +274,16 @@ function buildSystemPrompt(context: any) {
           .join("\n")
       : "- ยังไม่มีการเชื่อมต่อ Ad Account";
 
+  const platformCredsOverview =
+    businessData.platformCreds.length > 0
+      ? businessData.platformCreds
+          .map(
+            (p: any) =>
+              `- ${p.platform}: ${p.isValid ? "✅ Connected" : "❌ Invalid"}`
+          )
+          .join("\n")
+      : "- ยังไม่มีการตั้งค่า Platform API";
+
   return `คุณคือผู้ช่วย AI สำหรับระบบจัดการธุรกิจและโฆษณาออนไลน์ของผู้ใช้
 
 ข้อมูลปัจจุบัน:
@@ -269,19 +291,28 @@ function buildSystemPrompt(context: any) {
 - แคมเปญโฆษณา: ${businessData.campaigns.length} แคมเปญ
 - งบประมาณ: ${businessData.budgets.length} รายการ
 - Ad Accounts: ${businessData.adAccounts.length} บัญชี
+- แพลตฟอร์มที่เชื่อมต่อ: ${businessData.platformCreds.length} แพลตฟอร์ม
 
 Ad Accounts:
 ${adAccountsOverview}
 
+Platform API Connections:
+${platformCredsOverview}
+
 ฟีเจอร์ที่ระบบรองรับแล้ว (สำคัญสำหรับการตอบ):
 - ผู้ใช้สามารถจัดการ Ad Accounts ได้ในหน้า Settings (เพิ่ม / ลบ / แก้ไข / ทดสอบการเชื่อมต่อ และตั้งเป็น Default)
+- ผู้ใช้สามารถตั้งค่า Platform API Settings ในหน้า Settings สำหรับเชื่อมต่อกับแพลตฟอร์มหลัก (Facebook Ads, TikTok Ads, Lazada, Shopee)
+- Platform Credentials ทำงานเป็น fallback หาก Ad Account ไม่มี API key/token ระบบจะใช้ token จาก Platform Credentials แทน
 - หน้า Ads ผู้ใช้ต้องเลือก Ad Account เมื่อสร้างแคมเปญใหม่ และแคมเปญจะถูกผูกกับ Ad Account ที่เลือก
 - หน้า Automation ผู้ใช้สามารถเลือก Ad Account เฉพาะ หรือใช้ทุกบัญชี เมื่อสร้างกฎอัตโนมัติ
-- ข้อมูล API key / access token ของ Ad Accounts ถูกเข้ารหัสก่อนเก็บในฐานข้อมูล (ผ่านโมดูล crypto)
-- AI สามารถใช้ข้อมูลสินค้า แคมเปญ งบประมาณ และสถานะของแต่ละ Ad Account เพื่อช่วยวิเคราะห์และให้คำแนะนำ
+- ข้อมูล API key / access token ของ Ad Accounts และ Platform Credentials ถูกเข้ารหัสก่อนเก็บในฐานข้อมูล (ผ่านโมดูล crypto)
+- AI สามารถใช้ข้อมูลสินค้า แคมเปญ งบประมาณ และสถานะของแต่ละ Ad Account และ Platform API เพื่อช่วยวิเคราะห์และให้คำแนะนำ
+- AI Dashboard รองรับการวิเคราะห์แคมเปญ Facebook และแนะนำสินค้าโดยใช้ Gemini AI
 
 หลักการตอบ:
-- ใช้ข้อมูลจาก businessData.products, businessData.campaigns, businessData.budgets และ businessData.adAccounts เท่านั้น ห้ามเดาข้อมูลที่ไม่มีอยู่จริง
+- ใช้ข้อมูลจาก businessData.products, businessData.campaigns, businessData.budgets, businessData.adAccounts และ businessData.platformCreds เท่านั้น ห้ามเดาข้อมูลที่ไม่มีอยู่จริง
+- คุณสามารถอ้างอิงสถานะการเชื่อมต่อ Platform API (เช่น Facebook Ads, TikTok Ads, Lazada, Shopee) ในคำแนะนำได้
+- คุณ **ยังไม่สามารถเรียก API ภายนอกเอง** ให้ตอบเฉพาะจากข้อมูลที่ระบบเตรียมไว้ให้เท่านั้น
 - ถ้า Ad Account ใด isValid = false ให้แจ้งผู้ใช้ตามจริง และแนะนำให้กลับไปทดสอบการเชื่อมต่อในหน้า Settings
 - ถ้าผู้ใช้ไม่ได้ระบุแพลตฟอร์ม ให้ถามย้อนว่าต้องการดูข้อมูลของแพลตฟอร์มใด (Facebook / Google / TikTok / LINE) หรือดูภาพรวมทุกแพลตฟอร์ม
 - ถ้าข้อมูลในระบบยังว่าง (ไม่มี Ad Account / แคมเปญ / งบประมาณ) ให้ตอบตรงไปตรงมา และแนะนำขั้นตอนเริ่มต้น เช่น ให้ไปเพิ่ม Ad Account หรือสร้างแคมเปญใหม่

@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Check, X, Sparkles, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Check, X, Sparkles, RefreshCw, Trash2, Globe2, KeyRound } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface AIProvider {
   id: string;
@@ -37,8 +38,21 @@ export default function SettingsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Platform Credentials State
+  const [platformCreds, setPlatformCreds] = useState<any[]>([]);
+  const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
+  const [testingPlatformId, setTestingPlatformId] = useState<string | null>(null);
+  const [platformForm, setPlatformForm] = useState({
+    platform: "FACEBOOK_ADS",
+    apiKey: "",
+    apiSecret: "",
+    accessToken: "",
+    refreshToken: "",
+  });
+
   useEffect(() => {
     fetchProviders();
+    fetchPlatformCreds();
   }, []);
 
   const fetchProviders = async () => {
@@ -156,6 +170,122 @@ export default function SettingsPage() {
       toast({
         title: "ผิดพลาด",
         description: "ไม่สามารถลบได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Platform Credentials Functions
+  const fetchPlatformCreds = async () => {
+    try {
+      setLoadingPlatformCreds(true);
+      const res = await fetch("/api/platform-credentials");
+      if (res.ok) {
+        const data = await res.json();
+        setPlatformCreds(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch platform credentials:", error);
+    } finally {
+      setLoadingPlatformCreds(false);
+    }
+  };
+
+  const handleSavePlatformCred = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const res = await fetch("/api/platform-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(platformForm),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save credential");
+      }
+
+      toast({
+        title: "บันทึกสำเร็จ",
+        description: "บันทึก API Key / Token ของแพลตฟอร์มแล้ว",
+      });
+
+      setPlatformForm({
+        platform: platformForm.platform,
+        apiKey: "",
+        apiSecret: "",
+        accessToken: "",
+        refreshToken: "",
+      });
+
+      fetchPlatformCreds();
+    } catch (error: any) {
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "ไม่สามารถบันทึกข้อมูลได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTestPlatformCred = async (id: string) => {
+    try {
+      setTestingPlatformId(id);
+      const res = await fetch("/api/platform-credentials/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast({
+          title: "✅ เชื่อมต่อสำเร็จ",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "❌ เชื่อมต่อไม่สำเร็จ",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+
+      fetchPlatformCreds();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingPlatformId(null);
+    }
+  };
+
+  const handleDeletePlatformCred = async (id: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบ API Credential นี้?")) return;
+
+    try {
+      const res = await fetch(`/api/platform-credentials?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete credential");
+
+      toast({
+        title: "ลบสำเร็จ",
+        description: "ลบข้อมูล API Key / Token เรียบร้อยแล้ว",
+      });
+
+      fetchPlatformCreds();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถลบข้อมูลได้",
         variant: "destructive",
       });
     }
@@ -366,6 +496,190 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Platform API Settings */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Globe2 className="w-5 h-5" />
+                Platform API Settings
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook, TikTok, Lazada ฯลฯ)
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Form */}
+          <form onSubmit={handleSavePlatformCred} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-white">Platform</Label>
+                <Select
+                  value={platformForm.platform}
+                  onValueChange={(value) =>
+                    setPlatformForm((prev) => ({ ...prev, platform: value }))
+                  }
+                >
+                  <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="FACEBOOK_ADS">Facebook Ads</SelectItem>
+                    <SelectItem value="TIKTOK_ADS">TikTok Ads</SelectItem>
+                    <SelectItem value="LAZADA">Lazada</SelectItem>
+                    <SelectItem value="SHOPEE">Shopee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-white">API Key (ถ้ามี)</Label>
+                <Input
+                  type="password"
+                  className="bg-slate-900 border-slate-600 text-white mt-1"
+                  value={platformForm.apiKey}
+                  onChange={(e) =>
+                    setPlatformForm((prev) => ({ ...prev, apiKey: e.target.value }))
+                  }
+                  placeholder="เช่น App Key / Client ID"
+                />
+              </div>
+
+              <div>
+                <Label className="text-white">API Secret (ถ้ามี)</Label>
+                <Input
+                  type="password"
+                  className="bg-slate-900 border-slate-600 text-white mt-1"
+                  value={platformForm.apiSecret}
+                  onChange={(e) =>
+                    setPlatformForm((prev) => ({ ...prev, apiSecret: e.target.value }))
+                  }
+                  placeholder="เช่น App Secret / Client Secret"
+                />
+              </div>
+
+              <div>
+                <Label className="text-white">Access Token (ถ้ามี)</Label>
+                <Input
+                  type="password"
+                  className="bg-slate-900 border-slate-600 text-white mt-1"
+                  value={platformForm.accessToken}
+                  onChange={(e) =>
+                    setPlatformForm((prev) => ({ ...prev, accessToken: e.target.value }))
+                  }
+                  placeholder="เช่น Facebook / TikTok Access Token"
+                />
+              </div>
+
+              <div>
+                <Label className="text-white">Refresh Token (ถ้ามี)</Label>
+                <Input
+                  type="password"
+                  className="bg-slate-900 border-slate-600 text-white mt-1"
+                  value={platformForm.refreshToken}
+                  onChange={(e) =>
+                    setPlatformForm((prev) => ({ ...prev, refreshToken: e.target.value }))
+                  }
+                  placeholder="ใช้สำหรับต่ออายุ Access Token"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="submit" className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4" />
+                บันทึก API Settings
+              </Button>
+            </div>
+          </form>
+
+          {/* List of Platforms */}
+          <div className="border-t border-slate-700 pt-4">
+            {loadingPlatformCreds ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+              </div>
+            ) : platformCreds.length === 0 ? (
+              <p className="text-slate-400 text-sm">
+                ยังไม่มีการตั้งค่า Platform ใด ๆ
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                {platformCreds.map((cred, index) => (
+                  <motion.div
+                    key={cred.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Card className="bg-slate-900 border-slate-700">
+                      <CardContent className="p-4 flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-blue-600">
+                              {cred.platform}
+                            </Badge>
+                            {cred.isValid ? (
+                              <Badge className="bg-green-600 flex items-center gap-1">
+                                <Check className="w-3 h-3" />
+                                Connected
+                              </Badge>
+                            ) : cred.lastTested ? (
+                              <Badge variant="destructive" className="flex items-center gap-1">
+                                <X className="w-3 h-3" />
+                                Invalid
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-600">Not tested</Badge>
+                            )}
+                          </div>
+                          {cred.lastTested && (
+                            <p className="text-xs text-slate-400">
+                              Last tested:{" "}
+                              {new Date(cred.lastTested).toLocaleString("th-TH")}
+                            </p>
+                          )}
+                          {cred.testMessage && (
+                            <p className="text-xs text-slate-400 mt-1">
+                              {cred.testMessage}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTestPlatformCred(cred.id)}
+                            disabled={testingPlatformId === cred.id}
+                          >
+                            {testingPlatformId === cred.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              "Test"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeletePlatformCred(cred.id)}
+                          >
+                            ลบ
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
