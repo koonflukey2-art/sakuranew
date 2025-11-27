@@ -314,27 +314,38 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">ภาพรวมธุรกิจของคุณ</p>
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-6 space-y-6">
+      {/* Header with Glass Effect */}
+      <div className="glass-primary rounded-2xl p-6 animate-gradient">
+        <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          Dashboard
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          ภาพรวมธุรกิจของคุณ 🌸
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        {/* กำไรรวม */}
-        <Card className="stat-green shadow-modern">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white">
-              กำไรรวม
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-white" />
+      {/* Stats Cards - Vibrant */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1 - Pink (Profit) */}
+        <Card className="stat-card-pink hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                กำไรรวม
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
               {formatCurrency(stats.totalProfit)}
             </div>
-            <p className="text-xs text-white mt-1">
+            <p className="text-xs text-white/80 mt-2 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
               {stats.totalProfit > 0 ? "+" : ""}
               {stats.totalRevenue > 0
                 ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1)
@@ -344,55 +355,70 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* รายได้ */}
-        <Card className="stat-blue shadow-modern">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white">
-              รายได้
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-white" />
+        {/* Card 2 - Purple (Revenue) */}
+        <Card className="stat-card-purple hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                รายได้
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-white" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-xs text-white mt-1">
+            <p className="text-xs text-white/80 mt-2">
               จากแคมเปญทั้งหมด
             </p>
           </CardContent>
         </Card>
 
-        {/* ออเดอร์ */}
-        <Card className="stat-purple shadow-modern">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white">
-              ออเดอร์
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-white" />
+        {/* Card 3 - Cyan (Orders) */}
+        <Card className="stat-card-cyan hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                ออเดอร์
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-white" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
               {formatNumber(stats.totalOrders)}
             </div>
-            <p className="text-xs text-white mt-1">
+            <p className="text-xs text-white/80 mt-2">
               Conversions ทั้งหมด
             </p>
           </CardContent>
         </Card>
 
-        {/* ROAS */}
-        <Card className="stat-orange shadow-modern">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white">
-              ROAS เฉลี่ย
-            </CardTitle>
-            <Activity className="h-4 w-4 text-white" />
+        {/* Card 4 - Orange (ROAS) */}
+        <Card className="stat-card-orange hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                ROAS เฉลี่ย
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
               {stats.avgROAS.toFixed(2)}x
             </div>
-            <p className="text-xs text-white mt-1">
+            <p className="text-xs text-white/80 mt-2">
               Return on Ad Spend
             </p>
           </CardContent>
@@ -402,9 +428,11 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="bg-card border-border shadow-modern">
+        <Card className="glass border-0 shadow-vibrant hover-lift">
           <CardHeader>
-            <CardTitle className="text-foreground">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
+            <CardTitle className="bg-gradient-primary bg-clip-text text-transparent">
+              รายได้ vs ค่าใช้จ่าย (7 วัน)
+            </CardTitle>
             <CardDescription className="text-muted-foreground">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
@@ -473,9 +501,11 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="bg-card border-border shadow-modern">
+        <Card className="glass border-0 shadow-vibrant hover-lift">
           <CardHeader>
-            <CardTitle className="text-foreground">ROI แต่ละ Platform</CardTitle>
+            <CardTitle className="bg-gradient-secondary bg-clip-text text-transparent">
+              ROI แต่ละ Platform
+            </CardTitle>
             <CardDescription className="text-muted-foreground">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
@@ -522,9 +552,11 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card className="bg-card border-border shadow-modern">
+        <Card className="glass border-0 shadow-vibrant hover-lift">
           <CardHeader>
-            <CardTitle className="text-foreground">สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="bg-gradient-accent bg-clip-text text-transparent">
+              สัดส่วนงบประมาณ
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
@@ -572,10 +604,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card className="bg-card border-border shadow-modern">
+        <Card className="glass border-0 shadow-vibrant hover-lift">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <AlertTriangle className="h-5 w-5 text-warning" />
+            <CardTitle className="flex items-center gap-2 bg-gradient-warning bg-clip-text text-transparent">
+              <AlertTriangle className="h-5 w-5" style={{ color: 'hsl(35 100% 60%)' }} />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
           </CardHeader>
@@ -622,57 +654,63 @@ export default function DashboardPage() {
 
       {/* AI Insights */}
       {!loading && (
-        <Card className="bg-info border-info shadow-modern-lg animate-fade-in hover-lift">
+        <Card className="glass-primary border-0 shadow-vibrant-lg animate-pulse-glow">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-white" />
-              AI Insights & Recommendations
-            </CardTitle>
-          <CardDescription className="text-white/90">
-            คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingInsights ? (
-            <div className="flex items-center gap-2 text-white">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              AI กำลังวิเคราะห์ข้อมูลของคุณ...
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <span className="bg-gradient-primary bg-clip-text text-transparent">
+                  AI Insights & Recommendations
+                </span>
+              </CardTitle>
+              <Button
+                size="sm"
+                className="bg-gradient-primary hover:opacity-90 text-white border-0 shadow-vibrant"
+                onClick={() => router.push("/ai-chat")}
+              >
+                <Bot className="w-4 h-4 mr-2" />
+                ดูทั้งหมด
+              </Button>
             </div>
-          ) : aiInsights.length > 0 ? (
-            <ul className="space-y-3">
-              {aiInsights.map((insight, idx) => (
-                <li key={idx} className="flex items-start gap-3 text-white">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                    {idx + 1}
-                  </span>
-                  <span className="flex-1">{insight}</span>
-                </li>
-              ))}
-            </ul>
-          ) : aiError ? (
-            <p className="text-white/90">{aiError}</p>
-          ) : (
-            <p className="text-white/90">
-              เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
-            </p>
-          )}
-
-            <Button
-              variant="outline"
-              className="mt-4 w-full border-white/30 text-white hover:bg-white/10"
-              onClick={() => router.push("/ai-chat")}
-            >
-              <Bot className="w-4 h-4 mr-2" />
-              เปิด AI Assistant
-            </Button>
+            <CardDescription className="text-muted-foreground mt-2">
+              คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingInsights ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : aiInsights.length > 0 ? (
+              <ul className="space-y-3">
+                {aiInsights.map((insight, idx) => (
+                  <li key={idx} className="flex items-start gap-3 p-3 rounded-xl glass hover:shadow-vibrant transition-all">
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-primary text-white flex items-center justify-center text-sm font-bold">
+                      {idx + 1}
+                    </span>
+                    <span className="text-foreground flex-1">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : aiError ? (
+              <p className="text-muted-foreground">{aiError}</p>
+            ) : (
+              <p className="text-muted-foreground">
+                เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Recent Activities */}
-      <Card className="bg-card border-border shadow-modern animate-fade-in hover-lift">
+      <Card className="glass border-0 shadow-vibrant animate-fade-in hover-lift">
         <CardHeader>
-          <CardTitle className="text-foreground">กิจกรรมล่าสุด</CardTitle>
+          <CardTitle className="bg-gradient-secondary bg-clip-text text-transparent">
+            กิจกรรมล่าสุด
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
@@ -714,9 +752,9 @@ export default function DashboardPage() {
                         <Badge
                           className={
                             c.status === "ACTIVE"
-                              ? "bg-success text-white"
+                              ? "bg-gradient-success text-white border-0"
                               : c.status === "PAUSED"
-                              ? "bg-warning text-white"
+                              ? "bg-gradient-warning text-white border-0"
                               : "bg-muted text-muted-foreground"
                           }
                         >
@@ -750,7 +788,9 @@ export default function DashboardPage() {
                       <span className="text-sm text-muted-foreground">คงเหลือ</span>
                       <span
                         className={`text-lg font-bold ${
-                          budgetRemaining >= 0 ? "text-success" : "text-error"
+                          budgetRemaining >= 0
+                            ? "bg-gradient-success bg-clip-text text-transparent"
+                            : "bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent"
                         }`}
                       >
                         {formatCurrency(budgetRemaining)}
@@ -786,10 +826,10 @@ export default function DashboardPage() {
                           <Badge
                             className={
                               percentage > 90
-                                ? "bg-error text-white"
+                                ? "bg-gradient-to-r from-red-500 to-red-600 text-white border-0"
                                 : percentage > 70
-                                ? "bg-warning text-white"
-                                : "bg-success text-white"
+                                ? "bg-gradient-warning text-white border-0"
+                                : "bg-gradient-success text-white border-0"
                             }
                           >
                             {percentage.toFixed(0)}%

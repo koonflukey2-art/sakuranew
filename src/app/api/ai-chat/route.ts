@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
 // ดึงข้อมูลทั้งระบบ
 async function getSystemContext(userId: string) {
-  const [products, campaigns, budgets, adAccounts, platformCreds] = await Promise.all([
+  const [products, campaigns, budgets, adAccounts] = await Promise.all([
     prisma.product.findMany({ where: { userId } }),
     prisma.adCampaign.findMany({ where: { userId } }),
     prisma.budget.findMany({ where: { userId } }),
@@ -132,14 +132,8 @@ async function getSystemContext(userId: string) {
         id: true,
         platform: true,
         accountName: true,
+        name: true,
         isActive: true,
-        isValid: true,
-      },
-    }),
-    prisma.platformCredential.findMany({
-      where: { userId },
-      select: {
-        platform: true,
         isValid: true,
       },
     }),
@@ -206,10 +200,6 @@ async function getSystemContext(userId: string) {
       remaining: b.amount - b.spent,
     })),
     adAccounts: formatAdAccounts(adAccounts),
-    platformCreds: platformCreds.map((p) => ({
-      platform: p.platform,
-      isValid: p.isValid,
-    })),
     alerts: {
       lowStock: lowStockProducts.map((p) => ({
         name: p.name,
