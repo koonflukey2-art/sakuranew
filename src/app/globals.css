@@ -309,3 +309,81 @@ h3 {
     @apply min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50;
   }
 }
+
+/* =================================================================
+   AI CHAT INPUT - FORCE WHITE BACKGROUND
+   ================================================================= */
+
+/* Force white background for AI chat dialog */
+[data-radix-dialog-content] {
+  background-color: white !important;
+}
+
+/* Force white input with high contrast */
+.ai-chat-input,
+input[placeholder="พิมพ์คำถาม..."] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #d1d5db !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+  outline: none !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background-color: #f9fafb !important;
+}
+
+/* Remove any dark mode overrides */
+input[placeholder="พิมพ์คำถาม..."][class*="dark"],
+.dark input[placeholder="พิมพ์คำถาม..."] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Force for any input in dialog */
+[role="dialog"] input[type="text"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Override any Input component styles */
+[role="dialog"] input {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Specific override for shadcn/ui Input component */
+.ai-chat-input {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #d1d5db !important;
+  font-weight: 500 !important;
+}
+
+.ai-chat-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.ai-chat-input:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+}
+
+.ai-chat-input:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+}

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Bot, Send, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +50,10 @@ export function AIChatDialog() {
         <Bot className="h-7 w-7 text-white" />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl bg-white border-2 border-gray-200">
+        <DialogContent
+          className="sm:max-w-2xl border-2 border-gray-200"
+          style={{ backgroundColor: '#ffffff' }}
+        >
           <DialogHeader className="border-b-2 border-gray-200 pb-4 bg-gradient-to-r from-pink-50 to-purple-50 -mx-6 -mt-6 px-6 pt-6 mb-4">
             <DialogTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
               <div className="p-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500">
@@ -119,20 +121,51 @@ export function AIChatDialog() {
             )}
           </div>
 
-          {/* Input Area - HIGH CONTRAST */}
-          <div className="flex gap-2 pt-4 border-t-2 border-gray-200">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage()}
-              placeholder="พิมพ์คำถาม..."
-              disabled={loading}
-              className="bg-white border-2 border-gray-300 text-gray-800 placeholder:text-gray-400 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 font-medium"
-            />
+          {/* Input Area - WHITE BACKGROUND FORCED */}
+          <div className="flex gap-2 pt-4 border-t-2 border-gray-200 bg-white p-2">
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !loading && input.trim()) {
+                    sendMessage();
+                  }
+                }}
+                placeholder="พิมพ์คำถาม..."
+                disabled={loading}
+                className="ai-chat-input"
+                style={{
+                  width: '100%',
+                  height: '2.5rem',
+                  borderRadius: '0.5rem',
+                  border: '2px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  padding: '0 1rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  appearance: 'none',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#ec4899';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(236, 72, 153, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+            </div>
             <Button
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
+              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md flex-shrink-0"
               size="icon"
             >
               <Send className="h-4 w-4" />
