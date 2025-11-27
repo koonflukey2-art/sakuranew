@@ -314,16 +314,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-50">
+    <div className="space-y-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-        <p className="text-slate-700 dark:text-slate-300 mt-1">ภาพรวมธุรกิจของคุณ</p>
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         {/* กำไรรวม */}
-        <Card className="bg-gradient-to-br from-green-600 to-green-700 border-green-600">
+        <Card className="stat-green shadow-modern">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-white">
               กำไรรวม
@@ -334,7 +334,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-white">
               {formatCurrency(stats.totalProfit)}
             </div>
-            <p className="text-xs text-white/90 mt-1">
+            <p className="text-xs text-white mt-1">
               {stats.totalProfit > 0 ? "+" : ""}
               {stats.totalRevenue > 0
                 ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1)
@@ -345,7 +345,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* รายได้ */}
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-600">
+        <Card className="stat-blue shadow-modern">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-white">
               รายได้
@@ -356,14 +356,14 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-xs text-white/90 mt-1">
+            <p className="text-xs text-white mt-1">
               จากแคมเปญทั้งหมด
             </p>
           </CardContent>
         </Card>
 
         {/* ออเดอร์ */}
-        <Card className="bg-gradient-to-br from-purple-600 to-purple-700 border-purple-600">
+        <Card className="stat-purple shadow-modern">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-white">
               ออเดอร์
@@ -374,14 +374,14 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-white">
               {formatNumber(stats.totalOrders)}
             </div>
-            <p className="text-xs text-white/90 mt-1">
+            <p className="text-xs text-white mt-1">
               Conversions ทั้งหมด
             </p>
           </CardContent>
         </Card>
 
         {/* ROAS */}
-        <Card className="bg-gradient-to-br from-yellow-600 to-yellow-700 border-yellow-600">
+        <Card className="stat-orange shadow-modern">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-white">
               ROAS เฉลี่ย
@@ -392,7 +392,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-white">
               {stats.avgROAS.toFixed(2)}x
             </div>
-            <p className="text-xs text-white/90 mt-1">
+            <p className="text-xs text-white mt-1">
               Return on Ad Spend
             </p>
           </CardContent>
@@ -402,10 +402,10 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <Card className="bg-card border-border shadow-modern">
           <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-white">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
-            <CardDescription className="text-slate-600 dark:text-slate-300">
+            <CardTitle className="text-foreground">รายได้ vs ค่าใช้จ่าย (7 วัน)</CardTitle>
+            <CardDescription className="text-muted-foreground">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -417,37 +417,23 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="date"
-                    stroke="#e2e8f0"
-                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
+                    className="text-muted-foreground"
+                    style={{ fontSize: '12px' }}
                   />
                   <YAxis
-                    stroke="#e2e8f0"
-                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
+                    className="text-muted-foreground"
+                    style={{ fontSize: '12px' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
-                      color: "#fff"
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))"
                     }}
-                    labelStyle={{ color: "#fff" }}
                   />
                   <Legend
                     wrapperStyle={{ paddingTop: "20px" }}
@@ -456,31 +442,28 @@ export default function DashboardPage() {
                   <Line
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#10b981"
+                    stroke="hsl(142 76% 36%)"
                     strokeWidth={3}
                     name="รายได้"
-                    fill="url(#colorRevenue)"
-                    dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="spent"
-                    stroke="#ef4444"
+                    stroke="hsl(0 84.2% 60.2%)"
                     strokeWidth={3}
                     name="ค่าใช้จ่าย"
-                    fill="url(#colorSpent)"
-                    dot={{ fill: "#ef4444", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "hsl(0 84.2% 60.2%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="profit"
-                    stroke="#3b82f6"
+                    stroke="hsl(210 100% 56%)"
                     strokeWidth={3}
                     name="กำไร"
-                    fill="url(#colorProfit)"
-                    dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "hsl(210 100% 56%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -490,10 +473,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <Card className="bg-card border-border shadow-modern">
           <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-white">ROI แต่ละ Platform</CardTitle>
-            <CardDescription className="text-slate-600 dark:text-slate-300">
+            <CardTitle className="text-foreground">ROI แต่ละ Platform</CardTitle>
+            <CardDescription className="text-muted-foreground">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -505,33 +488,27 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
-                      <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="platform"
-                    stroke="#e2e8f0"
-                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
+                    className="text-muted-foreground"
+                    style={{ fontSize: '12px' }}
                   />
                   <YAxis
-                    stroke="#e2e8f0"
-                    style={{ fontSize: '12px', fill: '#e2e8f0' }}
+                    className="text-muted-foreground"
+                    style={{ fontSize: '12px' }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
-                      color: "#fff"
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))"
                     }}
-                    labelStyle={{ color: "#fff" }}
                   />
                   <Bar
                     dataKey="avgROI"
-                    fill="url(#barGradient)"
+                    fill="hsl(189 94% 43%)"
                     name="Average ROI"
                     radius={[8, 8, 0, 0]}
                   />
@@ -545,9 +522,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <Card className="bg-card border-border shadow-modern">
           <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-white">สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="text-foreground">สัดส่วนงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
@@ -578,8 +555,10 @@ export default function DashboardPage() {
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))"
                     }}
                     formatter={(value: number) => [
                       `฿${value.toLocaleString()}`,
@@ -593,10 +572,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <Card className="bg-card border-border shadow-modern">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <AlertTriangle className="h-5 w-5 text-warning" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
           </CardHeader>
@@ -643,19 +622,19 @@ export default function DashboardPage() {
 
       {/* AI Insights */}
       {!loading && (
-        <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-blue-700 animate-fade-in hover-lift">
+        <Card className="bg-info border-info shadow-modern-lg animate-fade-in hover-lift">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-yellow-400" />
+              <Sparkles className="w-5 h-5 text-white" />
               AI Insights & Recommendations
             </CardTitle>
-          <CardDescription className="text-blue-200">
+          <CardDescription className="text-white/90">
             คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loadingInsights ? (
-            <div className="flex items-center gap-2 text-blue-200">
+            <div className="flex items-center gap-2 text-white">
               <Loader2 className="w-4 h-4 animate-spin" />
               AI กำลังวิเคราะห์ข้อมูลของคุณ...
             </div>
@@ -663,7 +642,7 @@ export default function DashboardPage() {
             <ul className="space-y-3">
               {aiInsights.map((insight, idx) => (
                 <li key={idx} className="flex items-start gap-3 text-white">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
                     {idx + 1}
                   </span>
                   <span className="flex-1">{insight}</span>
@@ -671,16 +650,16 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : aiError ? (
-            <p className="text-red-200">{aiError}</p>
+            <p className="text-white/90">{aiError}</p>
           ) : (
-            <p className="text-blue-200">
+            <p className="text-white/90">
               เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
             </p>
           )}
 
             <Button
               variant="outline"
-              className="mt-4 w-full border-blue-400 text-blue-100 hover:bg-blue-800"
+              className="mt-4 w-full border-white/30 text-white hover:bg-white/10"
               onClick={() => router.push("/ai-chat")}
             >
               <Bot className="w-4 h-4 mr-2" />
@@ -691,19 +670,19 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activities */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-fade-in hover-lift">
+      <Card className="bg-card border-border shadow-modern animate-fade-in hover-lift">
         <CardHeader>
-          <CardTitle className="text-slate-900 dark:text-white">กิจกรรมล่าสุด</CardTitle>
+          <CardTitle className="text-foreground">กิจกรรมล่าสุด</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
             {/* Recent Campaigns */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 📢 แคมเปญล่าสุด
               </h3>
               {campaigns.length === 0 ? (
-                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+                <div className="text-center py-8 text-muted-foreground">
                   ไม่มีแคมเปญ
                 </div>
               ) : (
@@ -722,23 +701,23 @@ export default function DashboardPage() {
                     .map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
+                        className="flex items-center justify-between py-2 border-b border-border"
                       >
                         <div>
-                          <p className="text-sm text-slate-900 dark:text-white font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {c.campaignName}
                           </p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                          <p className="text-xs text-muted-foreground">
                             {c.platform} • ROI: {c.roi.toFixed(2)}x
                           </p>
                         </div>
                         <Badge
                           className={
                             c.status === "ACTIVE"
-                              ? "bg-green-500/10 text-green-400 border border-green-500/40"
+                              ? "bg-success text-white"
                               : c.status === "PAUSED"
-                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
-                              : "bg-slate-500/10 text-slate-300 border border-slate-500/40"
+                              ? "bg-warning text-white"
+                              : "bg-muted text-muted-foreground"
                           }
                         >
                           {c.status}
@@ -751,35 +730,35 @@ export default function DashboardPage() {
 
             {/* Budget Status */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 💰 สถานะงบประมาณ
               </h3>
               {budgets.length === 0 ? (
-                <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+                <div className="text-center py-8 text-muted-foreground">
                   ไม่มีงบประมาณ
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-4 rounded-lg bg-slate-100 dark:bg-slate-800">
+                  <div className="p-4 rounded-lg bg-muted">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">งบประมาณรวม</span>
-                      <span className="text-lg font-bold text-slate-900 dark:text-white">
+                      <span className="text-sm text-muted-foreground">งบประมาณรวม</span>
+                      <span className="text-lg font-bold text-foreground">
                         {formatCurrency(totalBudget)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">คงเหลือ</span>
+                      <span className="text-sm text-muted-foreground">คงเหลือ</span>
                       <span
                         className={`text-lg font-bold ${
-                          budgetRemaining >= 0 ? "text-green-500" : "text-red-500"
+                          budgetRemaining >= 0 ? "text-success" : "text-error"
                         }`}
                       >
                         {formatCurrency(budgetRemaining)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">จำนวนรายการ</span>
-                      <span className="text-lg font-bold text-slate-900 dark:text-white">
+                      <span className="text-sm text-muted-foreground">จำนวนรายการ</span>
+                      <span className="text-lg font-bold text-foreground">
                         {budgets.length}
                       </span>
                     </div>
@@ -793,13 +772,13 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={b.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-700"
+                          className="flex items-center justify-between py-2 border-b border-border"
                         >
                           <div className="flex-1">
-                            <p className="text-sm text-slate-900 dark:text-white font-medium">
+                            <p className="text-sm text-foreground font-medium">
                               {b.purpose}
                             </p>
-                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                            <p className="text-xs text-muted-foreground">
                               ใช้ไป {formatCurrency(b.spent)} /{" "}
                               {formatCurrency(b.amount)}
                             </p>
@@ -807,10 +786,10 @@ export default function DashboardPage() {
                           <Badge
                             className={
                               percentage > 90
-                                ? "bg-red-500/10 text-red-400 border border-red-500/40"
+                                ? "bg-error text-white"
                                 : percentage > 70
-                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/40"
-                                : "bg-green-500/10 text-green-400 border border-green-500/40"
+                                ? "bg-warning text-white"
+                                : "bg-success text-white"
                             }
                           >
                             {percentage.toFixed(0)}%
