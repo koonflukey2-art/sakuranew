@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -142,9 +142,7 @@ export default function AIAssistantPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-white">AI Assistant</h1>
-          <p className="text-slate-400 mt-1">
-            ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ
-          </p>
+          <p className="text-slate-400 mt-1">ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ</p>
         </div>
 
         <Card className="bg-slate-800 border-slate-700">
@@ -201,15 +199,19 @@ export default function AIAssistantPage() {
                 <Button
                   key={idx}
                   variant="outline"
-                  className="justify-start h-auto py-3 px-4 text-left"
+                  className="justify-start h-auto py-3 px-4 text-left bg-white border-2 border-gray-300 text-gray-800 hover:bg-gray-50 hover:border-pink-300 rounded-xl font-medium transition-all"
                   onClick={() => {
                     setInput(prompt);
                     setTimeout(() => {
-                      const event = new Event("submit", {
-                        bubbles: true,
-                        cancelable: true,
-                      });
-                      document.querySelector("form#ai-assistant-form")?.dispatchEvent(event);
+                      const form = document.getElementById(
+                        "ai-assistant-form"
+                      ) as HTMLFormElement | null;
+                      form?.dispatchEvent(
+                        new Event("submit", {
+                          bubbles: true,
+                          cancelable: true,
+                        })
+                      );
                     }, 100);
                   }}
                 >
@@ -246,9 +248,9 @@ export default function AIAssistantPage() {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                       msg.role === "user"
-                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white"
+                        ? "bg-blue-600 text-white"
                         : "bg-slate-700 text-white"
                     }`}
                   >
@@ -260,7 +262,9 @@ export default function AIAssistantPage() {
                         </span>
                       </div>
                     )}
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {msg.content}
+                    </div>
                     <p className="text-[10px] opacity-70 mt-2 text-right">
                       {msg.timestamp.toLocaleTimeString("th-TH", {
                         hour: "2-digit",
@@ -273,8 +277,8 @@ export default function AIAssistantPage() {
             )}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-700 rounded-2xl px-4 py-3 flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                <div className="bg-slate-700 rounded-lg px-4 py-3 flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
                   <span className="text-sm text-white">AI กำลังคิด...</span>
                 </div>
               </div>
@@ -282,13 +286,13 @@ export default function AIAssistantPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input (แก้สีให้มองเห็นชัด) */}
+          {/* Input */}
           <form
             id="ai-assistant-form"
             onSubmit={handleSend}
             className="flex gap-3 items-center"
           >
-            <Input
+            <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ..."
@@ -296,33 +300,31 @@ export default function AIAssistantPage() {
               className="
                 flex-1
                 rounded-full
-                bg-slate-950/90
-                text-slate-50
-                placeholder:text-slate-400
-                border border-pink-500/60
-                focus-visible:ring-pink-500
+                bg-white
+                text-slate-900
+                placeholder:text-slate-500
+                border border-slate-300
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-sky-500
                 focus-visible:ring-offset-0
                 px-5 py-3
+                text-sm
               "
+              style={{
+                color: "#020617",
+                caretColor: "#020617",
+              }}
             />
             <Button
               type="submit"
-              disabled={loading || !input.trim()}
-              className="
-                rounded-full
-                w-12 h-12
-                flex items-center justify-center
-                bg-gradient-to-r from-pink-500 to-purple-500
-                hover:opacity-90
-                disabled:opacity-60
-                border-0
-                shadow-lg
-              "
+              disabled={!input.trim() || loading}
+              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg rounded-xl px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <Send className="w-4 h-4 text-white" />
+                <Send className="w-5 h-5" />
               )}
             </Button>
           </form>
