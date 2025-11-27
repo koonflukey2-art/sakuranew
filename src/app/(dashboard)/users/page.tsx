@@ -122,7 +122,7 @@ export default function UsersPage() {
           description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
           variant: "destructive",
         });
-        setTimeout(() => router.push("/sign-in"), 2000);
+        setTimeout(() => router.push("/login"), 2000);
         return;
       }
 

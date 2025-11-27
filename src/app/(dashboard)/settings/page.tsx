@@ -295,28 +295,28 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white">AI Provider Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-slate-200 mt-1">
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
 
       {/* Add New Provider */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border text-slate-900">
         <CardHeader>
-          <CardTitle className="text-white">เพิ่ม AI Provider</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-slate-900">เพิ่ม AI Provider</CardTitle>
+          <CardDescription className="text-slate-700">
             เลือก Provider และใส่ API Key
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label className="text-white">AI Provider</Label>
-              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                <SelectTrigger className="bg-muted border-border text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label className="text-slate-800">AI Provider</Label>
+                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                  <SelectTrigger className="bg-white border border-slate-200 text-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
                   <SelectItem value="GEMINI">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
@@ -340,18 +340,18 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label className="text-white">Model Name (Optional)</Label>
+              <Label className="text-slate-800">Model Name (Optional)</Label>
               <Input
                 placeholder="เช่น gemini-pro, gpt-4"
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
-                className="bg-muted border-border text-white"
+                className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600"
               />
             </div>
           </div>
 
           <div>
-            <Label className="text-white">
+            <Label className="text-slate-800">
               {selectedProvider === "N8N" ? "Webhook URL" : "API Key"}
             </Label>
             <Input
@@ -363,9 +363,9 @@ export default function SettingsPage() {
               }
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="bg-muted border-border text-white"
+              className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600"
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-slate-700 mt-1">
               {selectedProvider === "GEMINI" && (
                 <>
                   Get API key from{" "}
@@ -402,20 +402,20 @@ export default function SettingsPage() {
       </Card>
 
       {/* Existing Providers */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border text-slate-900">
         <CardHeader>
-          <CardTitle className="text-white">AI Providers ที่บันทึกไว้</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-slate-900">AI Providers ที่บันทึกไว้</CardTitle>
+          <CardDescription className="text-slate-700">
             จัดการและทดสอบ API Keys
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-600" />
             </div>
           ) : providers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-slate-700">
               <p>ยังไม่มี AI Provider</p>
               <p className="text-sm mt-2">เพิ่ม Provider ด้านบนเพื่อเริ่มใช้งาน</p>
             </div>
@@ -428,7 +428,7 @@ export default function SettingsPage() {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-white">
+                      <h3 className="font-semibold text-slate-900">
                         {provider.provider === "GEMINI" && "Google Gemini"}
                         {provider.provider === "OPENAI" && "OpenAI GPT"}
                         {provider.provider === "N8N" && "n8n Workflow"}
@@ -449,12 +449,12 @@ export default function SettingsPage() {
                       )}
                     </div>
                     {provider.modelName && (
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-slate-700 mt-1">
                         Model: {provider.modelName}
                       </p>
                     )}
                     {provider.lastTested && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-slate-600 mt-1">
                         ทดสอบล่าสุด: {new Date(provider.lastTested).toLocaleString("th-TH")}
                       </p>
                     )}
@@ -500,15 +500,15 @@ export default function SettingsPage() {
       </Card>
 
       {/* Platform API Settings */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border text-slate-900">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-slate-900 flex items-center gap-2">
                 <Globe2 className="w-5 h-5" />
                 Platform API Settings
               </CardTitle>
-              <CardDescription className="text-muted-foreground">
+              <CardDescription className="text-slate-700">
                 ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook, TikTok, Lazada ฯลฯ)
               </CardDescription>
             </div>
@@ -519,17 +519,17 @@ export default function SettingsPage() {
           <form onSubmit={handleSavePlatformCred} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-white">Platform</Label>
+                <Label className="text-slate-800">Platform</Label>
                 <Select
                   value={platformForm.platform}
                   onValueChange={(value) =>
                     setPlatformForm((prev) => ({ ...prev, platform: value }))
                   }
                 >
-                  <SelectTrigger className="bg-muted border-border mt-1">
+                  <SelectTrigger className="bg-white border border-slate-200 text-slate-900 mt-1">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted border-border">
+                  <SelectContent className="bg-card border-border">
                     <SelectItem value="FACEBOOK_ADS">Facebook Ads</SelectItem>
                     <SelectItem value="TIKTOK_ADS">TikTok Ads</SelectItem>
                     <SelectItem value="LAZADA">Lazada</SelectItem>
@@ -539,10 +539,10 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">API Key (ถ้ามี)</Label>
+                <Label className="text-slate-800">API Key (ถ้ามี)</Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600 mt-1"
                   value={platformForm.apiKey}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({ ...prev, apiKey: e.target.value }))
@@ -552,10 +552,10 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">API Secret (ถ้ามี)</Label>
+                <Label className="text-slate-800">API Secret (ถ้ามี)</Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600 mt-1"
                   value={platformForm.apiSecret}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({ ...prev, apiSecret: e.target.value }))
@@ -565,10 +565,10 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">Access Token (ถ้ามี)</Label>
+                <Label className="text-slate-800">Access Token (ถ้ามี)</Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600 mt-1"
                   value={platformForm.accessToken}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({ ...prev, accessToken: e.target.value }))
@@ -578,10 +578,10 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">Refresh Token (ถ้ามี)</Label>
+                <Label className="text-slate-800">Refresh Token (ถ้ามี)</Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-white border border-slate-200 text-slate-900 placeholder:text-slate-600 mt-1"
                   value={platformForm.refreshToken}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({ ...prev, refreshToken: e.target.value }))
@@ -603,10 +603,10 @@ export default function SettingsPage() {
           <div className="border-t border-border pt-4">
             {loadingPlatformCreds ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
               </div>
             ) : platformCreds.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-slate-700 text-sm">
                 ยังไม่มีการตั้งค่า Platform ใด ๆ
               </p>
             ) : (
@@ -618,7 +618,7 @@ export default function SettingsPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Card className="bg-muted border-border">
+                    <Card className="bg-muted border-border text-slate-900">
                       <CardContent className="p-4 flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
@@ -640,13 +640,13 @@ export default function SettingsPage() {
                             )}
                           </div>
                           {cred.lastTested && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-slate-600">
                               Last tested:{" "}
                               {new Date(cred.lastTested).toLocaleString("th-TH")}
                             </p>
                           )}
                           {cred.testMessage && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-slate-700 mt-1">
                               {cred.testMessage}
                             </p>
                           )}
@@ -684,11 +684,11 @@ export default function SettingsPage() {
       </Card>
 
       {/* Instructions */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border text-slate-900">
         <CardHeader>
-          <CardTitle className="text-white">วิธีใช้งาน</CardTitle>
+          <CardTitle className="text-slate-900">วิธีใช้งาน</CardTitle>
         </CardHeader>
-        <CardContent className="text-slate-300 space-y-2">
+        <CardContent className="text-slate-700 space-y-2">
           <p>1. เลือก AI Provider ที่ต้องการ (Gemini, OpenAI, หรือ n8n)</p>
           <p>2. ใส่ API Key หรือ Webhook URL</p>
           <p>3. คลิก "บันทึก API Key"</p>
