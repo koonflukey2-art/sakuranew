@@ -59,7 +59,19 @@ export function AIChatDialog() {
             {loading && <div className="flex justify-start"><div className="bg-muted rounded-lg px-4 py-2"><Loader2 className="h-4 w-4 animate-spin" /></div></div>}
           </div>
           <div className="flex gap-2">
-            <Input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="พิมพ์คำถาม..." disabled={loading} />
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              placeholder="พิมพ์คำถาม..."
+              disabled={loading}
+              className="bg-[#1e293b] text-white placeholder:text-white caret-[#22c55e] border border-slate-700 focus-visible:ring-emerald-500"
+              style={{
+                backgroundColor: "#1e293b",
+                color: "#ffffff",
+                caretColor: "#22c55e",
+              }}
+            />
             <Button onClick={sendMessage} disabled={loading} size="icon"><Send className="h-4 w-4" /></Button>
           </div>
         </DialogContent>
