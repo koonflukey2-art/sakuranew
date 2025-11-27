@@ -294,8 +294,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">AI Provider Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-3xl font-bold text-slate-50">AI Provider Settings</h1>
+        <p className="text-slate-200 mt-1">
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
@@ -303,8 +303,8 @@ export default function SettingsPage() {
       {/* Add New Provider */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">เพิ่ม AI Provider</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-slate-50">เพิ่ม AI Provider</CardTitle>
+          <CardDescription className="text-slate-200">
             เลือก Provider และใส่ API Key
           </CardDescription>
         </CardHeader>
@@ -365,7 +365,7 @@ export default function SettingsPage() {
               onChange={(e) => setApiKey(e.target.value)}
               className="bg-muted border-border text-white"
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-slate-200 mt-1">
               {selectedProvider === "GEMINI" && (
                 <>
                   Get API key from{" "}
@@ -404,18 +404,18 @@ export default function SettingsPage() {
       {/* Existing Providers */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">AI Providers ที่บันทึกไว้</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-slate-50">AI Providers ที่บันทึกไว้</CardTitle>
+          <CardDescription className="text-slate-200">
             จัดการและทดสอบ API Keys
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-200" />
             </div>
           ) : providers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-slate-200">
               <p>ยังไม่มี AI Provider</p>
               <p className="text-sm mt-2">เพิ่ม Provider ด้านบนเพื่อเริ่มใช้งาน</p>
             </div>
@@ -428,7 +428,7 @@ export default function SettingsPage() {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-white">
+                      <h3 className="font-semibold text-slate-50">
                         {provider.provider === "GEMINI" && "Google Gemini"}
                         {provider.provider === "OPENAI" && "OpenAI GPT"}
                         {provider.provider === "N8N" && "n8n Workflow"}
@@ -449,12 +449,12 @@ export default function SettingsPage() {
                       )}
                     </div>
                     {provider.modelName && (
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-slate-200 mt-1">
                         Model: {provider.modelName}
                       </p>
                     )}
                     {provider.lastTested && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-slate-300 mt-1">
                         ทดสอบล่าสุด: {new Date(provider.lastTested).toLocaleString("th-TH")}
                       </p>
                     )}
@@ -504,11 +504,11 @@ export default function SettingsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-slate-50 flex items-center gap-2">
                 <Globe2 className="w-5 h-5" />
                 Platform API Settings
               </CardTitle>
-              <CardDescription className="text-muted-foreground">
+              <CardDescription className="text-slate-200">
                 ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook, TikTok, Lazada ฯลฯ)
               </CardDescription>
             </div>
@@ -603,10 +603,10 @@ export default function SettingsPage() {
           <div className="border-t border-border pt-4">
             {loadingPlatformCreds ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <Loader2 className="w-5 h-5 animate-spin text-slate-200" />
               </div>
             ) : platformCreds.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-slate-200 text-sm">
                 ยังไม่มีการตั้งค่า Platform ใด ๆ
               </p>
             ) : (
@@ -640,13 +640,13 @@ export default function SettingsPage() {
                             )}
                           </div>
                           {cred.lastTested && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-slate-300">
                               Last tested:{" "}
                               {new Date(cred.lastTested).toLocaleString("th-TH")}
                             </p>
                           )}
                           {cred.testMessage && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-slate-200 mt-1">
                               {cred.testMessage}
                             </p>
                           )}
@@ -686,9 +686,9 @@ export default function SettingsPage() {
       {/* Instructions */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">วิธีใช้งาน</CardTitle>
+          <CardTitle className="text-slate-50">วิธีใช้งาน</CardTitle>
         </CardHeader>
-        <CardContent className="text-slate-300 space-y-2">
+        <CardContent className="text-slate-200 space-y-2">
           <p>1. เลือก AI Provider ที่ต้องการ (Gemini, OpenAI, หรือ n8n)</p>
           <p>2. ใส่ API Key หรือ Webhook URL</p>
           <p>3. คลิก "บันทึก API Key"</p>
