@@ -22,9 +22,8 @@ export default function SignInPage() {
         {/* Sign In Form */}
         <div className="bg-slate-900/85 backdrop-blur-sm border border-slate-800 rounded-2xl shadow-xl shadow-pink-500/10 p-6">
           <SignIn
-            routing="hash"      // ✅ ใช้ hash routing เช่นกัน
+            routing="hash"          // ✅ เปลี่ยนเป็น hash routing
             signUpUrl="/sign-up"
-            afterSignInUrl="/"
             appearance={{
               elements: {
                 rootBox: "w-full",
@@ -44,13 +43,13 @@ export default function SignInPage() {
                   "text-violet-400 hover:text-violet-300 font-semibold",
                 identityPreviewText: "text-slate-300",
                 identityPreviewEditButton:
-                  "text-violet-400 hover:text-violet-300 text-xs",
+                  "text-violet-400 hover:text-violet-300",
                 formFieldInputShowPasswordButton:
                   "text-slate-400 hover:text-slate-200",
                 dividerLine: "bg-slate-700",
-                dividerText: "text-slate-400 text-xs",
+                dividerText: "text-slate-400",
                 formResendCodeLink:
-                  "text-violet-400 hover:text-violet-300 text-xs",
+                  "text-violet-400 hover:text-violet-300",
                 otpCodeFieldInput:
                   "border-slate-700 focus:border-violet-500 text-slate-100",
               },

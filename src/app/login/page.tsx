@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useState } from "react";
+// app/login/page.tsx
 import { SignIn } from "@clerk/nextjs";
 
 export default function LoginPage() {
@@ -31,16 +29,21 @@ export default function LoginPage() {
         {/* กล่อง SignIn ให้ตรงกลางและกว้างพอดี */}
         <div className="mx-auto w-full max-w-md bg-slate-900/85 border border-slate-800 rounded-2xl p-5 shadow-inner shadow-black/40">
           <SignIn
-            // ใช้ hash routing เพื่อตัดปัญหา route catch-all
+            // ✅ ใช้ hash routing แทน path routing
             routing="hash"
             signUpUrl="/sign-up"
             afterSignInUrl="/"
             appearance={{
               elements: {
-                rootBox: "w-full",
-                card: "bg-transparent shadow-none",
-                headerTitle: "hidden",
-                headerSubtitle: "hidden",
+                formButtonPrimary:
+                  "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 shadow-lg",
+                formFieldInput:
+                  "bg-slate-900 border border-slate-800 text-white placeholder:text-slate-500 focus:border-pink-400",
+                formFieldLabel: "text-slate-200 font-medium",
+                footerActionLink:
+                  "text-pink-300 hover:text-pink-200 font-semibold",
+                headerTitle: "text-white",
+                headerSubtitle: "text-slate-300",
                 socialButtonsBlockButton:
                   "bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100",
                 socialButtonsBlockButtonText:

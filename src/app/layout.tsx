@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ["latin", "thai"],
@@ -26,9 +26,9 @@ export default function RootLayout({
       afterSignInUrl="/"
       afterSignUpUrl="/"
     >
-      <html lang="th" suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning>
         <body
-          className={`${notoSansThai.variable} font-headline antialiased bg-slate-950 text-slate-50`}
+          className={`${notoSansThai.variable} font-headline antialiased`}
         >
           {children}
           <Toaster />
