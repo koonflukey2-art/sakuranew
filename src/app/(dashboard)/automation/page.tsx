@@ -351,19 +351,20 @@ export default function AutomationPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Automation Rules Builder</h1>
-          <p className="text-muted-foreground">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา</p>
-        </div>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              สร้าง Rule ใหม่
-            </Button>
-          </DialogTrigger>
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
+            <p className="text-gray-600 mt-2">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
+          </div>
+          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold">
+                <Plus className="h-4 w-4 mr-2" />
+                สร้าง Rule ใหม่
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -501,123 +502,151 @@ export default function AutomationPage() {
         </Dialog>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Rules ทั้งหมด</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{rules.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Rules</CardTitle>
-            <Play className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {rules.filter((r) => r.isActive).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Paused Rules</CardTitle>
-            <Pause className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">
-              {rules.filter((r) => !r.isActive).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Rules List */}
-      {rules.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            ยังไม่มี Automation Rules <br />
-            คลิก "สร้าง Rule ใหม่" เพื่อเริ่มต้น
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rules.map((rule) => (
-            <Card key={rule.id} className={!rule.isActive ? "opacity-60" : ""}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{rule.ruleName}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {rule.platform} • {rule.tool}
-                    </CardDescription>
-                  </div>
-                  <Badge variant={rule.isActive ? "default" : "secondary"}>
-                    {rule.isActive ? "Active" : "Paused"}
-                  </Badge>
+        {/* Stats Cards - High Contrast */}
+        <div className="grid gap-6 md:grid-cols-3 mb-6">
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Rules ทั้งหมด</p>
+                  <p className="text-4xl font-bold text-gray-800">{rules.length}</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-slate-50 p-3 rounded-lg space-y-2 text-sm">
-                  <div>
-                    <span className="font-semibold">เงื่อนไข:</span> IF{" "}
-                    <span className="text-blue-600">{getMetricLabel(rule.condition.metric)}</span>{" "}
-                    <span className="font-bold">{rule.condition.operator}</span>{" "}
-                    <span className="text-purple-600">{rule.condition.value}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">การกระทำ:</span>{" "}
-                    <span className="text-green-600">{getActionLabel(rule.action.type)}</span>
-                    {rule.action.value && <span className="text-orange-600"> {rule.action.value}%</span>}
-                  </div>
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <Settings className="w-7 h-7 text-white" />
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleToggleActive(rule)}
-                    >
-                      {rule.isActive ? (
-                        <>
-                          <Pause className="h-3 w-3 mr-1" />
-                          Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3 w-3 mr-1" />
-                          Activate
-                        </>
-                      )}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(rule)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDelete(rule)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleTestRule(rule)}
-                  >
-                    <TestTube className="h-3 w-3 mr-1" />
-                    ทดสอบ Rule (Dry-run)
-                  </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Active Rules</p>
+                  <p className="text-4xl font-bold text-green-600">{rules.filter((r) => r.isActive).length}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                  <Play className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Paused Rules</p>
+                  <p className="text-4xl font-bold text-orange-600">{rules.filter((r) => !r.isActive).length}</p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <Pause className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
+
+        {/* Rules List */}
+        {rules.length === 0 ? (
+          <Card className="bg-white border-2 border-gray-200 shadow-md">
+            <CardContent className="py-12 text-center">
+              <p className="text-gray-600 font-medium">
+                ยังไม่มี Automation Rules <br />
+                คลิก "สร้าง Rule ใหม่" เพื่อเริ่มต้น
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {rules.map((rule) => (
+              <Card
+                key={rule.id}
+                className="bg-white border-2 border-gray-200 shadow-md hover:shadow-xl hover:border-pink-300 transition-all"
+              >
+                <CardHeader className="border-b border-gray-100 bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
+                      <CardDescription className="text-gray-700 font-medium mt-1">
+                        {rule.platform} • {rule.tool}
+                      </CardDescription>
+                    </div>
+                    <Badge className={rule.isActive ? "bg-green-500 text-white border-0 font-semibold" : "bg-gray-500 text-white border-0 font-semibold"}>
+                      {rule.isActive ? "Active" : "Paused"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 p-4 rounded-xl space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">เงื่อนไข:</span>
+                      <span className="text-sm font-semibold text-gray-800">
+                        IF <span className="text-blue-600">{getMetricLabel(rule.condition.metric)}</span>{" "}
+                        <span className="text-purple-600 font-bold">{rule.condition.operator}</span>{" "}
+                        <span className="text-pink-600">{rule.condition.value}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">การกระทำ:</span>
+                      <span className="text-sm font-semibold text-green-600">
+                        {getActionLabel(rule.action.type)}
+                        {rule.action.value && <span className="text-orange-600 font-bold"> {rule.action.value}%</span>}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
+                        onClick={() => handleToggleActive(rule)}
+                      >
+                        {rule.isActive ? (
+                          <>
+                            <Pause className="h-3 w-3 mr-1" />
+                            Pause
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 mr-1" />
+                            Activate
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openEdit(rule)}
+                        className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openDelete(rule)}
+                        className="border-2 border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white border-0 font-semibold"
+                      onClick={() => handleTestRule(rule)}
+                    >
+                      <TestTube className="h-3 w-3 mr-1" />
+                      ทดสอบ Rule (Dry-run)
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
