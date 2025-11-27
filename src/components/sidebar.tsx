@@ -93,27 +93,27 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 glass-primary border-r border-white/20
-        flex flex-col overflow-hidden shadow-vibrant-xl
+        w-64 bg-white border-r border-gray-200
+        flex flex-col overflow-hidden shadow-lg
         transform transition-transform duration-200 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
-      {/* Logo Section - Vibrant */}
-      <div className="p-6 border-b border-white/20">
+      {/* Logo Section - Clear */}
+      <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-vibrant animate-pulse-glow">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-lg">
             <Store className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold text-gray-800">
               Sakura
             </h1>
-            <p className="text-xs text-muted-foreground">E-Commerce AI</p>
+            <p className="text-xs text-gray-500">E-Commerce AI</p>
           </div>
         </div>
       </div>
 
-      {/* Navigation - Vibrant */}
+      {/* Navigation - Clear */}
       <nav className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
           {visibleNavItems.map((item, index) => (
@@ -121,19 +121,16 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                 pathname === item.href
-                  ? "bg-gradient-primary text-white shadow-vibrant"
-                  : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                  ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
+                  : "text-gray-700 hover:bg-gray-100"
               )}
-              style={{
-                animationDelay: `${index * 0.05}s`
-              }}
             >
-              <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", pathname === item.href ? "text-white" : "")} />
+              <item.icon className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium text-sm">{item.label}</span>
               {item.badge && (
-                <Badge className="ml-auto bg-gradient-warning text-white text-xs px-2 py-0.5 border-0 shadow-sm">
+                <Badge className="ml-auto bg-orange-500 text-white text-xs px-2 py-0.5 border-0">
                   {item.badge}
                 </Badge>
               )}
@@ -142,26 +139,26 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* User Section - Vibrant */}
-      <div className="p-4 border-t border-white/20">
-        <div className="flex items-center gap-3 p-3 rounded-xl glass hover-lift">
+      {/* User Section - Clear */}
+      <div className="p-4 border-t border-gray-200">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "w-10 h-10 ring-2 ring-primary/30",
+                avatarBox: "w-10 h-10 ring-2 ring-pink-200",
               },
             }}
           />
           {user && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
+              <p className="text-sm font-semibold text-gray-800 truncate">
                 {user.fullName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-gray-500 truncate">
                 {user.primaryEmailAddress?.emailAddress}
               </p>
               {userRole && (
-                <Badge className="mt-1 bg-gradient-primary text-white text-xs px-2 py-0.5 border-0">
+                <Badge className="mt-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs px-2 py-0.5 border-0">
                   {userRole === "ADMIN" && "แอดมิน"}
                   {userRole === "STOCK" && "พนักงานสต๊อก"}
                   {userRole === "EMPLOYEE" && "พนักงาน"}
@@ -174,7 +171,7 @@ export function Sidebar() {
         <SignOutButton>
           <Button
             variant="ghost"
-            className="w-full justify-start mt-2 text-muted-foreground hover:text-red-500 hover:bg-white/50"
+            className="w-full justify-start mt-2 text-gray-600 hover:text-red-500 hover:bg-red-50"
           >
             <LogOut className="w-4 h-4 mr-2" />
             <span className="text-sm">ออกจากระบบ</span>
@@ -182,21 +179,21 @@ export function Sidebar() {
         </SignOutButton>
       </div>
 
-      {/* Footer - Vibrant */}
-      <div className="p-4 border-t border-white/20">
+      {/* Footer - Clear */}
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Powered by AI</span>
-          <span className="bg-gradient-primary bg-clip-text text-transparent font-semibold">
+          <span className="text-gray-500">Powered by AI</span>
+          <span className="font-semibold text-pink-500">
             Gemini 2.0
           </span>
         </div>
       </div>
     </aside>
 
-      {/* Mobile Menu Button - Vibrant */}
+      {/* Mobile Menu Button - Clear */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed bottom-4 right-4 lg:hidden z-50 bg-gradient-primary text-white p-3 rounded-full shadow-vibrant-lg animate-pulse-glow"
+        className="fixed bottom-4 right-4 lg:hidden z-50 bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full shadow-lg"
       >
         {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
