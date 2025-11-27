@@ -1,13 +1,50 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Wallet, Package, Target, AlertTriangle, DollarSign, ShoppingCart, Activity, Loader2, Sparkles, Bot } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  TrendingUp,
+  Wallet,
+  AlertTriangle,
+  DollarSign,
+  ShoppingCart,
+  Activity,
+  Loader2,
+  Sparkles,
+  Bot,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardSkeleton } from "@/components/loading-states";
 
@@ -72,7 +109,7 @@ export default function DashboardPage() {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Fetch all data from APIs
+  // โหลดข้อมูลทั้งหมด
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -124,7 +161,7 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  // Fetch AI Insights
+  // ขอคำแนะนำจาก AI
   const fetchAIInsights = async (
     metrics: Stats & {
       budgetRemaining: number;
@@ -137,7 +174,19 @@ export default function DashboardPage() {
       setLoadingInsights(true);
       setAiError(null);
 
-      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(0)}\n- กำไร: ${metrics.totalProfit.toFixed(0)}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(2)}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(0)}\n- จำนวนแคมเปญ: ${metrics.campaignCount}\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${metrics.lowStockCount}`;
+      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(
+        0
+      )}\n- กำไร: ${metrics.totalProfit.toFixed(
+        0
+      )}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(
+        2
+      )}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(
+        0
+      )}\n- จำนวนแคมเปญ: ${
+        metrics.campaignCount
+      }\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${
+        metrics.lowStockCount
+      }`;
 
       const response = await fetch("/api/ai-chat", {
         method: "POST",
@@ -150,16 +199,19 @@ export default function DashboardPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        console.warn("AI insights request failed", data?.error || response.statusText);
+        console.warn(
+          "AI insights request failed",
+          (data as any)?.error || response.statusText
+        );
         setAiInsights([]);
         return;
       }
 
       const raw =
-        typeof data.response === "string"
-          ? data.response
-          : typeof data.message === "string"
-          ? data.message
+        typeof (data as any).response === "string"
+          ? (data as any).response
+          : typeof (data as any).message === "string"
+          ? (data as any).message
           : "";
 
       if (!raw) {
@@ -169,7 +221,10 @@ export default function DashboardPage() {
 
       const insights = raw
         .split("\n")
-        .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
+        .filter(
+          (line: string) =>
+            line.trim().startsWith("-") || line.trim().startsWith("•")
+        )
         .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
         .filter((line: string) => line.length > 0)
         .slice(0, 5);
@@ -183,28 +238,21 @@ export default function DashboardPage() {
     }
   };
 
-  // Calculate statistics from real data
+  // คำนวณสถิติ
   const calculateStats = (
     products: Product[],
     campaigns: Campaign[],
     budgets: Budget[]
   ) => {
-    // Total Revenue (from campaigns ROI)
     const totalRevenue = campaigns.reduce((sum, c) => {
       const revenue = c.spent * c.roi;
       return sum + revenue;
     }, 0);
 
-    // Total Spent
     const totalSpent = campaigns.reduce((sum, c) => sum + c.spent, 0);
-
-    // Total Profit
     const totalProfit = totalRevenue - totalSpent;
-
-    // Total Orders (from conversions)
     const totalOrders = campaigns.reduce((sum, c) => sum + c.conversions, 0);
 
-    // Average ROAS
     const avgROAS =
       campaigns.length > 0
         ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
@@ -215,18 +263,21 @@ export default function DashboardPage() {
     return computed;
   };
 
-  // Format currency
   const formatCurrency = (value: number) => `฿${value.toLocaleString()}`;
 
-  // Format number
   const formatNumber = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
     return value.toString();
   };
 
-  // Get last 7 days data for line chart
+  // ข้อมูล line chart 7 วัน
   const getLast7DaysData = () => {
-    const data = [];
+    const data: {
+      date: string;
+      revenue: number;
+      spent: number;
+      profit: number;
+    }[] = [];
     const today = new Date();
 
     for (let i = 6; i >= 0; i--) {
@@ -237,15 +288,20 @@ export default function DashboardPage() {
         day: "numeric",
       });
 
-      // Calculate from campaigns active on that day
       const dayCampaigns = campaigns.filter((c) => {
         const start = new Date(c.startDate);
         const end = c.endDate ? new Date(c.endDate) : new Date();
         return date >= start && date <= end;
       });
 
-      const revenue = dayCampaigns.reduce((sum, c) => sum + c.spent * c.roi, 0);
-      const spent = dayCampaigns.reduce((sum, c) => sum + c.spent / 7, 0); // Divide by 7 to get daily average
+      const revenue = dayCampaigns.reduce(
+        (sum, c) => sum + c.spent * c.roi,
+        0
+      );
+      const spent = dayCampaigns.reduce(
+        (sum, c) => sum + c.spent / 7,
+        0
+      ); // เฉลี่ยรายวัน
       const profit = revenue - spent;
 
       data.push({
@@ -259,7 +315,7 @@ export default function DashboardPage() {
     return data;
   };
 
-  // Get ROI by platform for bar chart
+  // ROI ตาม platform
   const getPlatformROIData = () => {
     const platformStats: Record<
       string,
@@ -280,7 +336,7 @@ export default function DashboardPage() {
     }));
   };
 
-  // Get budget data for pie chart
+  // ข้อมูล budget pie
   const getBudgetChartData = () => {
     return budgets.map((b) => ({
       name: b.purpose,
@@ -288,14 +344,9 @@ export default function DashboardPage() {
     }));
   };
 
-  // Get low stock products
-  const getLowStockProducts = () => {
-    return products
-      .filter((p) => p.quantity < p.minStockLevel)
-      .slice(0, 5);
-  };
+  const getLowStockProducts = () =>
+    products.filter((p) => p.quantity < p.minStockLevel).slice(0, 5);
 
-  // Get budget remaining
   const getBudgetRemaining = () => {
     const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
     const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
@@ -315,21 +366,17 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-6 space-y-6">
-      {/* Header - Simple & Clear */}
+      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Dashboard
-        </h1>
-        <p className="text-gray-600 mt-2">
-          ภาพรวมธุรกิจของคุณ 🚀
-        </p>
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+        <p className="text-gray-600 mt-2">ภาพรวมธุรกิจของคุณ 🚀</p>
       </div>
 
-      {/* Stats Cards - Vibrant */}
+      {/* Stat cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1 - Pink (Profit) */}
+        {/* Profit */}
         <Card className="stat-card-pink hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -355,9 +402,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2 - Purple (Revenue) */}
+        {/* Revenue */}
         <Card className="stat-card-purple hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -372,15 +419,13 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              จากแคมเปญทั้งหมด
-            </p>
+            <p className="text-xs text-white/80 mt-2">จากแคมเปญทั้งหมด</p>
           </CardContent>
         </Card>
 
-        {/* Card 3 - Cyan (Orders) */}
+        {/* Orders */}
         <Card className="stat-card-cyan hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -395,15 +440,13 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatNumber(stats.totalOrders)}
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              Conversions ทั้งหมด
-            </p>
+            <p className="text-xs text-white/80 mt-2">Conversions ทั้งหมด</p>
           </CardContent>
         </Card>
 
-        {/* Card 4 - Orange (ROAS) */}
+        {/* ROAS */}
         <Card className="stat-card-orange hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -418,16 +461,14 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {stats.avgROAS.toFixed(2)}x
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              Return on Ad Spend
-            </p>
+            <p className="text-xs text-white/80 mt-2">Return on Ad Spend</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row */}
+      {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Revenue vs Spent Line Chart */}
+        {/* Line chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-800">
@@ -445,35 +486,39 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="date"
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <YAxis
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend
-                    wrapperStyle={{ paddingTop: "20px" }}
-                    iconType="line"
-                  />
+                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
                   <Line
                     type="monotone"
                     dataKey="revenue"
                     stroke="hsl(142 76% 36%)"
                     strokeWidth={3}
                     name="รายได้"
-                    dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
+                    dot={{
+                      fill: "hsl(142 76% 36%)",
+                      strokeWidth: 2,
+                      r: 4,
+                    }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
@@ -482,7 +527,11 @@ export default function DashboardPage() {
                     stroke="hsl(0 84.2% 60.2%)"
                     strokeWidth={3}
                     name="ค่าใช้จ่าย"
-                    dot={{ fill: "hsl(0 84.2% 60.2%)", strokeWidth: 2, r: 4 }}
+                    dot={{
+                      fill: "hsl(0 84.2% 60.2%)",
+                      strokeWidth: 2,
+                      r: 4,
+                    }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
@@ -491,7 +540,11 @@ export default function DashboardPage() {
                     stroke="hsl(210 100% 56%)"
                     strokeWidth={3}
                     name="กำไร"
-                    dot={{ fill: "hsl(210 100% 56%)", strokeWidth: 2, r: 4 }}
+                    dot={{
+                      fill: "hsl(210 100% 56%)",
+                      strokeWidth: 2,
+                      r: 4,
+                    }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -500,7 +553,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* ROI by Platform Bar Chart */}
+        {/* Bar chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-800">
@@ -518,22 +571,25 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="platform"
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <YAxis
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                   />
                   <Bar
@@ -549,9 +605,9 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom row: pie + low stock */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Budget Pie Chart */}
+        {/* Pie chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-800">
@@ -590,7 +646,7 @@ export default function DashboardPage() {
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                     formatter={(value: number) => [
                       `฿${value.toLocaleString()}`,
@@ -603,7 +659,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Low Stock Products */}
+        {/* Low stock */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
@@ -629,8 +685,12 @@ export default function DashboardPage() {
                 <TableBody>
                   {lowStockProducts.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-right">{product.quantity}</TableCell>
+                      <TableCell className="font-medium">
+                        {product.name}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {product.quantity}
+                      </TableCell>
                       <TableCell className="text-right">
                         {product.minStockLevel}
                       </TableCell>
@@ -662,7 +722,7 @@ export default function DashboardPage() {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-xl font-bold text-gray-800">
-                  AI Insights & Recommendations
+                  AI Insights &amp; Recommendations
                 </span>
               </CardTitle>
               <Button
@@ -686,7 +746,10 @@ export default function DashboardPage() {
             ) : aiInsights.length > 0 ? (
               <ul className="space-y-3">
                 {aiInsights.map((insight, idx) => (
-                  <li key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all">
+                  <li
+                    key={idx}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all"
+                  >
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                       {idx + 1}
                     </span>
@@ -705,7 +768,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Recent Activities */}
+      {/* Recent activities / Budget status */}
       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-gray-800">
@@ -714,7 +777,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Recent Campaigns */}
+            {/* Recent campaigns */}
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-2">
                 📢 แคมเปญล่าสุด
@@ -766,7 +829,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Budget Status */}
+            {/* Budget status */}
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-2">
                 💰 สถานะงบประมาณ
@@ -779,25 +842,26 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   <div className="p-4 rounded-lg bg-muted">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">งบประมาณรวม</span>
+                      <span className="text-sm text-muted-foreground">
+                        งบประมาณรวม
+                      </span>
                       <span className="text-lg font-bold text-foreground">
                         {formatCurrency(totalBudget)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">คงเหลือ</span>
-                      <span
-                        className={`text-lg font-bold ${
-                          budgetRemaining >= 0
-                            ? "bg-gradient-success bg-clip-text text-transparent"
-                            : "bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent"
-                        }`}
-                      >
+                      <span className="text-sm text-muted-foreground">
+                        คงเหลือ
+                      </span>
+                      {/* ✅ ใช้แค่สีตัวหนังสือ ไม่ใส่พื้นหลังเขียวแล้ว */}
+                      <span className="text-lg font-bold text-emerald-600">
                         {formatCurrency(budgetRemaining)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">จำนวนรายการ</span>
+                      <span className="text-sm text-muted-foreground">
+                        จำนวนรายการ
+                      </span>
                       <span className="text-lg font-bold text-foreground">
                         {budgets.length}
                       </span>
@@ -806,7 +870,6 @@ export default function DashboardPage() {
 
                   <div className="space-y-2">
                     {budgets.slice(0, 4).map((b) => {
-                      const remaining = b.amount - b.spent;
                       const percentage = (b.spent / b.amount) * 100;
 
                       return (

@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Send, Settings as SettingsIcon, Loader2, Sparkles } from "lucide-react";
+import {
+  Bot,
+  Send,
+  Settings as SettingsIcon,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Message {
@@ -66,7 +72,7 @@ export default function AIAssistantPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
+          message: userMessage.content,
           sessionId: sessionId || undefined,
         }),
       });
@@ -105,7 +111,7 @@ export default function AIAssistantPage() {
           role: "assistant",
           content:
             description ||
-            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง", 
+            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง",
           timestamp: new Date(),
         },
       ]);
@@ -136,7 +142,9 @@ export default function AIAssistantPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-white">AI Assistant</h1>
-          <p className="text-slate-400 mt-1">ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ</p>
+          <p className="text-slate-400 mt-1">
+            ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ
+          </p>
         </div>
 
         <Card className="bg-slate-800 border-slate-700">
@@ -196,13 +204,12 @@ export default function AIAssistantPage() {
                   className="justify-start h-auto py-3 px-4 text-left"
                   onClick={() => {
                     setInput(prompt);
-                    // Auto send
                     setTimeout(() => {
                       const event = new Event("submit", {
                         bubbles: true,
                         cancelable: true,
                       });
-                      document.querySelector("form")?.dispatchEvent(event);
+                      document.querySelector("form#ai-assistant-form")?.dispatchEvent(event);
                     }, 100);
                   }}
                 >
@@ -239,22 +246,22 @@ export default function AIAssistantPage() {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-blue-600 text-white"
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white"
                         : "bg-slate-700 text-white"
                     }`}
                   >
                     {msg.role === "assistant" && (
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-600">
                         <Bot className="w-4 h-4" />
-                        <span className="text-xs font-semibold">AI Assistant</span>
+                        <span className="text-xs font-semibold">
+                          AI Assistant
+                        </span>
                       </div>
                     )}
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {msg.content}
-                    </div>
-                    <p className="text-xs opacity-70 mt-2">
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <p className="text-[10px] opacity-70 mt-2 text-right">
                       {msg.timestamp.toLocaleTimeString("th-TH", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -266,7 +273,7 @@ export default function AIAssistantPage() {
             )}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-700 rounded-lg p-4 flex items-center gap-2">
+                <div className="bg-slate-700 rounded-2xl px-4 py-3 flex items-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span className="text-sm text-white">AI กำลังคิด...</span>
                 </div>
@@ -275,20 +282,47 @@ export default function AIAssistantPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSend} className="flex gap-2">
+          {/* Input (แก้สีให้มองเห็นชัด) */}
+          <form
+            id="ai-assistant-form"
+            onSubmit={handleSend}
+            className="flex gap-3 items-center"
+          >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ..."
               disabled={loading}
-              className="flex-1"
+              className="
+                flex-1
+                rounded-full
+                bg-slate-950/90
+                text-slate-50
+                placeholder:text-slate-400
+                border border-pink-500/60
+                focus-visible:ring-pink-500
+                focus-visible:ring-offset-0
+                px-5 py-3
+              "
             />
-            <Button type="submit" disabled={loading || !input.trim()}>
+            <Button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="
+                rounded-full
+                w-12 h-12
+                flex items-center justify-center
+                bg-gradient-to-r from-pink-500 to-purple-500
+                hover:opacity-90
+                disabled:opacity-60
+                border-0
+                shadow-lg
+              "
+            >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
               ) : (
-                <Send className="w-4 h-4" />
+                <Send className="w-4 h-4 text-white" />
               )}
             </Button>
           </form>
@@ -303,7 +337,9 @@ export default function AIAssistantPage() {
             <div className="text-sm text-slate-300">
               <p className="font-semibold mb-1">AI Assistant สามารถ:</p>
               <ul className="list-disc list-inside space-y-1 text-slate-400">
-                <li>ตอบคำถามเกี่ยวกับข้อมูลในระบบ (สินค้า, โฆษณา, งบประมาณ)</li>
+                <li>
+                  ตอบคำถามเกี่ยวกับข้อมูลในระบบ (สินค้า, โฆษณา, งบประมาณ)
+                </li>
                 <li>วิเคราะห์และแนะนำกลยุทธ์ธุรกิจ</li>
                 <li>คำนวณและสรุปข้อมูลต่างๆ</li>
                 <li>แนะนำการจัดการสต็อกและงบประมาณ</li>
