@@ -93,59 +93,62 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-card border-r border-border/50
-        flex flex-col overflow-hidden shadow-2xl
+        w-64 glass-primary border-r border-white/20
+        flex flex-col overflow-hidden shadow-vibrant-xl
         transform transition-transform duration-200 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
-      <div className="p-6 border-b border-border/50 bg-muted/50">
+      {/* Logo Section - Vibrant */}
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-pink-400 via-rose-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/30 ring-2 ring-pink-400/20">
-            <Store className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-vibrant animate-pulse-glow">
+            <Store className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">Sakura</h1>
-            <p className="text-xs text-muted-foreground">E-Commerce</p>
+            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Sakura
+            </h1>
+            <p className="text-xs text-muted-foreground">E-Commerce AI</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+      {/* Navigation - Vibrant */}
+      <nav className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
-          {visibleNavItems.map((item) => (
+          {visibleNavItems.map((item, index) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all duration-200 group relative overflow-hidden",
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
                 pathname === item.href
-                  ? "bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-white shadow-lg shadow-slate-900/20 ring-1 ring-slate-600/50"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-white"
+                  ? "bg-gradient-primary text-white shadow-vibrant"
+                  : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
               )}
+              style={{
+                animationDelay: `${index * 0.05}s`
+              }}
             >
-              <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", pathname === item.href ? item.color : "text-muted-foreground group-hover:" + item.color)} />
+              <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", pathname === item.href ? "text-white" : "")} />
               <span className="font-medium text-sm">{item.label}</span>
               {item.badge && (
-                <Badge className="ml-auto bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-xs px-2 py-0.5 shadow-sm">
+                <Badge className="ml-auto bg-gradient-warning text-white text-xs px-2 py-0.5 border-0 shadow-sm">
                   {item.badge}
                 </Badge>
-              )}
-              {pathname === item.href && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-pink-400 to-rose-400 rounded-r-full" />
               )}
             </Link>
           ))}
         </div>
       </nav>
 
-      <div className="p-4 border-t border-border/50 bg-muted/30">
-        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors mb-2">
+      {/* User Section - Vibrant */}
+      <div className="p-4 border-t border-white/20">
+        <div className="flex items-center gap-3 p-3 rounded-xl glass hover-lift">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "w-10 h-10 ring-2 ring-pink-400/30",
-                userButtonPopoverCard: "bg-slate-900 border-border",
-                userButtonPopoverActionButton: "hover:bg-muted",
+                avatarBox: "w-10 h-10 ring-2 ring-primary/30",
               },
             }}
           />
@@ -158,11 +161,11 @@ export function Sidebar() {
                 {user.primaryEmailAddress?.emailAddress}
               </p>
               {userRole && (
-                <p className="text-xs text-pink-400 font-semibold mt-0.5">
+                <Badge className="mt-1 bg-gradient-primary text-white text-xs px-2 py-0.5 border-0">
                   {userRole === "ADMIN" && "แอดมิน"}
                   {userRole === "STOCK" && "พนักงานสต๊อก"}
                   {userRole === "EMPLOYEE" && "พนักงาน"}
-                </p>
+                </Badge>
               )}
             </div>
           )}
@@ -171,26 +174,29 @@ export function Sidebar() {
         <SignOutButton>
           <Button
             variant="ghost"
-            className="w-full justify-start text-muted-foreground hover:text-white hover:bg-red-500/10"
+            className="w-full justify-start mt-2 text-muted-foreground hover:text-red-500 hover:bg-white/50"
           >
-            <LogOut className="w-4 h-4 mr-2 text-red-400" />
+            <LogOut className="w-4 h-4 mr-2" />
             <span className="text-sm">ออกจากระบบ</span>
           </Button>
         </SignOutButton>
       </div>
 
-      <div className="p-4 border-t border-border/50 bg-slate-950/50">
+      {/* Footer - Vibrant */}
+      <div className="p-4 border-t border-white/20">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Powered by AI</span>
-          <span className="text-pink-400 font-semibold">Gemini 2.0</span>
+          <span className="bg-gradient-primary bg-clip-text text-transparent font-semibold">
+            Gemini 2.0
+          </span>
         </div>
       </div>
     </aside>
 
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - Vibrant */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed bottom-4 right-4 lg:hidden z-50 bg-blue-600 text-white p-3 rounded-full shadow-lg"
+        className="fixed bottom-4 right-4 lg:hidden z-50 bg-gradient-primary text-white p-3 rounded-full shadow-vibrant-lg animate-pulse-glow"
       >
         {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
