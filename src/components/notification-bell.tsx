@@ -133,7 +133,11 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="outline"
+          size="icon"
+          className="relative bg-slate-800 text-slate-100 border-slate-600 hover:bg-slate-700 hover:text-white shadow-md"
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
@@ -145,11 +149,14 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <div className="px-4 py-3 border-b">
-          <h3 className="font-semibold">การแจ้งเตือน</h3>
+      <DropdownMenuContent
+        align="end"
+        className="w-80 bg-slate-900 text-slate-50 border-slate-700 shadow-xl"
+      >
+        <div className="px-4 py-3 border-b border-slate-800">
+          <h3 className="font-semibold text-slate-50">การแจ้งเตือน</h3>
           {unreadCount > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-200">
               คุณมี {unreadCount} การแจ้งเตือนใหม่
             </p>
           )}
@@ -157,8 +164,8 @@ export function NotificationBell() {
 
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <Bell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">
+            <Bell className="h-8 w-8 mx-auto text-slate-200 mb-2" />
+            <p className="text-sm text-slate-200">
               ไม่มีการแจ้งเตือนใหม่
             </p>
           </div>
@@ -172,7 +179,7 @@ export function NotificationBell() {
                 <DropdownMenuItem
                   key={notification.id}
                   onClick={() => markAsReadAndNavigate(notification)}
-                  className="cursor-pointer p-4 focus:bg-blue-50"
+                  className="cursor-pointer p-4 text-slate-50 hover:bg-slate-800 focus:bg-slate-800"
                 >
                   <div className="flex items-start gap-3 w-full">
                     <div className={`${color} mt-0.5`}>
@@ -182,7 +189,7 @@ export function NotificationBell() {
                       <p className="text-sm font-medium line-clamp-2">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-slate-300 mt-1">
                         {formatRelativeTime(new Date(notification.createdAt))}
                       </p>
                     </div>
@@ -190,17 +197,17 @@ export function NotificationBell() {
                 </DropdownMenuItem>
               );
             })}
-            <div className="border-t p-2 space-y-1">
+            <div className="border-t border-slate-800 p-2 space-y-1">
               <Button
                 variant="ghost"
-                className="w-full text-sm"
+                className="w-full text-sm text-slate-50 hover:bg-slate-800"
                 onClick={markAllAsRead}
               >
                 อ่านแล้วทั้งหมด
               </Button>
               <Button
                 variant="ghost"
-                className="w-full text-sm"
+                className="w-full text-sm text-slate-50 hover:bg-slate-800"
                 onClick={() => router.push("/notifications")}
               >
                 ดูทั้งหมด
