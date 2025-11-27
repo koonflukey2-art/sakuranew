@@ -15,6 +15,8 @@ export default function SignUpPage() {
         {/* Sign Up Form */}
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-2xl shadow-xl p-6">
           <SignUp
+            routing="hash"         // ✅ ใช้ hash routing เหมือนกัน
+            signInUrl="/login"
             appearance={{
               elements: {
                 rootBox: "w-full",
@@ -31,18 +33,18 @@ export default function SignUpPage() {
                 formFieldLabel: "text-slate-300 font-medium",
                 footerActionLink: "text-violet-400 hover:text-violet-300",
                 identityPreviewText: "text-slate-300",
-                identityPreviewEditButton: "text-violet-400 hover:text-violet-300",
-                formFieldInputShowPasswordButton: "text-slate-400 hover:text-slate-200",
+                identityPreviewEditButton:
+                  "text-violet-400 hover:text-violet-300",
+                formFieldInputShowPasswordButton:
+                  "text-slate-400 hover:text-slate-200",
                 dividerLine: "bg-slate-700",
                 dividerText: "text-slate-400",
-                formResendCodeLink: "text-violet-400 hover:text-violet-300",
+                formResendCodeLink:
+                  "text-violet-400 hover:text-violet-300",
                 otpCodeFieldInput:
                   "border-slate-700 focus:border-violet-500 text-slate-100",
               },
             }}
-            routing="path"
-            path="/sign-up"
-            signInUrl="/login"
           />
         </div>
 

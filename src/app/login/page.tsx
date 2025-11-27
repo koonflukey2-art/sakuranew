@@ -1,3 +1,4 @@
+// app/login/page.tsx
 import { SignIn } from "@clerk/nextjs";
 
 export default function LoginPage() {
@@ -16,8 +17,8 @@ export default function LoginPage() {
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-inner">
           <SignIn
-            routing="path"
-            path="/login"
+            // ✅ ใช้ hash routing แทน path routing
+            routing="hash"
             signUpUrl="/sign-up"
             afterSignInUrl="/"
             appearance={{
@@ -27,7 +28,8 @@ export default function LoginPage() {
                 formFieldInput:
                   "bg-slate-900 border border-slate-800 text-white placeholder:text-slate-500 focus:border-pink-400",
                 formFieldLabel: "text-slate-200 font-medium",
-                footerActionLink: "text-pink-300 hover:text-pink-200 font-semibold",
+                footerActionLink:
+                  "text-pink-300 hover:text-pink-200 font-semibold",
                 headerTitle: "text-white",
                 headerSubtitle: "text-slate-300",
                 socialButtonsBlockButton:
