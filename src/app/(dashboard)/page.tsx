@@ -315,13 +315,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-6 space-y-6">
-      {/* Header with Glass Effect */}
-      <div className="glass-primary rounded-2xl p-6 animate-gradient">
-        <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+      {/* Header - Simple & Clear */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">
           Dashboard
         </h1>
-        <p className="text-muted-foreground mt-2">
-          ภาพรวมธุรกิจของคุณ 🌸
+        <p className="text-gray-600 mt-2">
+          ภาพรวมธุรกิจของคุณ 🚀
         </p>
       </div>
 
@@ -428,12 +428,12 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
-        <Card className="glass border-0 shadow-vibrant hover-lift">
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="bg-gradient-primary bg-clip-text text-transparent">
+            <CardTitle className="text-xl font-bold text-gray-800">
               รายได้ vs ค่าใช้จ่าย (7 วัน)
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardDescription className="text-gray-600">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -501,12 +501,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform Bar Chart */}
-        <Card className="glass border-0 shadow-vibrant hover-lift">
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="bg-gradient-secondary bg-clip-text text-transparent">
+            <CardTitle className="text-xl font-bold text-gray-800">
               ROI แต่ละ Platform
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardDescription className="text-gray-600">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -552,9 +552,9 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Budget Pie Chart */}
-        <Card className="glass border-0 shadow-vibrant hover-lift">
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="bg-gradient-accent bg-clip-text text-transparent">
+            <CardTitle className="text-xl font-bold text-gray-800">
               สัดส่วนงบประมาณ
             </CardTitle>
           </CardHeader>
@@ -604,10 +604,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock Products */}
-        <Card className="glass border-0 shadow-vibrant hover-lift">
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 bg-gradient-warning bg-clip-text text-transparent">
-              <AlertTriangle className="h-5 w-5" style={{ color: 'hsl(35 100% 60%)' }} />
+            <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
           </CardHeader>
@@ -654,50 +654,50 @@ export default function DashboardPage() {
 
       {/* AI Insights */}
       {!loading && (
-        <Card className="glass-primary border-0 shadow-vibrant-lg animate-pulse-glow">
+        <Card className="bg-gradient-to-br from-white to-pink-50 border border-pink-200 shadow-md rounded-2xl">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-md">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="bg-gradient-primary bg-clip-text text-transparent">
+                <span className="text-xl font-bold text-gray-800">
                   AI Insights & Recommendations
                 </span>
               </CardTitle>
               <Button
                 size="sm"
-                className="bg-gradient-primary hover:opacity-90 text-white border-0 shadow-vibrant"
+                className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
                 onClick={() => router.push("/ai-chat")}
               >
                 <Bot className="w-4 h-4 mr-2" />
                 ดูทั้งหมด
               </Button>
             </div>
-            <CardDescription className="text-muted-foreground mt-2">
+            <CardDescription className="text-gray-600 mt-2">
               คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loadingInsights ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
               </div>
             ) : aiInsights.length > 0 ? (
               <ul className="space-y-3">
                 {aiInsights.map((insight, idx) => (
-                  <li key={idx} className="flex items-start gap-3 p-3 rounded-xl glass hover:shadow-vibrant transition-all">
-                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-primary text-white flex items-center justify-center text-sm font-bold">
+                  <li key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all">
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                       {idx + 1}
                     </span>
-                    <span className="text-foreground flex-1">{insight}</span>
+                    <span className="text-gray-700 flex-1">{insight}</span>
                   </li>
                 ))}
               </ul>
             ) : aiError ? (
-              <p className="text-muted-foreground">{aiError}</p>
+              <p className="text-gray-600">{aiError}</p>
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-gray-600">
                 เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
               </p>
             )}
@@ -706,9 +706,9 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activities */}
-      <Card className="glass border-0 shadow-vibrant animate-fade-in hover-lift">
+      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="bg-gradient-secondary bg-clip-text text-transparent">
+          <CardTitle className="text-xl font-bold text-gray-800">
             กิจกรรมล่าสุด
           </CardTitle>
         </CardHeader>
