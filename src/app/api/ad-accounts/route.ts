@@ -77,7 +77,8 @@ export async function POST(request: Request) {
         accountId: body.accountId?.trim() || null,
         pixelOrTrackingId: body.pixelOrTrackingId?.trim() || null,
         isActive: body.isActive ?? true,
-        lastTestStatus: "PENDING",
+        lastTested: true,
+        testMessage: true,
       },
     });
 

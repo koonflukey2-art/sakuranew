@@ -137,7 +137,8 @@ async function getSystemContext(userId: string) {
         accountName: true, // ใช้ accountName อย่างเดียว
         isActive: true,
         isValid: true,
-        lastTestStatus: true,
+        lastTested: true,
+        testMessage: true,
       },
     }),
   ]);
