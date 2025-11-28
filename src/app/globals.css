@@ -211,7 +211,7 @@ h3 {
   animation: fade-in 0.5s ease-out;
 }
 
-/* High Contrast Utilities */
+/* High Contrast Utilities - Added for Better Accessibility */
 @layer utilities {
   /* Text on Dark Backgrounds */
   .text-on-dark {
@@ -240,6 +240,14 @@ h3 {
     @apply border-2 border-red-300 text-red-600 font-semibold hover:bg-red-50;
   }
 
+  .btn-info {
+    @apply bg-blue-500 text-white font-semibold hover:bg-blue-600 border-0;
+  }
+
+  .btn-warning {
+    @apply bg-orange-500 text-white font-semibold hover:bg-orange-600 border-0;
+  }
+
   /* Badges - Always High Contrast */
   .badge-active {
     @apply bg-green-500 text-white border-0 font-semibold;
@@ -260,4 +268,60 @@ h3 {
   .badge-info {
     @apply bg-blue-500 text-white border-0 font-semibold;
   }
+
+  .badge-primary {
+    @apply bg-purple-500 text-white border-0 font-semibold;
+  }
+
+  .badge-success {
+    @apply bg-green-500 text-white border-0 font-semibold;
+  }
+
+  /* Input Fields - Always High Contrast */
+  .input-default {
+    @apply bg-white border-2 border-gray-300 text-gray-800 placeholder:text-gray-400 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 font-medium;
+  }
+
+  /* Cards - High Contrast */
+  .card-white {
+    @apply bg-white border-2 border-gray-200 shadow-md;
+  }
+
+  .card-header {
+    @apply border-b border-gray-100 bg-gray-50;
+  }
+
+  /* Text Colors - High Contrast */
+  .text-heading {
+    @apply text-gray-800 font-bold;
+  }
+
+  .text-body {
+    @apply text-gray-700 font-medium;
+  }
+
+  .text-muted-contrast {
+    @apply text-gray-600 font-medium;
+  }
+
+  /* Page Background */
+  .page-gradient {
+    @apply min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50;
+  }
+}
+
+/* Force white input for AI chat */
+.ai-chat-input {
+  background-color: white !important;
+  color: #111827 !important;
+  border: 2px solid #d1d5db !important;
+}
+
+.ai-chat-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.ai-chat-input:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
 }

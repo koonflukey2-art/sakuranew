@@ -47,6 +47,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,              // ✅ เพิ่ม Cell สำหรับกำหนดสีแท่ง
 } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -80,6 +81,16 @@ interface Product {
   costPrice: number;
   sellPrice: number;
 }
+
+// ✅ กำหนดสีตามหมวดหมู่
+const CATEGORY_COLORS: Record<string, string> = {
+  Skincare: "#fb7185",   // pink
+  Makeup: "#a855f7",     // purple
+  Haircare: "#22c55e",   // green
+  Supplement: "#06b6d4", // cyan
+  Fashion: "#f97316",    // orange
+  Other: "#64748b",      // slate
+};
 
 export default function StockPage() {
   const { toast } = useToast();
@@ -596,7 +607,6 @@ export default function StockPage() {
             <CardTitle className="text-sm font-medium">
               มูลค่าสินค้าคงคลัง
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -610,17 +620,38 @@ export default function StockPage() {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>สต็อกตามหมวดหมู่</CardTitle>
+            <CardTitle className="text-slate-100">สต็อกตามหมวดหมู่</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="category" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#020617",
+                    border: "1px solid #1f2937",
+                    borderRadius: 8,
+                    color: "#e5e7eb",
+                  }}
+                />
                 <Legend />
-                <Bar dataKey="quantity" name="จำนวน" />
+                <Bar
+                  dataKey="quantity"
+                  name="จำนวน"
+                  radius={[8, 8, 0, 0]}
+                >
+                  {chartData.map((entry: any, index: number) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        CATEGORY_COLORS[entry.category] ||
+                        "#38bdf8" // default สีฟ้า
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -743,10 +774,18 @@ export default function StockPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(product)}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDelete(product)}
+                            >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>

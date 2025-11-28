@@ -27,7 +27,10 @@ export async function POST(request: Request) {
     } = await request.json();
 
     // หา provider ที่ขอมา หรือใช้ default
-    const providerToUse = requestedProvider || user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
+    const providerToUse =
+      requestedProvider ||
+      user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
+
     const aiProvider = user.aiProviders.find(
       (p) => p.provider === providerToUse && p.isValid
     );
@@ -52,7 +55,8 @@ export async function POST(request: Request) {
 
     if (!chatSession) {
       // สร้าง session ใหม่
-      const title = message.length > 60 ? message.substring(0, 60) + "..." : message;
+      const title =
+        message.length > 60 ? message.substring(0, 60) + "..." : message;
       chatSession = await prisma.chatSession.create({
         data: {
           userId: user.id,
@@ -131,16 +135,18 @@ async function getSystemContext(userId: string) {
       select: {
         id: true,
         platform: true,
-        accountName: true,
-        name: true,
+        accountName: true, // ✅ ใช้ accountName แทน name
         isActive: true,
         isValid: true,
+        isDefault: true,
       },
     }),
   ]);
 
   // คำนวณสถิติ
-  const lowStockProducts = products.filter((p) => p.quantity < p.minStockLevel);
+  const lowStockProducts = products.filter(
+    (p) => p.quantity < p.minStockLevel
+  );
   const outOfStock = products.filter((p) => p.quantity === 0);
 
   const totalInventoryValue = products.reduce(
@@ -149,14 +155,16 @@ async function getSystemContext(userId: string) {
   );
 
   const totalRevenue = campaigns.reduce(
-    (sum, c) => sum + (c.conversions * (c.spent / (c.conversions || 1))),
+    (sum, c) =>
+      sum + c.conversions * (c.spent / (c.conversions || 1)),
     0
   );
 
   const totalAdSpend = campaigns.reduce((sum, c) => sum + c.spent, 0);
-  const avgROI = campaigns.length > 0
-    ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
-    : 0;
+  const avgROI =
+    campaigns.length > 0
+      ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
+      : 0;
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
@@ -168,8 +176,11 @@ async function getSystemContext(userId: string) {
       outOfStockCount: outOfStock.length,
       inventoryValue: totalInventoryValue,
       totalCampaigns: campaigns.length,
-      activeCampaigns: campaigns.filter((c) => c.status === "ACTIVE").length,
+      activeCampaigns: campaigns.filter(
+        (c) => c.status === "ACTIVE"
+      ).length,
       totalAdSpend,
+      totalRevenue,
       avgROI: avgROI.toFixed(2),
       totalBudget,
       totalSpent,
@@ -233,15 +244,17 @@ function formatPlatformName(platform: string) {
 }
 
 function formatAdAccounts(adAccounts: any[]) {
-  const defaultId = adAccounts.find((a) => a.isActive && a.lastTestStatus === "SUCCESS")?.id;
+  // default จากฐานข้อมูล ถ้ามี
+  const defaultAccount = adAccounts.find((a) => a.isDefault);
+  const defaultId = defaultAccount ? defaultAccount.id : adAccounts[0]?.id;
 
-  return adAccounts.map((account, index) => ({
+  return adAccounts.map((account) => ({
     platform: formatPlatformName(account.platform),
-    accountName: account.name,
-    isValid: account.isActive && account.lastTestStatus === "SUCCESS",
-    isDefault: defaultId ? account.id === defaultId : index === 0,
-    isActive: account.isActive,
-    status: account.lastTestStatus || "PENDING",
+    accountName: account.accountName, // ✅ ใช้ accountName
+    isValid: !!account.isValid,
+    isDefault: account.id === defaultId,
+    isActive: !!account.isActive,
+    status: account.isValid ? "SUCCESS" : "INVALID", // ✅ ไม่มี lastTestStatus ใน schema
   }));
 }
 
@@ -259,7 +272,9 @@ function buildSystemPrompt(context: any) {
       ? businessData.adAccounts
           .map(
             (acc: any) =>
-              `- ${acc.platform}: ${acc.accountName} - ${acc.isValid ? "✅ Connected" : "❌ Disconnected"}${acc.isDefault ? " [Default]" : ""}`
+              `- ${acc.platform}: ${acc.accountName} - ${
+                acc.isValid ? "✅ Connected" : "❌ Disconnected"
+              }${acc.isDefault ? " [Default]" : ""}`
           )
           .join("\n")
       : "- ยังไม่มีการเชื่อมต่อ Ad Account";
@@ -269,7 +284,9 @@ function buildSystemPrompt(context: any) {
       ? businessData.platformCreds
           .map(
             (p: any) =>
-              `- ${p.platform}: ${p.isValid ? "✅ Connected" : "❌ Invalid"}`
+              `- ${p.platform}: ${
+                p.isValid ? "✅ Connected" : "❌ Invalid"
+              }`
           )
           .join("\n")
       : "- ยังไม่มีการตั้งค่า Platform API";
@@ -333,7 +350,8 @@ async function callGemini(apiKey: string, message: string, context: any) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดอายุ";
+      const errorMessage =
+        errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดอายุ";
       throw new Error(
         `ไม่สามารถเชื่อมต่อกับ Gemini ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings หรือลองใช้ AI Provider อื่น`
       );
@@ -342,17 +360,19 @@ async function callGemini(apiKey: string, message: string, context: any) {
     const data = await response.json();
 
     if (!data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
-      throw new Error("Gemini ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง");
+      throw new Error(
+        "Gemini ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง"
+      );
     }
 
     return data.candidates[0].content.parts[0].text;
   } catch (error: any) {
-    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
     if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ Gemini")) {
       throw error;
     }
-    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
-    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ Gemini กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง");
+    throw new Error(
+      "เกิดข้อผิดพลาดในการเชื่อมต่อกับ Gemini กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง"
+    );
   }
 }
 
@@ -365,30 +385,33 @@ async function callOpenAI(
 ): Promise<string> {
   const systemPrompt = buildSystemPrompt(context);
 
-  // ใช้ model จากการตั้งค่า ถ้ามี, ถ้าไม่มีก็ใช้ gpt-4o-mini เป็นค่าเริ่มต้น
   const model = (modelName && modelName.trim()) || "gpt-4o-mini";
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
-    });
+    const response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดโควต้า";
+      const errorMessage =
+        errorData.error?.message || "API Key ไม่ถูกต้องหรือหมดโควต้า";
       throw new Error(
         `ไม่สามารถเชื่อมต่อกับ OpenAI ได้: ${errorMessage}\n\nกรุณาตรวจสอบ API Key ที่หน้า Settings (ตรวจดูชื่อโมเดล: ปัจจุบันใช้ "${model}") หรือเปลี่ยนไปใช้ Gemini (ฟรี)`
       );
@@ -397,19 +420,22 @@ async function callOpenAI(
     const data = await response.json();
 
     if (!data.choices || !data.choices[0]?.message?.content) {
-      throw new Error("OpenAI ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง");
+      throw new Error(
+        "OpenAI ไม่สามารถสร้างคำตอบได้ กรุณาลองถามใหม่อีกครั้ง"
+      );
     }
 
     return data.choices[0].message.content;
   } catch (error: any) {
-    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
     if (error instanceof Error) {
       throw error;
     }
-    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
-    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenAI กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง");
+    throw new Error(
+      "เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenAI กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือลองใหม่อีกครั้ง"
+    );
   }
 }
+
 // n8n Webhook
 async function callN8N(webhookUrl: string, message: string, context: any) {
   try {
@@ -420,22 +446,26 @@ async function callN8N(webhookUrl: string, message: string, context: any) {
     });
 
     if (!response.ok) {
-      throw new Error(`ไม่สามารถเชื่อมต่อกับ n8n Webhook ได้ (HTTP ${response.status})\n\nกรุณาตรวจสอบ Webhook URL ที่หน้า Settings หรือตรวจสอบว่า n8n workflow กำลังทำงานอยู่`);
+      throw new Error(
+        `ไม่สามารถเชื่อมต่อกับ n8n Webhook ได้ (HTTP ${response.status})\n\nกรุณาตรวจสอบ Webhook URL ที่หน้า Settings หรือตรวจสอบว่า n8n workflow กำลังทำงานอยู่`
+      );
     }
 
     const data = await response.json();
 
     if (!data.response && !data.message) {
-      throw new Error("n8n Webhook ไม่ส่งคำตอบกลับมา กรุณาตรวจสอบการตั้งค่า workflow");
+      throw new Error(
+        "n8n Webhook ไม่ส่งคำตอบกลับมา กรุณาตรวจสอบการตั้งค่า workflow"
+      );
     }
 
     return data.response || data.message;
   } catch (error: any) {
-    // ถ้า error มี message ที่เป็นภาษาไทยอยู่แล้ว ให้ใช้ต่อ
     if (error.message && error.message.includes("ไม่สามารถเชื่อมต่อกับ n8n")) {
       throw error;
     }
-    // ถ้าไม่ใช่ ให้สร้าง error message ใหม่
-    throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อกับ n8n Webhook กรุณาตรวจสอบ URL หรือลองใหม่อีกครั้ง");
+    throw new Error(
+      "เกิดข้อผิดพลาดในการเชื่อมต่อกับ n8n Webhook กรุณาตรวจสอบ URL หรือลองใหม่อีกครั้ง"
+    );
   }
 }

@@ -584,7 +584,9 @@ export default function AutomationPage() {
                     <SelectItem value="Revealbot">Revealbot</SelectItem>
                     <SelectItem value="AdEspresso">AdEspresso</SelectItem>
                     <SelectItem value="Madgicx">Madgicx</SelectItem>
-                    <SelectItem value="Custom (n8n webhook)">Custom (n8n webhook)</SelectItem>
+                    <SelectItem value="Custom (n8n webhook)">
+                      Custom (n8n webhook)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -612,11 +614,19 @@ export default function AutomationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CPA">CPA (ต้นทุนต่อการแปลง)</SelectItem>
-                      <SelectItem value="ROAS">ROAS (ผลตอบแทนจากค่าโฆษณา)</SelectItem>
-                      <SelectItem value="CTR">CTR (อัตราการคลิก)</SelectItem>
+                      <SelectItem value="CPA">
+                        CPA (ต้นทุนต่อการแปลง)
+                      </SelectItem>
+                      <SelectItem value="ROAS">
+                        ROAS (ผลตอบแทนจากค่าโฆษณา)
+                      </SelectItem>
+                      <SelectItem value="CTR">
+                        CTR (อัตราการคลิก)
+                      </SelectItem>
                       <SelectItem value="Spend">Spend (ค่าใช้จ่าย)</SelectItem>
-                      <SelectItem value="Conversions">Conversions (การแปลง)</SelectItem>
+                      <SelectItem value="Conversions">
+                        Conversions (การแปลง)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -630,11 +640,11 @@ export default function AutomationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value=">">{'>'}</SelectItem>
-                      <SelectItem value="<">{'<'}</SelectItem>
+                      <SelectItem value=">">{">"}</SelectItem>
+                      <SelectItem value="<">{"<"}</SelectItem>
                       <SelectItem value="=">=</SelectItem>
-                      <SelectItem value=">=">{'>='}</SelectItem>
-                      <SelectItem value="<=">{'<='}</SelectItem>
+                      <SelectItem value=">=">{">="}</SelectItem>
+                      <SelectItem value="<=">{"<="}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -667,12 +677,15 @@ export default function AutomationPage() {
                   <SelectItem value="pauseCampaign">หยุดแคมเปญ</SelectItem>
                   <SelectItem value="increaseBudget">เพิ่มงบ</SelectItem>
                   <SelectItem value="decreaseBudget">ลดงบ</SelectItem>
-                  <SelectItem value="sendNotification">ส่งการแจ้งเตือน</SelectItem>
+                  <SelectItem value="sendNotification">
+                    ส่งการแจ้งเตือน
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {(formData.actionType === "increaseBudget" || formData.actionType === "decreaseBudget") && (
+            {(formData.actionType === "increaseBudget" ||
+              formData.actionType === "decreaseBudget") && (
               <div className="space-y-2">
                 <Label className="text-gray-800">จำนวนเงิน (%)</Label>
                 <Input
@@ -870,7 +883,8 @@ export default function AutomationPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบ Rule "{selectedRule?.ruleName}" การกระทำนี้ไม่สามารถย้อนกลับได้
+              คุณแน่ใจหรือไม่ที่จะลบ Rule "
+              {selectedRule?.ruleName}" การกระทำนี้ไม่สามารถย้อนกลับได้
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -921,7 +935,9 @@ export default function AutomationPage() {
                     >
                       <p
                         className={`text-sm font-medium ${
-                          testResult.condition ? "text-green-800" : "text-red-800"
+                          testResult.condition
+                            ? "text-green-800"
+                            : "text-red-800"
                         }`}
                       >
                         {testResult.message}
