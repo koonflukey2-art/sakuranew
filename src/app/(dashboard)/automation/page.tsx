@@ -400,50 +400,302 @@ export default function AutomationPage() {
   const activeRulesCount = rules.filter((r) => r.isActive).length;
 
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
-        <div className="p-6 space-y-6">
-          {/* Header + CTA */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">
-                Automation Rules Builder
-              </h1>
-              <p className="text-gray-600 mt-2">
-                สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀
-              </p>
-            </div>
-            <Button
-              onClick={() => {
-                resetForm();
-                setOpenDialog(true);
-              }}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              สร้าง Rule ใหม่
-            </Button>
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
+            <p className="text-gray-600 mt-2">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
           </div>
+          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold">
+                <Plus className="h-4 w-4 mr-2" />
+                สร้าง Rule ใหม่
+              </Button>
+            </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-yellow-500" />
+                สร้าง Automation Rule
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>แพลตฟอร์ม</Label>
+                  <Select value={formData.platform} onValueChange={(value) => setFormData({ ...formData, platform: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Facebook Ads">Facebook Ads</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                      <SelectItem value="X Ads">X Ads</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Stats Cards */}
-          <div className="grid gap-6 md:grid-cols-3 mb-6">
-            <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600 mb-1">
-                      Rules ทั้งหมด
-                    </p>
-                    <p className="text-4xl font-bold text-gray-800">
-                      {rules.length}
-                    </p>
+                <div className="space-y-2">
+                  <Label>เครื่องมือ</Label>
+                  <Select value={formData.tool} onValueChange={(value) => setFormData({ ...formData, tool: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Revealbot">Revealbot</SelectItem>
+                      <SelectItem value="AdEspresso">AdEspresso</SelectItem>
+                      <SelectItem value="Madgicx">Madgicx</SelectItem>
+                      <SelectItem value="Custom (n8n webhook)">Custom (n8n webhook)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>ชื่อ Rule</Label>
+                <Input
+                  placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
+                  value={formData.ruleName}
+                  onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>เงื่อนไข (Condition)</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Select value={formData.metric} onValueChange={(value) => setFormData({ ...formData, metric: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CPA">CPA (ต้นทุนต่อการแปลง)</SelectItem>
+                        <SelectItem value="ROAS">ROAS (ผลตอบแทนจากค่าโฆษณา)</SelectItem>
+                        <SelectItem value="CTR">CTR (อัตราการคลิก)</SelectItem>
+                        <SelectItem value="Spend">Spend (ค่าใช้จ่าย)</SelectItem>
+                        <SelectItem value="Conversions">Conversions (การแปลง)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                    <Settings className="w-7 h-7 text-white" />
+
+                  <div className="w-24">
+                    <Select value={formData.operator} onValueChange={(value) => setFormData({ ...formData, operator: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=">">{'>'}</SelectItem>
+                        <SelectItem value="<">{'<'}</SelectItem>
+                        <SelectItem value="=">=</SelectItem>
+                        <SelectItem value=">=">{'>='}</SelectItem>
+                        <SelectItem value="<=">{'<='}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      placeholder="ค่า"
+                      value={formData.value || ""}
+                      onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                    />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <p className="text-xs text-muted-foreground">
+                  IF {getMetricLabel(formData.metric)} {formData.operator} {formData.value}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>การกระทำ (Action)</Label>
+                <Select value={formData.actionType} onValueChange={(value) => setFormData({ ...formData, actionType: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pauseCampaign">หยุดแคมเปญ</SelectItem>
+                    <SelectItem value="increaseBudget">เพิ่มงบ</SelectItem>
+                    <SelectItem value="decreaseBudget">ลดงบ</SelectItem>
+                    <SelectItem value="sendNotification">ส่งการแจ้งเตือน</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(formData.actionType === "increaseBudget" || formData.actionType === "decreaseBudget") && (
+                <div className="space-y-2">
+                  <Label>จำนวนเงิน (%)</Label>
+                  <Input
+                    type="number"
+                    placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
+                    value={formData.actionValue}
+                    onChange={(e) => setFormData({ ...formData, actionValue: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenDialog(false)}>
+                ยกเลิก
+              </Button>
+              <Button onClick={handleCreate} disabled={submitting}>
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                บันทึก
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+        {/* Stats Cards - High Contrast */}
+        <div className="grid gap-6 md:grid-cols-3 mb-6">
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Rules ทั้งหมด</p>
+                  <p className="text-4xl font-bold text-gray-800">{rules.length}</p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <Settings className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Active Rules</p>
+                  <p className="text-4xl font-bold text-green-600">{rules.filter((r) => r.isActive).length}</p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                  <Play className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">Paused Rules</p>
+                  <p className="text-4xl font-bold text-orange-600">{rules.filter((r) => !r.isActive).length}</p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <Pause className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rules List */}
+        {rules.length === 0 ? (
+          <Card className="bg-white border-2 border-gray-200 shadow-md">
+            <CardContent className="py-12 text-center">
+              <p className="text-gray-600 font-medium">
+                ยังไม่มี Automation Rules <br />
+                คลิก "สร้าง Rule ใหม่" เพื่อเริ่มต้น
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {rules.map((rule) => (
+              <Card
+                key={rule.id}
+                className="bg-white border-2 border-gray-200 shadow-md hover:shadow-xl hover:border-pink-300 transition-all"
+              >
+                <CardHeader className="border-b border-gray-100 bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
+                      <CardDescription className="text-gray-700 font-medium mt-1">
+                        {rule.platform} • {rule.tool}
+                      </CardDescription>
+                    </div>
+                    <Badge className={rule.isActive ? "bg-green-500 text-white border-0 font-semibold" : "bg-gray-500 text-white border-0 font-semibold"}>
+                      {rule.isActive ? "Active" : "Paused"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 p-4 rounded-xl space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">เงื่อนไข:</span>
+                      <span className="text-sm font-semibold text-gray-800">
+                        IF <span className="text-blue-600">{getMetricLabel(rule.condition.metric)}</span>{" "}
+                        <span className="text-purple-600 font-bold">{rule.condition.operator}</span>{" "}
+                        <span className="text-pink-600">{rule.condition.value}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">การกระทำ:</span>
+                      <span className="text-sm font-semibold text-green-600">
+                        {getActionLabel(rule.action.type)}
+                        {rule.action.value && <span className="text-orange-600 font-bold"> {rule.action.value}%</span>}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
+                        onClick={() => handleToggleActive(rule)}
+                      >
+                        {rule.isActive ? (
+                          <>
+                            <Pause className="h-3 w-3 mr-1" />
+                            Pause
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 mr-1" />
+                            Activate
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openEdit(rule)}
+                        className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openDelete(rule)}
+                        className="border-2 border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white border-0 font-semibold"
+                      onClick={() => handleTestRule(rule)}
+                    >
+                      <TestTube className="h-3 w-3 mr-1" />
+                      ทดสอบ Rule (Dry-run)
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
 
             <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
