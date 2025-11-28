@@ -20,13 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-import { Loader2, Check, X, Sparkles, RefreshCw, Trash2, Globe2, KeyRound } from "lucide-react";
-import { motion } from "framer-motion";
-=======
-=======
->>>>>>> Stashed changes
 import {
   Dialog,
   DialogContent,
@@ -44,11 +37,10 @@ import {
   Facebook,
   Sparkles,
   RefreshCw,
+  Globe2,
+  KeyRound,
 } from "lucide-react";
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+import { motion } from "framer-motion";
 
 interface AIProvider {
   id: string;
@@ -71,17 +63,20 @@ export default function SettingsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   // Platform Credentials State
   const [platformCreds, setPlatformCreds] = useState<any[]>([]);
   const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
-  const [testingPlatformId, setTestingPlatformId] = useState<string | null>(null);
+  const [testingPlatformId, setTestingPlatformId] = useState<string | null>(
+    null
+  );
   const [platformForm, setPlatformForm] = useState({
     platform: "FACEBOOK_ADS",
-=======
-=======
->>>>>>> Stashed changes
+    apiKey: "",
+    apiSecret: "",
+    accessToken: "",
+    refreshToken: "",
+  });
+
   // Ad Accounts states
   const [adAccounts, setAdAccounts] = useState<any[]>([]);
   const [loadingAdAccounts, setLoadingAdAccounts] = useState(true);
@@ -91,10 +86,6 @@ export default function SettingsPage() {
     platform: "FACEBOOK",
     accountName: "",
     accountId: "",
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     apiKey: "",
     apiSecret: "",
     accessToken: "",
@@ -103,17 +94,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchProviders();
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     fetchPlatformCreds();
-=======
-    fetchAdAccounts(); // load ad accounts ด้วย
->>>>>>> Stashed changes
-=======
-    fetchAdAccounts(); // load ad accounts ด้วย
->>>>>>> Stashed changes
+    fetchAdAccounts();
   }, []);
 
+  // AI Provider functions
   const fetchProviders = async () => {
     try {
       setLoading(true);
@@ -234,8 +219,6 @@ export default function SettingsPage() {
     }
   };
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   // Platform Credentials Functions
   const fetchPlatformCreds = async () => {
     try {
@@ -275,9 +258,83 @@ export default function SettingsPage() {
 
       setPlatformForm({
         platform: platformForm.platform,
-=======
-=======
->>>>>>> Stashed changes
+        apiKey: "",
+        apiSecret: "",
+        accessToken: "",
+        refreshToken: "",
+      });
+
+      fetchPlatformCreds();
+    } catch (error: any) {
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "ไม่สามารถบันทึกข้อมูลได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTestPlatformCred = async (id: string) => {
+    try {
+      setTestingPlatformId(id);
+      const res = await fetch("/api/platform-credentials/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast({
+          title: "✅ เชื่อมต่อสำเร็จ",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "❌ เชื่อมต่อไม่สำเร็จ",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+
+      fetchPlatformCreds();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingPlatformId(null);
+    }
+  };
+
+  const handleDeletePlatformCred = async (id: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบ API Credential นี้?")) return;
+
+    try {
+      const res = await fetch(`/api/platform-credentials?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete credential");
+
+      toast({
+        title: "ลบสำเร็จ",
+        description: "ลบข้อมูล API Key / Token เรียบร้อยแล้ว",
+      });
+
+      fetchPlatformCreds();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถลบข้อมูลได้",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Ad Accounts functions
   const fetchAdAccounts = async () => {
     try {
@@ -319,83 +376,31 @@ export default function SettingsPage() {
         platform: "FACEBOOK",
         accountName: "",
         accountId: "",
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         apiKey: "",
         apiSecret: "",
         accessToken: "",
         refreshToken: "",
       });
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 
-      fetchPlatformCreds();
-    } catch (error: any) {
-      toast({
-        title: "ผิดพลาด",
-        description: error.message || "ไม่สามารถบันทึกข้อมูลได้",
-=======
-=======
->>>>>>> Stashed changes
       fetchAdAccounts();
     } catch (error: any) {
       toast({
         title: "ผิดพลาด",
         description: error.message,
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         variant: "destructive",
       });
     }
   };
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  const handleTestPlatformCred = async (id: string) => {
-    try {
-      setTestingPlatformId(id);
-      const res = await fetch("/api/platform-credentials/test", {
-=======
-=======
->>>>>>> Stashed changes
   const handleTestAdAccount = async (id: string) => {
     try {
       setTestingAdAccount(id);
       const response = await fetch("/api/ad-accounts/test", {
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      const data = await res.json();
-
-      if (data.success) {
-        toast({
-          title: "✅ เชื่อมต่อสำเร็จ",
-          description: data.message,
-        });
-      } else {
-        toast({
-          title: "❌ เชื่อมต่อไม่สำเร็จ",
-          description: data.message,
-          variant: "destructive",
-        });
-      }
-
-      fetchPlatformCreds();
-=======
-=======
->>>>>>> Stashed changes
       const result = await response.json();
 
       toast({
@@ -405,10 +410,6 @@ export default function SettingsPage() {
       });
 
       fetchAdAccounts();
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     } catch (error) {
       toast({
         title: "ผิดพลาด",
@@ -416,35 +417,6 @@ export default function SettingsPage() {
         variant: "destructive",
       });
     } finally {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      setTestingPlatformId(null);
-    }
-  };
-
-  const handleDeletePlatformCred = async (id: string) => {
-    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบ API Credential นี้?")) return;
-
-    try {
-      const res = await fetch(`/api/platform-credentials?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Failed to delete credential");
-
-      toast({
-        title: "ลบสำเร็จ",
-        description: "ลบข้อมูล API Key / Token เรียบร้อยแล้ว",
-      });
-
-      fetchPlatformCreds();
-    } catch (error) {
-      toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถลบข้อมูลได้",
-=======
-=======
->>>>>>> Stashed changes
       setTestingAdAccount(null);
     }
   };
@@ -492,10 +464,6 @@ export default function SettingsPage() {
       toast({
         title: "ผิดพลาด",
         description: "ไม่สามารถลบได้",
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         variant: "destructive",
       });
     }
@@ -504,7 +472,9 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-50">AI Provider Settings</h1>
+        <h1 className="text-3xl font-bold text-slate-50">
+          AI Provider Settings
+        </h1>
         <p className="text-slate-200 mt-1">
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
@@ -522,19 +492,8 @@ export default function SettingsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label className="text-white">AI Provider</Label>
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
               <Select value={selectedProvider} onValueChange={setSelectedProvider}>
                 <SelectTrigger className="bg-muted border-border text-white">
-=======
-=======
->>>>>>> Stashed changes
-              <Select
-                value={selectedProvider}
-                onValueChange={setSelectedProvider}
-              >
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
->>>>>>> Stashed changes
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border">
@@ -628,7 +587,9 @@ export default function SettingsPage() {
       {/* Existing Providers */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-slate-50">AI Providers ที่บันทึกไว้</CardTitle>
+          <CardTitle className="text-slate-50">
+            AI Providers ที่บันทึกไว้
+          </CardTitle>
           <CardDescription className="text-slate-200">
             จัดการและทดสอบ API Keys
           </CardDescription>
@@ -678,20 +639,9 @@ export default function SettingsPage() {
                       </p>
                     )}
                     {provider.lastTested && (
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-                      <p className="text-xs text-slate-300 mt-1">
-                        ทดสอบล่าสุด: {new Date(provider.lastTested).toLocaleString("th-TH")}
-=======
                       <p className="text-xs text-slate-500 mt-1">
                         ทดสอบล่าสุด:{" "}
                         {new Date(provider.lastTested).toLocaleString("th-TH")}
->>>>>>> Stashed changes
-=======
-                      <p className="text-xs text-slate-500 mt-1">
-                        ทดสอบล่าสุด:{" "}
-                        {new Date(provider.lastTested).toLocaleString("th-TH")}
->>>>>>> Stashed changes
                       </p>
                     )}
                   </div>
@@ -735,631 +685,315 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+      {/* Ad Accounts Section */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Facebook className="w-5 h-5" />
+                Ad Accounts
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                จัดการบัญชีโฆษณาทุกแพลตฟอร์ม
+              </CardDescription>
+            </div>
+            <Button onClick={() => setIsAdAccountDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              เพิ่ม Ad Account
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingAdAccounts ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : adAccounts.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <p>ยังไม่มี Ad Account</p>
+              <p className="text-sm mt-2">
+                เพิ่ม Ad Account เพื่อเริ่มใช้งานระบบโฆษณา
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {adAccounts.map((account: any) => (
+                <Card
+                  key={account.id}
+                  className="bg-slate-700 border-slate-600"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-blue-600">
+                            {account.platform}
+                          </Badge>
+                          {account.isDefault && (
+                            <Badge className="bg-green-600">
+                              <Check className="w-3 h-3 mr-1" />
+                              Default
+                            </Badge>
+                          )}
+                          {account.isValid ? (
+                            <Badge className="bg-green-600">
+                              <Check className="w-3 h-3 mr-1" />
+                              Connected
+                            </Badge>
+                          ) : account.lastTested ? (
+                            <Badge variant="destructive">
+                              <X className="w-3 h-3 mr-1" />
+                              Invalid
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-600">
+                              Not Tested
+                            </Badge>
+                          )}
+                        </div>
+
+                        <h4 className="text-white font-semibold">
+                          {account.accountName}
+                        </h4>
+                        <p className="text-sm text-slate-400">
+                          Account ID: {account.accountId}
+                        </p>
+                        {account.lastTested && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Last tested:{" "}
+                            {new Date(account.lastTested).toLocaleString(
+                              "th-TH"
+                            )}
+                          </p>
+                        )}
+                        {account.testMessage && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            {account.testMessage}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestAdAccount(account.id)}
+                          disabled={testingAdAccount === account.id}
+                        >
+                          {testingAdAccount === account.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <TestTube2 className="w-4 h-4" />
+                          )}
+                        </Button>
+
+                        {!account.isDefault && account.isValid && (
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              handleSetDefaultAdAccount(
+                                account.id,
+                                account.platform
+                              )
+                            }
+                          >
+                            Set Default
+                          </Button>
+                        )}
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteAdAccount(account.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Ad Account Dialog */}
+      <Dialog
+        open={isAdAccountDialogOpen}
+        onOpenChange={setIsAdAccountDialogOpen}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>เพิ่ม Ad Account</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddAdAccount} className="space-y-4">
+            <div>
+              <Label>Platform</Label>
+              <Select
+                value={adAccountForm.platform}
+                onValueChange={(value) =>
+                  setAdAccountForm({ ...adAccountForm, platform: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FACEBOOK">Facebook Ads</SelectItem>
+                  <SelectItem value="GOOGLE">Google Ads</SelectItem>
+                  <SelectItem value="TIKTOK">TikTok Ads</SelectItem>
+                  <SelectItem value="LINE">LINE Ads</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Account Name</Label>
+              <Input
+                value={adAccountForm.accountName}
+                onChange={(e) =>
+                  setAdAccountForm({
+                    ...adAccountForm,
+                    accountName: e.target.value,
+                  })
+                }
+                placeholder="My Business Account"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Account ID</Label>
+              <Input
+                value={adAccountForm.accountId}
+                onChange={(e) =>
+                  setAdAccountForm({
+                    ...adAccountForm,
+                    accountId: e.target.value,
+                  })
+                }
+                placeholder="act_123456789"
+                required
+              />
+            </div>
+
+            {adAccountForm.platform === "FACEBOOK" && (
+              <div>
+                <Label>Access Token</Label>
+                <Input
+                  type="password"
+                  value={adAccountForm.accessToken}
+                  onChange={(e) =>
+                    setAdAccountForm({
+                      ...adAccountForm,
+                      accessToken: e.target.value,
+                    })
+                  }
+                  placeholder="EAAxxxx..."
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Get from{" "}
+                  <a
+                    href="https://developers.facebook.com/tools/explorer/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    Facebook Graph API Explorer
+                  </a>
+                </p>
+              </div>
+            )}
+
+            {adAccountForm.platform === "GOOGLE" && (
+              <>
+                <div>
+                  <Label>Access Token</Label>
+                  <Input
+                    type="password"
+                    value={adAccountForm.accessToken}
+                    onChange={(e) =>
+                      setAdAccountForm({
+                        ...adAccountForm,
+                        accessToken: e.target.value,
+                      })
+                    }
+                    placeholder="Access Token"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Refresh Token (Optional)</Label>
+                  <Input
+                    type="password"
+                    value={adAccountForm.refreshToken}
+                    onChange={(e) =>
+                      setAdAccountForm({
+                        ...adAccountForm,
+                        refreshToken: e.target.value,
+                      })
+                    }
+                    placeholder="Refresh Token"
+                  />
+                </div>
+              </>
+            )}
+
+            {adAccountForm.platform === "TIKTOK" && (
+              <div>
+                <Label>Access Token</Label>
+                <Input
+                  type="password"
+                  value={adAccountForm.apiKey}
+                  onChange={(e) =>
+                    setAdAccountForm({
+                      ...adAccountForm,
+                      apiKey: e.target.value,
+                    })
+                  }
+                  placeholder="Access Token"
+                  required
+                />
+              </div>
+            )}
+
+            {adAccountForm.platform === "LINE" && (
+              <div>
+                <Label>Channel Access Token</Label>
+                <Input
+                  type="password"
+                  value={adAccountForm.apiKey}
+                  onChange={(e) =>
+                    setAdAccountForm({
+                      ...adAccountForm,
+                      apiKey: e.target.value,
+                    })
+                  }
+                  placeholder="Channel Access Token"
+                  required
+                />
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAdAccountDialogOpen(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button type="submit">เพิ่ม Ad Account</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Platform API Settings */}
       <Card className="bg-card border-border">
-=======
-      {/* Ad Accounts Section */}
-=======
-      {/* Ad Accounts Section */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Facebook className="w-5 h-5" />
-                Ad Accounts
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                จัดการบัญชีโฆษณาทุกแพลตฟอร์ม
-              </CardDescription>
-            </div>
-            <Button onClick={() => setIsAdAccountDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              เพิ่ม Ad Account
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingAdAccounts ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-            </div>
-          ) : adAccounts.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <p>ยังไม่มี Ad Account</p>
-              <p className="text-sm mt-2">
-                เพิ่ม Ad Account เพื่อเริ่มใช้งานระบบโฆษณา
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {adAccounts.map((account) => (
-                <Card
-                  key={account.id}
-                  className="bg-slate-700 border-slate-600"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge className="bg-blue-600">
-                            {account.platform}
-                          </Badge>
-                          {account.isDefault && (
-                            <Badge className="bg-green-600">
-                              <Check className="w-3 h-3 mr-1" />
-                              Default
-                            </Badge>
-                          )}
-                          {account.isValid ? (
-                            <Badge className="bg-green-600">
-                              <Check className="w-3 h-3 mr-1" />
-                              Connected
-                            </Badge>
-                          ) : account.lastTested ? (
-                            <Badge variant="destructive">
-                              <X className="w-3 h-3 mr-1" />
-                              Invalid
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-yellow-600">
-                              Not Tested
-                            </Badge>
-                          )}
-                        </div>
-
-                        <h4 className="text-white font-semibold">
-                          {account.accountName}
-                        </h4>
-                        <p className="text-sm text-slate-400">
-                          Account ID: {account.accountId}
-                        </p>
-                        {account.lastTested && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Last tested:{" "}
-                            {new Date(account.lastTested).toLocaleString(
-                              "th-TH"
-                            )}
-                          </p>
-                        )}
-                        {account.testMessage && (
-                          <p className="text-xs text-slate-400 mt-1">
-                            {account.testMessage}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTestAdAccount(account.id)}
-                          disabled={testingAdAccount === account.id}
-                        >
-                          {testingAdAccount === account.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <TestTube2 className="w-4 h-4" />
-                          )}
-                        </Button>
-
-                        {!account.isDefault && account.isValid && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              handleSetDefaultAdAccount(
-                                account.id,
-                                account.platform
-                              )
-                            }
-                          >
-                            Set Default
-                          </Button>
-                        )}
-
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteAdAccount(account.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add Ad Account Dialog */}
-      <Dialog
-        open={isAdAccountDialogOpen}
-        onOpenChange={setIsAdAccountDialogOpen}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>เพิ่ม Ad Account</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddAdAccount} className="space-y-4">
-            <div>
-              <Label>Platform</Label>
-              <Select
-                value={adAccountForm.platform}
-                onValueChange={(value) =>
-                  setAdAccountForm({ ...adAccountForm, platform: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FACEBOOK">Facebook Ads</SelectItem>
-                  <SelectItem value="GOOGLE">Google Ads</SelectItem>
-                  <SelectItem value="TIKTOK">TikTok Ads</SelectItem>
-                  <SelectItem value="LINE">LINE Ads</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Account Name</Label>
-              <Input
-                value={adAccountForm.accountName}
-                onChange={(e) =>
-                  setAdAccountForm({
-                    ...adAccountForm,
-                    accountName: e.target.value,
-                  })
-                }
-                placeholder="My Business Account"
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Account ID</Label>
-              <Input
-                value={adAccountForm.accountId}
-                onChange={(e) =>
-                  setAdAccountForm({
-                    ...adAccountForm,
-                    accountId: e.target.value,
-                  })
-                }
-                placeholder="act_123456789"
-                required
-              />
-            </div>
-
-            {adAccountForm.platform === "FACEBOOK" && (
-              <div>
-                <Label>Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.accessToken}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      accessToken: e.target.value,
-                    })
-                  }
-                  placeholder="EAAxxxx..."
-                  required
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Get from{" "}
-                  <a
-                    href="https://developers.facebook.com/tools/explorer/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-400 hover:underline"
-                  >
-                    Facebook Graph API Explorer
-                  </a>
-                </p>
-              </div>
-            )}
-
-            {adAccountForm.platform === "GOOGLE" && (
-              <>
-                <div>
-                  <Label>Access Token</Label>
-                  <Input
-                    type="password"
-                    value={adAccountForm.accessToken}
-                    onChange={(e) =>
-                      setAdAccountForm({
-                        ...adAccountForm,
-                        accessToken: e.target.value,
-                      })
-                    }
-                    placeholder="Access Token"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Refresh Token (Optional)</Label>
-                  <Input
-                    type="password"
-                    value={adAccountForm.refreshToken}
-                    onChange={(e) =>
-                      setAdAccountForm({
-                        ...adAccountForm,
-                        refreshToken: e.target.value,
-                      })
-                    }
-                    placeholder="Refresh Token"
-                  />
-                </div>
-              </>
-            )}
-
-            {adAccountForm.platform === "TIKTOK" && (
-              <div>
-                <Label>Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.apiKey}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      apiKey: e.target.value,
-                    })
-                  }
-                  placeholder="Access Token"
-                  required
-                />
-              </div>
-            )}
-
-            {adAccountForm.platform === "LINE" && (
-              <div>
-                <Label>Channel Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.apiKey}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      apiKey: e.target.value,
-                    })
-                  }
-                  placeholder="Channel Access Token"
-                  required
-                />
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAdAccountDialogOpen(false)}
-              >
-                ยกเลิก
-              </Button>
-              <Button type="submit">เพิ่ม Ad Account</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Instructions */}
->>>>>>> Stashed changes
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Facebook className="w-5 h-5" />
-                Ad Accounts
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                จัดการบัญชีโฆษณาทุกแพลตฟอร์ม
-              </CardDescription>
-            </div>
-            <Button onClick={() => setIsAdAccountDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              เพิ่ม Ad Account
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingAdAccounts ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-            </div>
-          ) : adAccounts.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <p>ยังไม่มี Ad Account</p>
-              <p className="text-sm mt-2">
-                เพิ่ม Ad Account เพื่อเริ่มใช้งานระบบโฆษณา
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {adAccounts.map((account) => (
-                <Card
-                  key={account.id}
-                  className="bg-slate-700 border-slate-600"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge className="bg-blue-600">
-                            {account.platform}
-                          </Badge>
-                          {account.isDefault && (
-                            <Badge className="bg-green-600">
-                              <Check className="w-3 h-3 mr-1" />
-                              Default
-                            </Badge>
-                          )}
-                          {account.isValid ? (
-                            <Badge className="bg-green-600">
-                              <Check className="w-3 h-3 mr-1" />
-                              Connected
-                            </Badge>
-                          ) : account.lastTested ? (
-                            <Badge variant="destructive">
-                              <X className="w-3 h-3 mr-1" />
-                              Invalid
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-yellow-600">
-                              Not Tested
-                            </Badge>
-                          )}
-                        </div>
-
-                        <h4 className="text-white font-semibold">
-                          {account.accountName}
-                        </h4>
-                        <p className="text-sm text-slate-400">
-                          Account ID: {account.accountId}
-                        </p>
-                        {account.lastTested && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Last tested:{" "}
-                            {new Date(account.lastTested).toLocaleString(
-                              "th-TH"
-                            )}
-                          </p>
-                        )}
-                        {account.testMessage && (
-                          <p className="text-xs text-slate-400 mt-1">
-                            {account.testMessage}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTestAdAccount(account.id)}
-                          disabled={testingAdAccount === account.id}
-                        >
-                          {testingAdAccount === account.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <TestTube2 className="w-4 h-4" />
-                          )}
-                        </Button>
-
-                        {!account.isDefault && account.isValid && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              handleSetDefaultAdAccount(
-                                account.id,
-                                account.platform
-                              )
-                            }
-                          >
-                            Set Default
-                          </Button>
-                        )}
-
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteAdAccount(account.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add Ad Account Dialog */}
-      <Dialog
-        open={isAdAccountDialogOpen}
-        onOpenChange={setIsAdAccountDialogOpen}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>เพิ่ม Ad Account</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddAdAccount} className="space-y-4">
-            <div>
-              <Label>Platform</Label>
-              <Select
-                value={adAccountForm.platform}
-                onValueChange={(value) =>
-                  setAdAccountForm({ ...adAccountForm, platform: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FACEBOOK">Facebook Ads</SelectItem>
-                  <SelectItem value="GOOGLE">Google Ads</SelectItem>
-                  <SelectItem value="TIKTOK">TikTok Ads</SelectItem>
-                  <SelectItem value="LINE">LINE Ads</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Account Name</Label>
-              <Input
-                value={adAccountForm.accountName}
-                onChange={(e) =>
-                  setAdAccountForm({
-                    ...adAccountForm,
-                    accountName: e.target.value,
-                  })
-                }
-                placeholder="My Business Account"
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Account ID</Label>
-              <Input
-                value={adAccountForm.accountId}
-                onChange={(e) =>
-                  setAdAccountForm({
-                    ...adAccountForm,
-                    accountId: e.target.value,
-                  })
-                }
-                placeholder="act_123456789"
-                required
-              />
-            </div>
-
-            {adAccountForm.platform === "FACEBOOK" && (
-              <div>
-                <Label>Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.accessToken}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      accessToken: e.target.value,
-                    })
-                  }
-                  placeholder="EAAxxxx..."
-                  required
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Get from{" "}
-                  <a
-                    href="https://developers.facebook.com/tools/explorer/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-400 hover:underline"
-                  >
-                    Facebook Graph API Explorer
-                  </a>
-                </p>
-              </div>
-            )}
-
-            {adAccountForm.platform === "GOOGLE" && (
-              <>
-                <div>
-                  <Label>Access Token</Label>
-                  <Input
-                    type="password"
-                    value={adAccountForm.accessToken}
-                    onChange={(e) =>
-                      setAdAccountForm({
-                        ...adAccountForm,
-                        accessToken: e.target.value,
-                      })
-                    }
-                    placeholder="Access Token"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Refresh Token (Optional)</Label>
-                  <Input
-                    type="password"
-                    value={adAccountForm.refreshToken}
-                    onChange={(e) =>
-                      setAdAccountForm({
-                        ...adAccountForm,
-                        refreshToken: e.target.value,
-                      })
-                    }
-                    placeholder="Refresh Token"
-                  />
-                </div>
-              </>
-            )}
-
-            {adAccountForm.platform === "TIKTOK" && (
-              <div>
-                <Label>Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.apiKey}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      apiKey: e.target.value,
-                    })
-                  }
-                  placeholder="Access Token"
-                  required
-                />
-              </div>
-            )}
-
-            {adAccountForm.platform === "LINE" && (
-              <div>
-                <Label>Channel Access Token</Label>
-                <Input
-                  type="password"
-                  value={adAccountForm.apiKey}
-                  onChange={(e) =>
-                    setAdAccountForm({
-                      ...adAccountForm,
-                      apiKey: e.target.value,
-                    })
-                  }
-                  placeholder="Channel Access Token"
-                  required
-                />
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAdAccountDialogOpen(false)}
-              >
-                ยกเลิก
-              </Button>
-              <Button type="submit">เพิ่ม Ad Account</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Instructions */}
-      <Card className="bg-slate-800 border-slate-700">
->>>>>>> Stashed changes
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -1368,7 +1002,8 @@ export default function SettingsPage() {
                 Platform API Settings
               </CardTitle>
               <CardDescription className="text-slate-200">
-                ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook, TikTok, Lazada ฯลฯ)
+                ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook,
+                TikTok, Lazada ฯลฯ)
               </CardDescription>
             </div>
           </div>
@@ -1404,7 +1039,10 @@ export default function SettingsPage() {
                   className="bg-muted border-border text-white mt-1"
                   value={platformForm.apiKey}
                   onChange={(e) =>
-                    setPlatformForm((prev) => ({ ...prev, apiKey: e.target.value }))
+                    setPlatformForm((prev) => ({
+                      ...prev,
+                      apiKey: e.target.value,
+                    }))
                   }
                   placeholder="เช่น App Key / Client ID"
                 />
@@ -1417,7 +1055,10 @@ export default function SettingsPage() {
                   className="bg-muted border-border text-white mt-1"
                   value={platformForm.apiSecret}
                   onChange={(e) =>
-                    setPlatformForm((prev) => ({ ...prev, apiSecret: e.target.value }))
+                    setPlatformForm((prev) => ({
+                      ...prev,
+                      apiSecret: e.target.value,
+                    }))
                   }
                   placeholder="เช่น App Secret / Client Secret"
                 />
@@ -1430,7 +1071,10 @@ export default function SettingsPage() {
                   className="bg-muted border-border text-white mt-1"
                   value={platformForm.accessToken}
                   onChange={(e) =>
-                    setPlatformForm((prev) => ({ ...prev, accessToken: e.target.value }))
+                    setPlatformForm((prev) => ({
+                      ...prev,
+                      accessToken: e.target.value,
+                    }))
                   }
                   placeholder="เช่น Facebook / TikTok Access Token"
                 />
@@ -1443,7 +1087,10 @@ export default function SettingsPage() {
                   className="bg-muted border-border text-white mt-1"
                   value={platformForm.refreshToken}
                   onChange={(e) =>
-                    setPlatformForm((prev) => ({ ...prev, refreshToken: e.target.value }))
+                    setPlatformForm((prev) => ({
+                      ...prev,
+                      refreshToken: e.target.value,
+                    }))
                   }
                   placeholder="ใช้สำหรับต่ออายุ Access Token"
                 />
@@ -1470,7 +1117,7 @@ export default function SettingsPage() {
               </p>
             ) : (
               <div className="grid gap-3">
-                {platformCreds.map((cred, index) => (
+                {platformCreds.map((cred: any, index: number) => (
                   <motion.div
                     key={cred.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -1490,18 +1137,25 @@ export default function SettingsPage() {
                                 Connected
                               </Badge>
                             ) : cred.lastTested ? (
-                              <Badge variant="destructive" className="flex items-center gap-1">
+                              <Badge
+                                variant="destructive"
+                                className="flex items-center gap-1"
+                              >
                                 <X className="w-3 h-3" />
                                 Invalid
                               </Badge>
                             ) : (
-                              <Badge className="bg-yellow-600">Not tested</Badge>
+                              <Badge className="bg-yellow-600">
+                                Not tested
+                              </Badge>
                             )}
                           </div>
                           {cred.lastTested && (
                             <p className="text-xs text-slate-300">
                               Last tested:{" "}
-                              {new Date(cred.lastTested).toLocaleString("th-TH")}
+                              {new Date(
+                                cred.lastTested
+                              ).toLocaleString("th-TH")}
                             </p>
                           )}
                           {cred.testMessage && (
@@ -1553,7 +1207,8 @@ export default function SettingsPage() {
           <p>3. คลิก "บันทึก API Key"</p>
           <p>4. คลิก "ทดสอบ" เพื่อตรวจสอบการเชื่อมต่อ</p>
           <p>5. ถ้าผ่าน ให้คลิก "ตั้งเป็นค่าเริ่มต้น"</p>
-          <p>6. ไปที่หน้า Dashboard แล้วเปิด AI Assistant เพื่อใช้งาน!</p>
+          <p>6. ตั้งค่า Platform API และ Ad Accounts ให้พร้อม</p>
+          <p>7. ไปที่หน้า Dashboard แล้วเปิด AI Assistant เพื่อใช้งาน!</p>
         </CardContent>
       </Card>
     </div>
