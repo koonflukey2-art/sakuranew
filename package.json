@@ -1,18 +1,23 @@
 {
-  "name": "nextn",
+  "name": "sakuranew",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
-    "start": "next start",
+    "build": "prisma generate && next build",
+    "start": "next start -p 9002",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=18.17.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@auth/core": "^0.41.1",

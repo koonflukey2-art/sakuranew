@@ -1,6 +1,17 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+################################
+# Environment
+################################
+.env
+.env.local
+.env.production
+.env*.local
+.env*
+
+################################
+# Dependencies
+################################
 /node_modules
 /.pnp
 .pnp.*
@@ -10,36 +21,54 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+################################
+# Testing
+################################
 /coverage
 
-# next.js
+################################
+# Build / Next.js / Production
+################################
 /.next/
+out/
+build/
+dist/
 /out/
-
-# production
 /build
 
-# misc
+################################
+# Vercel
+################################
+.vercel
+
+################################
+# TypeScript / Next
+################################
+*.tsbuildinfo
+next-env.d.ts
+
+################################
+# Genkit
+################################
+.genkit/*
+
+################################
+# Firebase
+################################
+firebase-debug.log
+firestore-debug.log
+
+################################
+# Misc
+################################
 .DS_Store
 *.pem
+*.log
 
-# debug
+################################
+# Debug logs
+################################
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-.genkit/*
-.env*
-
-# firebase
-firebase-debug.log
-firestore-debug.log

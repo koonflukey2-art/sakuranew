@@ -1,6 +1,6 @@
 "use client";
-// ... rest of file
-// app/login/page.tsx
+
+import { useState, useEffect } from "react";
 import { SignIn } from "@clerk/nextjs";
 
 export default function LoginPage() {
@@ -38,24 +38,13 @@ export default function LoginPage() {
             appearance={{
               elements: {
                 formButtonPrimary:
-                  "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 shadow-lg",
-                formFieldInput:
-                  "bg-slate-900 border border-slate-800 text-white placeholder:text-slate-500 focus:border-pink-400",
-                formFieldLabel: "text-slate-200 font-medium",
-                footerActionLink:
-                  "text-pink-300 hover:text-pink-200 font-semibold",
-                headerTitle: "text-white",
-                headerSubtitle: "text-slate-300",
-                socialButtonsBlockButton:
-                  "bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100",
-                socialButtonsBlockButtonText:
-                  "text-slate-100 font-medium text-sm",
-                formButtonPrimary:
                   "bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white font-semibold shadow-lg shadow-pink-500/30",
                 formFieldInput:
                   "bg-slate-900 border border-slate-700 focus:border-pink-500 text-slate-100 placeholder:text-slate-500 text-sm",
-                formFieldLabel: "text-slate-300 font-medium text-sm",
-                footerActionLink: "text-pink-300 hover:text-pink-200",
+                formFieldLabel:
+                  "text-slate-300 font-medium text-sm",
+                footerActionLink:
+                  "text-pink-300 hover:text-pink-200",
                 identityPreviewText: "text-slate-300",
                 identityPreviewEditButton:
                   "text-pink-300 hover:text-pink-200 text-xs",
@@ -67,6 +56,12 @@ export default function LoginPage() {
                   "text-pink-300 hover:text-pink-200 text-xs",
                 otpCodeFieldInput:
                   "border-slate-700 focus:border-pink-500 text-slate-100",
+                headerTitle: "text-white",
+                headerSubtitle: "text-slate-300",
+                socialButtonsBlockButton:
+                  "bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100",
+                socialButtonsBlockButtonText:
+                  "text-slate-100 font-medium text-sm",
               },
             }}
           />
