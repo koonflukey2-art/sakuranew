@@ -1,0 +1,48 @@
+/* AI Chat Input - Force White Background */
+.ai-chat-input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.ai-chat-input-field {
+  width: 100% !important;
+  height: 2.5rem !important;
+  border-radius: 0.5rem !important;
+  border: 2px solid #d1d5db !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  padding: 0 1rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+.ai-chat-input-field::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+.ai-chat-input-field:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+  outline: none !important;
+}
+
+.ai-chat-input-field:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background-color: #f3f4f6 !important;
+}
+
+/* Override ANY dark mode */
+.dark .ai-chat-input-field,
+[data-theme="dark"] .ai-chat-input-field {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}

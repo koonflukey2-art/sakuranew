@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Bot, Send, Loader2, Sparkles } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input"; // ไม่ได้ใช้แล้ว
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +19,10 @@ interface Message {
 }
 
 const suggestedQuestions = [
-  "สันคำโต้กลับ?",
-  "แคมเปญใหนดี?",
+  "สินค้าใกล้หมด?",
+  "แคมเปญไหนดี?",
   "งบเหลือเท่าไหร่?",
-  "วิเคราะห์สรีงก้อง",
+  "วิเคราะห์ธุรกิจ",
 ];
 
 export function AIChatDialog() {
@@ -39,6 +40,7 @@ export function AIChatDialog() {
   const sendMessage = async (message?: string) => {
     const msgToSend = message || input.trim();
     if (!msgToSend || loading) return;
+
     setMessages((prev) => [...prev, { role: "user", content: msgToSend }]);
     setInput("");
     setLoading(true);
@@ -63,6 +65,7 @@ export function AIChatDialog() {
 
   return (
     <>
+      {/* ปุ่มกลมเรียก AI Assistant */}
       <Button
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 z-50 border-0"
@@ -71,11 +74,30 @@ export function AIChatDialog() {
         <Bot className="h-7 w-7 text-white" />
       </Button>
 
+      {/* Dialog หลัก */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl bg-white border-2 border-gray-200">
-          <DialogHeader className="border-b-2 border-gray-200 pb-4 bg-gradient-to-r from-pink-50 to-purple-50 -mx-6 -mt-6 px-6 pt-6 mb-4">
+        <DialogContent
+          className="sm:max-w-2xl border-2"
+          style={{
+            backgroundColor: "#ffffff",
+            color: "#111827",
+            borderColor: "#e5e7eb",
+          }}
+        >
+          <DialogHeader
+            className="border-b-2 pb-4 -mx-6 -mt-6 px-6 pt-6 mb-4"
+            style={{
+              borderBottomColor: "#e5e7eb",
+              background: "linear-gradient(to right, #fce7f3, #f3e8ff)",
+            }}
+          >
             <DialogTitle className="flex items-center gap-3 text-xl font-bold text-gray-800">
-              <div className="p-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500">
+              <div
+                className="p-2 rounded-xl"
+                style={{
+                  background: "linear-gradient(to right, #ec4899, #a855f7)",
+                }}
+              >
                 <Bot className="h-6 w-6 text-white" />
               </div>
               AI Assistant
@@ -84,7 +106,13 @@ export function AIChatDialog() {
           </DialogHeader>
 
           {/* Chat Messages */}
-          <div className="h-96 overflow-y-auto space-y-4 px-2 bg-gradient-to-br from-pink-50/30 via-white to-purple-50/30 rounded-xl p-4">
+          <div
+            className="h-96 overflow-y-auto space-y-4 px-2 rounded-xl p-4"
+            style={{
+              background:
+                "linear-gradient(to bottom right, #fce7f3, #ffffff, #f3e8ff)",
+            }}
+          >
             {messages.length === 1 && (
               <div className="mb-4">
                 <p className="text-sm text-gray-600 font-medium mb-3">
@@ -92,15 +120,30 @@ export function AIChatDialog() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {suggestedQuestions.map((question, idx) => (
-                    <Button
+                    <button
                       key={idx}
-                      variant="outline"
-                      size="sm"
                       onClick={() => sendMessage(question)}
-                      className="bg-white border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 font-medium text-xs h-auto py-2"
+                      className="text-xs h-auto py-2 font-medium"
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: "2px solid #d8b4fe",
+                        color: "#7c3aed",
+                        borderRadius: "0.5rem",
+                        padding: "0.5rem",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f3e8ff";
+                        e.currentTarget.style.borderColor = "#a78bfa";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#ffffff";
+                        e.currentTarget.style.borderColor = "#d8b4fe";
+                      }}
                     >
                       {question}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -111,46 +154,82 @@ export function AIChatDialog() {
                 key={i}
                 className={cn(
                   "flex gap-2",
-                  msg.role === "user" ? "justify-end" : "justify-start",
+                  msg.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {msg.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background:
+                        "linear-gradient(to bottom right, #ec4899, #a855f7)",
+                    }}
+                  >
                     <Bot className="h-5 w-5 text-white" />
                   </div>
                 )}
                 <div
-                  className={cn(
-                    "max-w-[75%] rounded-xl px-4 py-3 text-sm font-medium",
+                  className="max-w-[75%] rounded-xl px-4 py-3 text-sm font-medium"
+                  style={
                     msg.role === "user"
-                      ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white"
-                      : "bg-white border-2 border-gray-200 text-gray-800",
-                  )}
+                      ? {
+                          background:
+                            "linear-gradient(to right, #ec4899, #a855f7)",
+                          color: "#ffffff",
+                        }
+                      : {
+                          backgroundColor: "#ffffff",
+                          border: "2px solid #e5e7eb",
+                          color: "#111827",
+                        }
+                  }
                 >
                   {msg.content}
                 </div>
                 {msg.role === "user" && (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-sm"
+                    style={{
+                      background:
+                        "linear-gradient(to bottom right, #06b6d4, #3b82f6)",
+                    }}
+                  >
                     U
                   </div>
                 )}
               </div>
             ))}
+
             {loading && (
               <div className="flex justify-start gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background:
+                      "linear-gradient(to bottom right, #ec4899, #a855f7)",
+                  }}
+                >
                   <Bot className="h-5 w-5 text-white" />
                 </div>
-                <div className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3">
+                <div
+                  className="rounded-xl px-4 py-3"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    border: "2px solid #e5e7eb",
+                  }}
+                >
                   <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input Area - ช่องพิมพ์สีขาว */}
-          <div className="flex gap-2 pt-4 border-t-2 border-gray-200">
-            <input
+          {/* Input Area – พื้นหลังดำ ตัวหนังสือขาว */}
+          <div
+            className="flex gap-2 pt-4 border-t-2 border-gray-200"
+            style={{ paddingTop: "1rem" }}
+          >
+            <Input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -159,14 +238,17 @@ export function AIChatDialog() {
                   sendMessage();
                 }
               }}
-              placeholder="พิมพ์คำถาม..."
+              placeholder="พิมพ์ข้อความ..."
               disabled={loading}
-              className="ai-chat-input flex-1 h-10 rounded-md px-3 py-2 text-base font-medium"
+              // class tailwind: พื้นหลังดำ, ตัวหนังสือขาว, placeholder เทา
+              className="bg-slate-900 text-white placeholder:text-slate-300 border-2 border-slate-900"
+              // inline style เผื่อมี class อื่นมาทับ -> บังคับ text ให้ขาวแน่นอน
+              style={{ color: "#ffffff" }}
             />
             <Button
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
+              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md flex-shrink-0"
               size="icon"
             >
               <Send className="h-4 w-4" />

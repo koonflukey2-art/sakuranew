@@ -1,3 +1,5 @@
+"use client";
+// ... rest of file
 // app/login/page.tsx
 import { SignIn } from "@clerk/nextjs";
 
