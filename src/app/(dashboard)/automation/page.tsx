@@ -6,7 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter, // ✅ เพิ่มตัวนี้
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,6 @@ import {
   Play,
   Pause,
   TestTube,
-  Target,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -50,7 +49,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 
 interface AutomationRule {
   id: string;
@@ -381,89 +379,37 @@ export default function AutomationPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
       <div className="p-6 space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
-            <p className="text-gray-600 mt-2">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
+            <h1 className="text-3xl font-bold text-gray-800">
+              Automation Rules Builder
+            </h1>
+            <p className="text-gray-600 mt-2">
+              สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀
+            </p>
           </div>
-          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold">
-                <Plus className="h-4 w-4 mr-2" />
-                สร้าง Rule ใหม่
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                สร้าง Automation Rule
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>แพลตฟอร์ม</Label>
-                  <Select value={formData.platform} onValueChange={(value) => setFormData({ ...formData, platform: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Facebook Ads">Facebook Ads</SelectItem>
-                      <SelectItem value="Google Ads">Google Ads</SelectItem>
-                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                      <SelectItem value="X Ads">X Ads</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card className="bg-white border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    Rules ทั้งหมด
-                  </p>
-                  <p className="text-4xl font-bold text-gray-800">
-                    {rules.length}
-                  </p>
-                </div>
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                  <Settings className="w-8 h-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    Active Rules
-                  </p>
-                  <p className="text-4xl font-bold text-green-600">
-                    {activeRulesCount}
-                  </p>
-                </div>
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-                  <Play className="w-8 h-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <Button
+            onClick={() => setOpenDialog(true)}
+            className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            สร้าง Rule ใหม่
+          </Button>
         </div>
 
-        {/* Stats Cards - High Contrast */}
+        {/* Stats Cards */}
         <div className="grid gap-6 md:grid-cols-3 mb-6">
           <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Rules ทั้งหมด</p>
-                  <p className="text-4xl font-bold text-gray-800">{rules.length}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Rules ทั้งหมด
+                  </p>
+                  <p className="text-4xl font-bold text-gray-800">
+                    {rules.length}
+                  </p>
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
                   <Settings className="w-7 h-7 text-white" />
@@ -475,8 +421,12 @@ export default function AutomationPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Active Rules</p>
-                  <p className="text-4xl font-bold text-green-600">{rules.filter((r) => r.isActive).length}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Active Rules
+                  </p>
+                  <p className="text-4xl font-bold text-green-600">
+                    {activeRulesCount}
+                  </p>
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
                   <Play className="w-7 h-7 text-white" />
@@ -488,8 +438,12 @@ export default function AutomationPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Paused Rules</p>
-                  <p className="text-4xl font-bold text-orange-600">{rules.filter((r) => !r.isActive).length}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Paused Rules
+                  </p>
+                  <p className="text-4xl font-bold text-orange-600">
+                    {rules.filter((r) => !r.isActive).length}
+                  </p>
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
                   <Pause className="w-7 h-7 text-white" />
@@ -519,12 +473,20 @@ export default function AutomationPage() {
                 <CardHeader className="border-b border-gray-100 bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
-                      <CardDescription className="text-gray-700 font-medium mt-1">
+                      <CardTitle className="text-xl font-bold text-gray-800 mb-2">
+                        {rule.ruleName}
+                      </CardTitle>
+                      <p className="text-sm text-gray-700 font-medium mt-1">
                         {rule.platform} • {rule.tool}
-                      </CardDescription>
+                      </p>
                     </div>
-                    <Badge className={rule.isActive ? "bg-green-500 text-white border-0 font-semibold" : "bg-gray-500 text-white border-0 font-semibold"}>
+                    <Badge
+                      className={
+                        rule.isActive
+                          ? "bg-green-500 text-white border-0 font-semibold"
+                          : "bg-gray-500 text-white border-0 font-semibold"
+                      }
+                    >
                       {rule.isActive ? "Active" : "Paused"}
                     </Badge>
                   </div>
@@ -532,18 +494,34 @@ export default function AutomationPage() {
                 <CardContent className="pt-4 space-y-4">
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 p-4 rounded-xl space-y-3">
                     <div className="flex items-start gap-2">
-                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">เงื่อนไข:</span>
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">
+                        เงื่อนไข:
+                      </span>
                       <span className="text-sm font-semibold text-gray-800">
-                        IF <span className="text-blue-600">{getMetricLabel(rule.condition.metric)}</span>{" "}
-                        <span className="text-purple-600 font-bold">{rule.condition.operator}</span>{" "}
-                        <span className="text-pink-600">{rule.condition.value}</span>
+                        IF{" "}
+                        <span className="text-blue-600">
+                          {getMetricLabel(rule.condition.metric)}
+                        </span>{" "}
+                        <span className="text-purple-600 font-bold">
+                          {rule.condition.operator}
+                        </span>{" "}
+                        <span className="text-pink-600">
+                          {rule.condition.value}
+                        </span>
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">การกระทำ:</span>
+                      <span className="text-sm font-bold text-gray-800 min-w-[70px]">
+                        การกระทำ:
+                      </span>
                       <span className="text-sm font-semibold text-green-600">
                         {getActionLabel(rule.action.type)}
-                        {rule.action.value && <span className="text-orange-600 font-bold"> {rule.action.value}%</span>}
+                        {rule.action.value && (
+                          <span className="text-orange-600 font-bold">
+                            {" "}
+                            {rule.action.value}%
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -599,9 +577,9 @@ export default function AutomationPage() {
             ))}
           </div>
         )}
-      </div>
 
-        <div className="flex justify-center">
+        {/* Add Rule Button (Bottom) */}
+        <div className="flex justify-center pt-6">
           <Button
             onClick={() => setOpenDialog(true)}
             className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg text-base px-8 py-6 rounded-xl font-semibold"
@@ -612,11 +590,9 @@ export default function AutomationPage() {
         </div>
       </div>
 
+      {/* Create Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogTrigger asChild>
-          <div className="hidden" />
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-800">
               <Zap className="h-5 w-5 text-yellow-500" />
@@ -626,42 +602,42 @@ export default function AutomationPage() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-gray-800">แพลตฟอร์ม</Label>
+                <Label className="text-gray-800 font-semibold">แพลตฟอร์ม</Label>
                 <Select
                   value={formData.platform}
                   onValueChange={(value) =>
                     setFormData({ ...formData, platform: value })
                   }
                 >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Facebook Ads">Facebook Ads</SelectItem>
-                    <SelectItem value="Google Ads">Google Ads</SelectItem>
-                    <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                    <SelectItem value="X Ads">X Ads</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem value="Facebook Ads" className="font-semibold text-gray-800">Facebook Ads</SelectItem>
+                    <SelectItem value="Google Ads" className="font-semibold text-gray-800">Google Ads</SelectItem>
+                    <SelectItem value="TikTok Ads" className="font-semibold text-gray-800">TikTok Ads</SelectItem>
+                    <SelectItem value="X Ads" className="font-semibold text-gray-800">X Ads</SelectItem>
+                    <SelectItem value="Other" className="font-semibold text-gray-800">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-800">เครื่องมือ</Label>
+                <Label className="text-gray-800 font-semibold">เครื่องมือ</Label>
                 <Select
                   value={formData.tool}
                   onValueChange={(value) =>
                     setFormData({ ...formData, tool: value })
                   }
                 >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Revealbot">Revealbot</SelectItem>
-                    <SelectItem value="AdEspresso">AdEspresso</SelectItem>
-                    <SelectItem value="Madgicx">Madgicx</SelectItem>
-                    <SelectItem value="Custom (n8n webhook)">
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem value="Revealbot" className="font-semibold text-gray-800">Revealbot</SelectItem>
+                    <SelectItem value="AdEspresso" className="font-semibold text-gray-800">AdEspresso</SelectItem>
+                    <SelectItem value="Madgicx" className="font-semibold text-gray-800">Madgicx</SelectItem>
+                    <SelectItem value="Custom (n8n webhook)" className="font-semibold text-gray-800">
                       Custom (n8n webhook)
                     </SelectItem>
                   </SelectContent>
@@ -670,19 +646,19 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">ชื่อ Rule</Label>
+              <Label className="text-gray-800 font-semibold">ชื่อ Rule</Label>
               <Input
                 placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
                 value={formData.ruleName}
                 onChange={(e) =>
                   setFormData({ ...formData, ruleName: e.target.value })
                 }
-                className="border-2 border-gray-300 text-gray-800"
+                className="border-2 border-gray-300 text-gray-800 bg-white"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">เงื่อนไข (Condition)</Label>
+              <Label className="text-gray-800 font-semibold">เงื่อนไข (Condition)</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select
@@ -691,23 +667,23 @@ export default function AutomationPage() {
                       setFormData({ ...formData, metric: value })
                     }
                   >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CPA">
+                    <SelectContent className="bg-white border-2 border-gray-300">
+                      <SelectItem value="CPA" className="font-semibold text-gray-800">
                         CPA (ต้นทุนต่อการแปลง)
                       </SelectItem>
-                      <SelectItem value="ROAS">
+                      <SelectItem value="ROAS" className="font-semibold text-gray-800">
                         ROAS (ผลตอบแทนจากค่าโฆษณา)
                       </SelectItem>
-                      <SelectItem value="CTR">
+                      <SelectItem value="CTR" className="font-semibold text-gray-800">
                         CTR (อัตราการคลิก)
                       </SelectItem>
-                      <SelectItem value="Spend">
+                      <SelectItem value="Spend" className="font-semibold text-gray-800">
                         Spend (ค่าใช้จ่าย)
                       </SelectItem>
-                      <SelectItem value="Conversions">
+                      <SelectItem value="Conversions" className="font-semibold text-gray-800">
                         Conversions (การแปลง)
                       </SelectItem>
                     </SelectContent>
@@ -721,15 +697,15 @@ export default function AutomationPage() {
                       setFormData({ ...formData, operator: value })
                     }
                   >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value=">">{">"}</SelectItem>
-                      <SelectItem value="<">{"<"}</SelectItem>
-                      <SelectItem value="=">=</SelectItem>
-                      <SelectItem value=">=">{">="}</SelectItem>
-                      <SelectItem value="<=">{"<="}</SelectItem>
+                    <SelectContent className="bg-white border-2 border-gray-300">
+                      <SelectItem value=">" className="font-semibold text-gray-800">{">"}</SelectItem>
+                      <SelectItem value="<" className="font-semibold text-gray-800">{"<"}</SelectItem>
+                      <SelectItem value="=" className="font-semibold text-gray-800">=</SelectItem>
+                      <SelectItem value=">=" className="font-semibold text-gray-800">{">="}</SelectItem>
+                      <SelectItem value="<=" className="font-semibold text-gray-800">{"<="}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -745,34 +721,34 @@ export default function AutomationPage() {
                         value: parseFloat(e.target.value) || 0,
                       })
                     }
-                    className="border-2 border-gray-300 text-gray-800"
+                    className="border-2 border-gray-300 text-gray-800 bg-white"
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-gray-600 font-medium">
                 IF {getMetricLabel(formData.metric)} {formData.operator}{" "}
                 {formData.value}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">การกระทำ (Action)</Label>
+              <Label className="text-gray-800 font-semibold">การกระทำ (Action)</Label>
               <Select
                 value={formData.actionType}
                 onValueChange={(value) =>
                   setFormData({ ...formData, actionType: value })
                 }
               >
-                <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pauseCampaign">
+                <SelectContent className="bg-white border-2 border-gray-300">
+                  <SelectItem value="pauseCampaign" className="font-semibold text-gray-800">
                     หยุดแคมเปญ
                   </SelectItem>
-                  <SelectItem value="increaseBudget">เพิ่มงบ</SelectItem>
-                  <SelectItem value="decreaseBudget">ลดงบ</SelectItem>
-                  <SelectItem value="sendNotification">
+                  <SelectItem value="increaseBudget" className="font-semibold text-gray-800">เพิ่มงบ</SelectItem>
+                  <SelectItem value="decreaseBudget" className="font-semibold text-gray-800">ลดงบ</SelectItem>
+                  <SelectItem value="sendNotification" className="font-semibold text-gray-800">
                     ส่งการแจ้งเตือน
                   </SelectItem>
                 </SelectContent>
@@ -782,7 +758,7 @@ export default function AutomationPage() {
             {(formData.actionType === "increaseBudget" ||
               formData.actionType === "decreaseBudget") && (
               <div className="space-y-2">
-                <Label className="text-gray-800">จำนวนเงิน (%)</Label>
+                <Label className="text-gray-800 font-semibold">จำนวนเงิน (%)</Label>
                 <Input
                   type="number"
                   placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
@@ -793,7 +769,7 @@ export default function AutomationPage() {
                       actionValue: e.target.value,
                     })
                   }
-                  className="border-2 border-gray-300 text-gray-800"
+                  className="border-2 border-gray-300 text-gray-800 bg-white"
                 />
               </div>
             )}
@@ -802,7 +778,7 @@ export default function AutomationPage() {
             <Button
               variant="outline"
               onClick={() => setOpenDialog(false)}
-              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
             >
               ยกเลิก
             </Button>
@@ -820,55 +796,53 @@ export default function AutomationPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogTrigger asChild>
-          <div className="hidden" />
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
-            <DialogTitle className="text-gray-800">
+            <DialogTitle className="text-gray-800 font-bold">
               แก้ไข Automation Rule
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-gray-800">แพลตฟอร์ม</Label>
+                <Label className="text-gray-800 font-semibold">แพลตฟอร์ม</Label>
                 <Select
                   value={formData.platform}
                   onValueChange={(value) =>
                     setFormData({ ...formData, platform: value })
                   }
                 >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Facebook Ads">Facebook Ads</SelectItem>
-                    <SelectItem value="Google Ads">Google Ads</SelectItem>
-                    <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                    <SelectItem value="X Ads">X Ads</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem value="Facebook Ads" className="font-semibold text-gray-800">Facebook Ads</SelectItem>
+                    <SelectItem value="Google Ads" className="font-semibold text-gray-800">Google Ads</SelectItem>
+                    <SelectItem value="TikTok Ads" className="font-semibold text-gray-800">TikTok Ads</SelectItem>
+                    <SelectItem value="X Ads" className="font-semibold text-gray-800">X Ads</SelectItem>
+                    <SelectItem value="Other" className="font-semibold text-gray-800">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-800">เครื่องมือ</Label>
+                <Label className="text-gray-800 font-semibold">เครื่องมือ</Label>
                 <Select
                   value={formData.tool}
                   onValueChange={(value) =>
                     setFormData({ ...formData, tool: value })
                   }
                 >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Revealbot">Revealbot</SelectItem>
-                    <SelectItem value="AdEspresso">AdEspresso</SelectItem>
-                    <SelectItem value="Madgicx">Madgicx</SelectItem>
-                    <SelectItem value="Custom (n8n webhook)">
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem value="Revealbot" className="font-semibold text-gray-800">Revealbot</SelectItem>
+                    <SelectItem value="AdEspresso" className="font-semibold text-gray-800">AdEspresso</SelectItem>
+                    <SelectItem value="Madgicx" className="font-semibold text-gray-800">Madgicx</SelectItem>
+                    <SelectItem value="Custom (n8n webhook)" className="font-semibold text-gray-800">
                       Custom (n8n webhook)
                     </SelectItem>
                   </SelectContent>
@@ -877,19 +851,19 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">ชื่อ Rule</Label>
+              <Label className="text-gray-800 font-semibold">ชื่อ Rule</Label>
               <Input
                 placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
                 value={formData.ruleName}
                 onChange={(e) =>
                   setFormData({ ...formData, ruleName: e.target.value })
                 }
-                className="border-2 border-gray-300 text-gray-800"
+                className="border-2 border-gray-300 text-gray-800 bg-white"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">เงื่อนไข (Condition)</Label>
+              <Label className="text-gray-800 font-semibold">เงื่อนไข (Condition)</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select
@@ -898,23 +872,23 @@ export default function AutomationPage() {
                       setFormData({ ...formData, metric: value })
                     }
                   >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CPA">
+                    <SelectContent className="bg-white border-2 border-gray-300">
+                      <SelectItem value="CPA" className="font-semibold text-gray-800">
                         CPA (ต้นทุนต่อการแปลง)
                       </SelectItem>
-                      <SelectItem value="ROAS">
+                      <SelectItem value="ROAS" className="font-semibold text-gray-800">
                         ROAS (ผลตอบแทนจากค่าโฆษณา)
                       </SelectItem>
-                      <SelectItem value="CTR">
+                      <SelectItem value="CTR" className="font-semibold text-gray-800">
                         CTR (อัตราการคลิก)
                       </SelectItem>
-                      <SelectItem value="Spend">
+                      <SelectItem value="Spend" className="font-semibold text-gray-800">
                         Spend (ค่าใช้จ่าย)
                       </SelectItem>
-                      <SelectItem value="Conversions">
+                      <SelectItem value="Conversions" className="font-semibold text-gray-800">
                         Conversions (การแปลง)
                       </SelectItem>
                     </SelectContent>
@@ -928,15 +902,15 @@ export default function AutomationPage() {
                       setFormData({ ...formData, operator: value })
                     }
                   >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value=">">{">"}</SelectItem>
-                      <SelectItem value="<">{"<"}</SelectItem>
-                      <SelectItem value="=">=</SelectItem>
-                      <SelectItem value=">=">{">="}</SelectItem>
-                      <SelectItem value="<=">{"<="}</SelectItem>
+                    <SelectContent className="bg-white border-2 border-gray-300">
+                      <SelectItem value=">" className="font-semibold text-gray-800">{">"}</SelectItem>
+                      <SelectItem value="<" className="font-semibold text-gray-800">{"<"}</SelectItem>
+                      <SelectItem value="=" className="font-semibold text-gray-800">=</SelectItem>
+                      <SelectItem value=">=" className="font-semibold text-gray-800">{">="}</SelectItem>
+                      <SelectItem value="<=" className="font-semibold text-gray-800">{"<="}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -952,30 +926,30 @@ export default function AutomationPage() {
                         value: parseFloat(e.target.value) || 0,
                       })
                     }
-                    className="border-2 border-gray-300 text-gray-800"
+                    className="border-2 border-gray-300 text-gray-800 bg-white"
                   />
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800">การกระทำ (Action)</Label>
+              <Label className="text-gray-800 font-semibold">การกระทำ (Action)</Label>
               <Select
                 value={formData.actionType}
                 onValueChange={(value) =>
                   setFormData({ ...formData, actionType: value })
                 }
               >
-                <SelectTrigger className="border-2 border-gray-300 text-gray-800">
+                <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pauseCampaign">
+                <SelectContent className="bg-white border-2 border-gray-300">
+                  <SelectItem value="pauseCampaign" className="font-semibold text-gray-800">
                     หยุดแคมเปญ
                   </SelectItem>
-                  <SelectItem value="increaseBudget">เพิ่มงบ</SelectItem>
-                  <SelectItem value="decreaseBudget">ลดงบ</SelectItem>
-                  <SelectItem value="sendNotification">
+                  <SelectItem value="increaseBudget" className="font-semibold text-gray-800">เพิ่มงบ</SelectItem>
+                  <SelectItem value="decreaseBudget" className="font-semibold text-gray-800">ลดงบ</SelectItem>
+                  <SelectItem value="sendNotification" className="font-semibold text-gray-800">
                     ส่งการแจ้งเตือน
                   </SelectItem>
                 </SelectContent>
@@ -985,7 +959,7 @@ export default function AutomationPage() {
             {(formData.actionType === "increaseBudget" ||
               formData.actionType === "decreaseBudget") && (
               <div className="space-y-2">
-                <Label className="text-gray-800">จำนวนเงิน (%)</Label>
+                <Label className="text-gray-800 font-semibold">จำนวนเงิน (%)</Label>
                 <Input
                   type="number"
                   placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
@@ -996,7 +970,7 @@ export default function AutomationPage() {
                       actionValue: e.target.value,
                     })
                   }
-                  className="border-2 border-gray-300 text-gray-800"
+                  className="border-2 border-gray-300 text-gray-800 bg-white"
                 />
               </div>
             )}
@@ -1005,7 +979,7 @@ export default function AutomationPage() {
             <Button
               variant="outline"
               onClick={() => setOpenEditDialog(false)}
-              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
             >
               ยกเลิก
             </Button>
@@ -1023,23 +997,24 @@ export default function AutomationPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Dialog */}
       <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-gray-800">ยืนยันการลบ</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600 font-medium">
               คุณแน่ใจหรือไม่ที่จะลบ Rule "{selectedRule?.ruleName}"
               การกระทำนี้ไม่สามารถย้อนกลับได้
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100">
+            <AlertDialogCancel className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold">
               ยกเลิก
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={submitting}
-              className="bg-red-500 hover:bg-red-600 text-white"
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold"
             >
               {submitting && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1050,11 +1025,9 @@ export default function AutomationPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Test Dialog */}
       <Dialog open={openTestDialog} onOpenChange={setOpenTestDialog}>
-        <DialogTrigger asChild>
-          <div className="hidden" />
-        </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-800">
               <TestTube className="h-5 w-5 text-blue-500" />
@@ -1064,11 +1037,11 @@ export default function AutomationPage() {
           <div className="space-y-4 py-4">
             {selectedRule && (
               <div className="space-y-4">
-                <div className="bg-slate-50 p-4 rounded-lg space-y-2">
-                  <h3 className="font-semibold text-sm text-gray-800">
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2 border-2 border-gray-200">
+                  <h3 className="font-bold text-sm text-gray-800">
                     Rule: {selectedRule.ruleName}
                   </h3>
-                  <p className="text-xs text-gray-700">
+                  <p className="text-xs text-gray-700 font-medium">
                     {selectedRule.platform} • {selectedRule.tool}
                   </p>
                 </div>
@@ -1076,14 +1049,14 @@ export default function AutomationPage() {
                 {testResult && (
                   <>
                     <div
-                      className={`p-4 rounded-lg ${
+                      className={`p-4 rounded-lg border-2 ${
                         testResult.condition
-                          ? "bg-green-50 border border-green-200"
-                          : "bg-red-50 border border-red-200"
+                          ? "bg-green-50 border-green-300"
+                          : "bg-red-50 border-red-300"
                       }`}
                     >
                       <p
-                        className={`text-sm font-medium ${
+                        className={`text-sm font-semibold ${
                           testResult.condition
                             ? "text-green-800"
                             : "text-red-800"
@@ -1093,17 +1066,17 @@ export default function AutomationPage() {
                       </p>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                      <p className="text-sm font-semibold text-blue-800 mb-2">
+                    <div className="bg-blue-50 border-2 border-blue-300 p-4 rounded-lg">
+                      <p className="text-sm font-bold text-blue-800 mb-2">
                         ผลการทำงาน:
                       </p>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-blue-700 font-medium">
                         {testResult.wouldExecute}
                       </p>
                     </div>
 
-                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
-                      <p className="text-xs text-yellow-800">
+                    <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
+                      <p className="text-xs text-yellow-800 font-medium">
                         ⚠️ <strong>หมายเหตุ:</strong> นี่เป็นการทดสอบแบบ
                         dry-run ไม่มีการเปลี่ยนแปลงจริงในระบบ
                         ค่าที่ใช้ทดสอบเป็นค่าสุ่ม
@@ -1117,14 +1090,13 @@ export default function AutomationPage() {
           <DialogFooter>
             <Button
               onClick={() => setOpenTestDialog(false)}
-              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
               variant="outline"
             >
               ปิด
             </Button>
             {selectedRule && (
               <Button
-                variant="outline"
                 onClick={() => handleTestRule(selectedRule)}
                 className="bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold hover:opacity-90"
               >
@@ -1137,16 +1109,6 @@ export default function AutomationPage() {
       </Dialog>
     </div>
   );
-}
-
-function getOperatorSymbol(operator: string): string {
-  const symbols: Record<string, string> = {
-    GREATER_THAN: ">",
-    LESS_THAN: "<",
-    EQUALS: "=",
-    NOT_EQUALS: "≠",
-  };
-  return symbols[operator] || operator;
 }
 
 function getActionText(actionType: string, actionValue?: number | null): string {
@@ -1163,4 +1125,14 @@ function getActionText(actionType: string, actionValue?: number | null): string 
     return "ส่งการแจ้งเตือน";
   }
   return actionType;
+}
+
+function getActionLabel(actionType: string): string {
+  const labels: Record<string, string> = {
+    pauseCampaign: "หยุดแคมเปญ",
+    increaseBudget: "เพิ่มงบ",
+    decreaseBudget: "ลดงบ",
+    sendNotification: "ส่งการแจ้งเตือน",
+  };
+  return labels[actionType] || actionType;
 }

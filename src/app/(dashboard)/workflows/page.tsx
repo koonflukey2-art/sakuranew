@@ -1,12 +1,162 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Check, AlertTriangle, Settings, Link } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Workflow, 
+  Link2, 
+  Copy, 
+  CheckCircle2, 
+  Download,
+  AlertCircle,
+  ExternalLink
+} from "lucide-react";
+
+// Workflow templates
+const workflowTemplates = {
+  "profit-pilot": {
+    name: "Profit Pilot Automation",
+    description: "ระบบอัตโนมัติสำหรับเพิ่มกำไรและลด CPA",
+    category: "Marketing",
+    nodes: 8,
+    workflow: {
+      nodes: [
+        { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
+        { id: "facebook", name: "Facebook Ads", type: "n8n-nodes-base.facebookAds" },
+        { id: "filter", name: "Filter", type: "n8n-nodes-base.filter" },
+        { id: "set", name: "Set Values", type: "n8n-nodes-base.set" },
+      ],
+      connections: {},
+    },
+  },
+  "scale-revenue": {
+    name: "Scale Revenue & Optimize CPA",
+    description: "เพิ่มรายได้และปรับปรุง CPA อัตโนมัติ",
+    category: "Optimization",
+    nodes: 10,
+    workflow: {
+      nodes: [
+        { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
+        { id: "analytics", name: "Analytics", type: "n8n-nodes-base.googleAnalytics" },
+      ],
+      connections: {},
+    },
+  },
+  "lead-gen": {
+    name: "Lead Generation Flow",
+    description: "ระบบเก็บและจัดการ Leads อัตโนมัติ",
+    category: "Sales",
+    nodes: 6,
+    workflow: {
+      nodes: [
+        { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
+        { id: "sheets", name: "Google Sheets", type: "n8n-nodes-base.googleSheets" },
+      ],
+      connections: {},
+    },
+  },
+  "ecommerce-order": {
+    name: "E-commerce Order Processing",
+    description: "ระบบจัดการคำสั่งซื้ออัตโนมัติ",
+    category: "E-commerce",
+    nodes: 12,
+    workflow: {
+      nodes: [
+        { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
+        { id: "shopify", name: "Shopify", type: "n8n-nodes-base.shopify" },
+      ],
+      connections: {},
+    },
+  },
+  "low-stock-alert": {
+    name: "Low Stock Alert",
+    description: "แจ้งเตือนสินค้าใกล้หมดอัตโนมัติ",
+    category: "Inventory",
+    nodes: 5,
+    workflow: {
+      nodes: [
+        { id: "schedule", name: "Schedule", type: "n8n-nodes-base.schedule" },
+        { id: "database", name: "Database", type: "n8n-nodes-base.postgres" },
+      ],
+      connections: {},
+    },
+  },
+  "custom": {
+    name: "Custom Workflow",
+    description: "สร้าง Workflow แบบกำหนดเอง",
+    category: "Custom",
+    nodes: 0,
+    workflow: {
+      nodes: [],
+      connections: {},
+    },
+  },
+};
 
 export default function WorkflowsPage() {
+  const { toast } = useToast();
+  const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof workflowTemplates>("profit-pilot");
+  const [webhookDomain, setWebhookDomain] = useState("https://app.n8n.cloud");
+  const [copiedURL, setCopiedURL] = useState(false);
+  const [copiedJSON, setCopiedJSON] = useState(false);
+
+  const currentTemplate = workflowTemplates[selectedTemplate];
+  const webhookURL = `${webhookDomain}/webhook/${selectedTemplate}`;
+
+  const handleCopyURL = () => {
+    navigator.clipboard.writeText(webhookURL);
+    setCopiedURL(true);
+    setTimeout(() => setCopiedURL(false), 2000);
+    toast({
+      title: "คัดลอกแล้ว!",
+      description: "คัดลอก Webhook URL เรียบร้อย",
+    });
+  };
+
+  const handleExport = () => {
+    const dataStr = JSON.stringify(currentTemplate.workflow, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedTemplate}-workflow.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({
+      title: "ดาวน์โหลดสำเร็จ!",
+      description: `ไฟล์ ${selectedTemplate}-workflow.json`,
+    });
+  };
+
+  const handleCopyJSON = () => {
+    const jsonStr = JSON.stringify(currentTemplate.workflow, null, 2);
+    navigator.clipboard.writeText(jsonStr);
+    setCopiedJSON(true);
+    setTimeout(() => setCopiedJSON(false), 2000);
+    toast({
+      title: "คัดลอกแล้ว!",
+      description: "คัดลอก JSON เรียบร้อย",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
       <div className="p-6 space-y-6">
@@ -33,17 +183,17 @@ export default function WorkflowsPage() {
               <SelectTrigger className="bg-white border-2 border-gray-300 text-gray-800">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="profit-pilot">Profit Pilot Automation</SelectItem>
-                <SelectItem value="scale-revenue">Scale Revenue & Optimize CPA</SelectItem>
-                <SelectItem value="lead-gen">Lead Generation Flow</SelectItem>
-                <SelectItem value="ecommerce-order">E-commerce Order Processing</SelectItem>
-                <SelectItem value="low-stock-alert">Low Stock Alert</SelectItem>
-                <SelectItem value="custom">Custom Workflow</SelectItem>
+              <SelectContent className="bg-white border-2 border-gray-300">
+                <SelectItem value="profit-pilot" className="font-semibold text-gray-800">Profit Pilot Automation</SelectItem>
+                <SelectItem value="scale-revenue" className="font-semibold text-gray-800">Scale Revenue & Optimize CPA</SelectItem>
+                <SelectItem value="lead-gen" className="font-semibold text-gray-800">Lead Generation Flow</SelectItem>
+                <SelectItem value="ecommerce-order" className="font-semibold text-gray-800">E-commerce Order Processing</SelectItem>
+                <SelectItem value="low-stock-alert" className="font-semibold text-gray-800">Low Stock Alert</SelectItem>
+                <SelectItem value="custom" className="font-semibold text-gray-800">Custom Workflow</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* Template Info Card - High Contrast */}
+            {/* Template Info Card */}
             <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-6 rounded-xl border-2 border-cyan-300">
               <div className="flex items-start justify-between">
                 <div className="space-y-3">
