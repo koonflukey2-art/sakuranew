@@ -49,7 +49,7 @@
   }
 }
 
-/* Gradient Backgrounds */
+/* Gradient Backgrounds + UI Utilities */
 @layer utilities {
   .bg-gradient-primary {
     background: linear-gradient(135deg, hsl(320 85% 60%) 0%, hsl(280 75% 65%) 100%);
@@ -121,98 +121,7 @@
   .shadow-vibrant-xl {
     box-shadow: 0 20px 60px rgba(237, 100, 166, 0.25), 0 10px 30px rgba(155, 81, 224, 0.2);
   }
-}
 
-/* Animations */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(237, 100, 166, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(237, 100, 166, 0.6); }
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient-shift 3s ease infinite;
-}
-
-/* Hover Effects */
-.hover-lift {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 40px rgba(237, 100, 166, 0.3);
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, hsl(320 85% 60%) 0%, hsl(270 75% 65%) 100%);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, hsl(320 90% 55%) 0%, hsl(270 80% 60%) 100%);
-}
-
-/* Typography System */
-h1 {
-  @apply text-2xl font-bold tracking-tight;
-}
-
-h2 {
-  @apply text-xl font-semibold tracking-tight;
-}
-
-h3 {
-  @apply text-lg font-semibold;
-}
-
-/* Fade in animation */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.5s ease-out;
-}
-
-/* High Contrast Utilities - Added for Better Accessibility */
-@layer utilities {
   /* Text on Dark Backgrounds */
   .text-on-dark {
     @apply text-white font-semibold;
@@ -310,97 +219,138 @@ h3 {
   }
 }
 
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(237, 100, 166, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(237, 100, 166, 0.6); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Hover Effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(237, 100, 166, 0.3);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, hsl(320 85% 60%) 0%, hsl(270 75% 65%) 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, hsl(320 90% 55%) 0%, hsl(270 80% 60%) 100%);
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
 /* =================================================================
-   AI CHAT INPUT - FORCE WHITE BACKGROUND
+   AI CHAT INPUT - ONLY FOR "พิมพ์ข้อความ..." FIELD
    ================================================================= */
 
-/* Force white background for AI chat dialog */
+/* ให้ dialog content เป็นพื้นขาว */
 [data-radix-dialog-content] {
-  background-color: white !important;
-}
-
-/* Force white input with high contrast */
-.ai-chat-input,
-input[placeholder="พิมพ์คำถาม..."] {
   background-color: #ffffff !important;
-  color: #111827 !important;
-  border: 2px solid #d1d5db !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  appearance: none !important;
 }
 
-input[placeholder="พิมพ์คำถาม..."]::placeholder {
+/* ช่องพิมพ์ของ AI Assistant  */
+.ai-chat-input,
+[role="dialog"] .ai-chat-input,
+input[placeholder="พิมพ์ข้อความ..."] {
+  background-color: #020617 !important;     /* พื้นเข้ม */
+  color: #ffffff !important;                /* ตัวหนังสือขาว */
+  -webkit-text-fill-color: #ffffff !important;
+  border: 2px solid #ec4899 !important;
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+}
+
+/* placeholder สีเทาอ่อนบนพื้นมืด */
+.ai-chat-input::placeholder,
+input[placeholder="พิมพ์ข้อความ..."]::placeholder {
   color: #9ca3af !important;
   opacity: 1 !important;
 }
 
-input[placeholder="พิมพ์คำถาม..."]:focus {
+/* focus state */
+.ai-chat-input:focus,
+.ai-chat-input:focus-visible,
+input[placeholder="พิมพ์ข้อความ..."]:focus,
+input[placeholder="พิมพ์ข้อความ..."]:focus-visible {
   border-color: #ec4899 !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.25) !important;
   outline: none !important;
 }
 
-input[placeholder="พิมพ์คำถาม..."]:disabled {
-  opacity: 0.5 !important;
+/* disabled state */
+.ai-chat-input:disabled,
+input[placeholder="พิมพ์ข้อความ..."]:disabled {
+  opacity: 0.6 !important;
   cursor: not-allowed !important;
-  background-color: #f9fafb !important;
-}
-
-/* Remove any dark mode overrides */
-input[placeholder="พิมพ์คำถาม..."][class*="dark"],
-.dark input[placeholder="พิมพ์คำถาม..."] {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-}
-
-/* Force for any input in dialog */
-[role="dialog"] input[type="text"] {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-}
-
-/* Override any Input component styles */
-[role="dialog"] input {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-}
-
-/* Specific override for shadcn/ui Input component */
-.ai-chat-input {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-  border: 2px solid #d1d5db !important;
-  font-weight: 500 !important;
-}
-
-.ai-chat-input::placeholder {
-  color: #9ca3af !important;
-}
-
-.ai-chat-input:focus {
-  border-color: #ec4899 !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
-}
-
-.ai-chat-input:focus-visible {
-  outline: none !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
 }
 
 /* =================================================================
    SELECT DROPDOWN HIGH CONTRAST
    ================================================================= */
 
-/* Select Content - Always White Background */
 [data-radix-select-content] {
   background-color: white !important;
   border: 2px solid #d1d5db !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Select Item - Clear Styling */
 [data-radix-select-item] {
   background-color: transparent !important;
   color: #1f2937 !important;
@@ -410,13 +360,11 @@ input[placeholder="พิมพ์คำถาม..."][class*="dark"],
   transition: all 0.2s !important;
 }
 
-/* Select Item Hover */
 [data-radix-select-item]:hover {
   background-color: #f3f4f6 !important;
   color: #111827 !important;
 }
 
-/* Select Item Focus */
 [data-radix-select-item]:focus,
 [data-radix-select-item][data-highlighted] {
   background-color: #f3e8ff !important;
@@ -424,14 +372,12 @@ input[placeholder="พิมพ์คำถาม..."][class*="dark"],
   outline: none !important;
 }
 
-/* Select Item Selected */
 [data-radix-select-item][data-state="checked"] {
   background-color: #ede9fe !important;
   color: #6b21a8 !important;
   font-weight: 700 !important;
 }
 
-/* Select Trigger - High Contrast */
 button[data-radix-select-trigger] {
   background-color: #ffffff !important;
   border: 2px solid #d1d5db !important;
