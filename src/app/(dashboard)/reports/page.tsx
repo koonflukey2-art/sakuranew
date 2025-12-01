@@ -408,21 +408,21 @@ export default function ReportsPage() {
                 type="monotone"
                 dataKey="revenue"
                 name="รายได้"
-                stroke="#10b981"
+                stroke="#ec4899"
                 strokeWidth={2}
               />
               <Line
                 type="monotone"
                 dataKey="spent"
                 name="ค่าใช้จ่าย"
-                stroke="#ef4444"
+                stroke="#a855f7"
                 strokeWidth={2}
               />
               <Line
                 type="monotone"
                 dataKey="profit"
                 name="กำไร"
-                stroke="#8b5cf6"
+                stroke="#06b6d4"
                 strokeWidth={2}
               />
             </LineChart>

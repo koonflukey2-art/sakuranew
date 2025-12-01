@@ -53,7 +53,7 @@ interface Budget {
   endDate: string | Date;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
+const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#6366f1"];
 
 export default function BudgetPage() {
   const { toast } = useToast();
@@ -604,7 +604,7 @@ export default function BudgetPage() {
                       `${name}: ${(percent * 100).toFixed(0)}%`
                     }
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="#ec4899"
                     dataKey="value"
                   >
                     {pieChartData.map((entry, index) => (
@@ -639,9 +639,9 @@ export default function BudgetPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="จัดสรร" fill="#8884d8" />
-                  <Bar dataKey="ใช้ไป" fill="#82ca9d" />
-                  <Bar dataKey="คงเหลือ" fill="#ffc658" />
+                  <Bar dataKey="จัดสรร" fill="#a855f7" />
+                  <Bar dataKey="ใช้ไป" fill="#ec4899" />
+                  <Bar dataKey="คงเหลือ" fill="#06b6d4" />
                 </BarChart>
               </ResponsiveContainer>
             )}

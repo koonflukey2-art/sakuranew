@@ -211,7 +211,7 @@ h3 {
   animation: fade-in 0.5s ease-out;
 }
 
-/* High Contrast Utilities */
+/* High Contrast Utilities - Added for Better Accessibility */
 @layer utilities {
   /* Text on Dark Backgrounds */
   .text-on-dark {
@@ -240,6 +240,14 @@ h3 {
     @apply border-2 border-red-300 text-red-600 font-semibold hover:bg-red-50;
   }
 
+  .btn-info {
+    @apply bg-blue-500 text-white font-semibold hover:bg-blue-600 border-0;
+  }
+
+  .btn-warning {
+    @apply bg-orange-500 text-white font-semibold hover:bg-orange-600 border-0;
+  }
+
   /* Badges - Always High Contrast */
   .badge-active {
     @apply bg-green-500 text-white border-0 font-semibold;
@@ -260,4 +268,179 @@ h3 {
   .badge-info {
     @apply bg-blue-500 text-white border-0 font-semibold;
   }
+
+  .badge-primary {
+    @apply bg-purple-500 text-white border-0 font-semibold;
+  }
+
+  .badge-success {
+    @apply bg-green-500 text-white border-0 font-semibold;
+  }
+
+  /* Input Fields - Always High Contrast */
+  .input-default {
+    @apply bg-white border-2 border-gray-300 text-gray-800 placeholder:text-gray-400 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 font-medium;
+  }
+
+  /* Cards - High Contrast */
+  .card-white {
+    @apply bg-white border-2 border-gray-200 shadow-md;
+  }
+
+  .card-header {
+    @apply border-b border-gray-100 bg-gray-50;
+  }
+
+  /* Text Colors - High Contrast */
+  .text-heading {
+    @apply text-gray-800 font-bold;
+  }
+
+  .text-body {
+    @apply text-gray-700 font-medium;
+  }
+
+  .text-muted-contrast {
+    @apply text-gray-600 font-medium;
+  }
+
+  /* Page Background */
+  .page-gradient {
+    @apply min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50;
+  }
+}
+
+/* =================================================================
+   AI CHAT INPUT - FORCE WHITE BACKGROUND
+   ================================================================= */
+
+/* Force white background for AI chat dialog */
+[data-radix-dialog-content] {
+  background-color: white !important;
+}
+
+/* Force white input with high contrast */
+.ai-chat-input,
+input[placeholder="พิมพ์คำถาม..."] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #d1d5db !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+  outline: none !important;
+}
+
+input[placeholder="พิมพ์คำถาม..."]:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background-color: #f9fafb !important;
+}
+
+/* Remove any dark mode overrides */
+input[placeholder="พิมพ์คำถาม..."][class*="dark"],
+.dark input[placeholder="พิมพ์คำถาม..."] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Force for any input in dialog */
+[role="dialog"] input[type="text"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Override any Input component styles */
+[role="dialog"] input {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Specific override for shadcn/ui Input component */
+.ai-chat-input {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #d1d5db !important;
+  font-weight: 500 !important;
+}
+
+.ai-chat-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.ai-chat-input:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+}
+
+.ai-chat-input:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+}
+
+/* =================================================================
+   SELECT DROPDOWN HIGH CONTRAST
+   ================================================================= */
+
+/* Select Content - Always White Background */
+[data-radix-select-content] {
+  background-color: white !important;
+  border: 2px solid #d1d5db !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Select Item - Clear Styling */
+[data-radix-select-item] {
+  background-color: transparent !important;
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  padding: 0.625rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.2s !important;
+}
+
+/* Select Item Hover */
+[data-radix-select-item]:hover {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Select Item Focus */
+[data-radix-select-item]:focus,
+[data-radix-select-item][data-highlighted] {
+  background-color: #f3e8ff !important;
+  color: #7c3aed !important;
+  outline: none !important;
+}
+
+/* Select Item Selected */
+[data-radix-select-item][data-state="checked"] {
+  background-color: #ede9fe !important;
+  color: #6b21a8 !important;
+  font-weight: 700 !important;
+}
+
+/* Select Trigger - High Contrast */
+button[data-radix-select-trigger] {
+  background-color: #ffffff !important;
+  border: 2px solid #d1d5db !important;
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+}
+
+button[data-radix-select-trigger]:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1) !important;
+  outline: none !important;
 }
