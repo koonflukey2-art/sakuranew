@@ -11,7 +11,8 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { useToast } from "@/hooks/use-toast";
 import { DashboardSkeleton } from "@/components/loading-states";
 
-const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+// Vibrant color palette matching our pink-purple-cyan theme
+const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#6366f1"];
 
 interface Product {
   id: string;
@@ -470,28 +471,28 @@ export default function DashboardPage() {
                   <Line
                     type="monotone"
                     dataKey="revenue"
-                    stroke="hsl(142 76% 36%)"
+                    stroke="#ec4899"
                     strokeWidth={3}
                     name="รายได้"
-                    dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#ec4899", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="spent"
-                    stroke="hsl(0 84.2% 60.2%)"
+                    stroke="#a855f7"
                     strokeWidth={3}
                     name="ค่าใช้จ่าย"
-                    dot={{ fill: "hsl(0 84.2% 60.2%)", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#a855f7", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="profit"
-                    stroke="hsl(210 100% 56%)"
+                    stroke="#06b6d4"
                     strokeWidth={3}
                     name="กำไร"
-                    dot={{ fill: "hsl(210 100% 56%)", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#06b6d4", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -538,7 +539,7 @@ export default function DashboardPage() {
                   />
                   <Bar
                     dataKey="avgROI"
-                    fill="hsl(189 94% 43%)"
+                    fill="#06b6d4"
                     name="Average ROI"
                     radius={[8, 8, 0, 0]}
                   />
@@ -575,7 +576,7 @@ export default function DashboardPage() {
                       `${name} ${(percent * 100).toFixed(0)}%`
                     }
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="#ec4899"
                     dataKey="value"
                   >
                     {budgetChartData.map((entry, index) => (

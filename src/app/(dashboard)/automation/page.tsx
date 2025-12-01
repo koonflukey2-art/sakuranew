@@ -646,7 +646,6 @@ export default function AutomationPage() {
           </div>
         )}
       </div>
-    </div>
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>

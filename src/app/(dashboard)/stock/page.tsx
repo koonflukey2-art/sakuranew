@@ -620,7 +620,7 @@ export default function StockPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="quantity" name="จำนวน" />
+                <Bar dataKey="quantity" name="จำนวน" fill="#a855f7" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
