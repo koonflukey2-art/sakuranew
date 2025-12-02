@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Bot,
@@ -86,11 +85,11 @@ export default function AIChatPage() {
       const list: AIConfig[] = Array.isArray(data)
         ? data.map((item: any) => ({
             id: item.id,
-            provider: item.provider,
+            provider: item.provider as "GEMINI" | "OPENAI" | "N8N",
             isActive: item.isDefault ?? false,
             isDefault: item.isDefault ?? false,
             isValid: item.isValid ?? false,
-            hasApiKey: item.hasApiKey ?? false,
+            hasApiKey: item.hasApiKey ?? Boolean(item.apiKey),
             lastTested: item.lastTested ?? null,
             modelName: item.modelName ?? null,
           }))
@@ -98,7 +97,7 @@ export default function AIChatPage() {
 
       setConfigs(list);
 
-      const firstValid = list.find((c) => c.isValid);
+      const firstValid = list.find((c) => c.isValid && c.hasApiKey);
       if (firstValid && !selectedProvider) {
         setSelectedProvider(firstValid.provider);
       }
@@ -116,9 +115,14 @@ export default function AIChatPage() {
   const fetchSessions = async () => {
     try {
       const response = await fetch("/api/ai/sessions");
+      if (!response.ok) {
+        throw new Error("Failed to fetch sessions");
+      }
       const data = await response.json();
       if (Array.isArray(data)) {
         setSessions(data);
+      } else {
+        setSessions([]);
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
@@ -129,15 +133,25 @@ export default function AIChatPage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/ai/sessions/${session.id}`);
+
+      if (response.status === 404) {
+        toast({
+          title: "ไม่พบ Session",
+          description: "Session นี้ถูกลบไปแล้ว",
+          variant: "destructive",
+        });
+        fetchSessions();
+        return;
+      }
+
       if (!response.ok) throw new Error("Failed to load session");
 
       const data = await response.json();
       setSessionId(session.id);
 
-      // Map messages to proper format
       const loadedMessages: Message[] = (data.messages || []).map((msg: any) => ({
         id: msg.id,
-        role: msg.role || "ASSISTANT",
+        role: (msg.role as ChatRole) || "ASSISTANT",
         content: msg.content || "",
         createdAt: msg.createdAt || new Date().toISOString(),
       }));
@@ -160,11 +174,21 @@ export default function AIChatPage() {
     }
   };
 
+  const validConfig =
+    Array.isArray(configs)
+      ? configs.find(
+          (c) =>
+            c.provider === (selectedProvider as any) &&
+            c.isValid &&
+            c.hasApiKey
+        )
+      : undefined;
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const messageText = input.trim();
-    if (!messageText || !selectedProvider) return;
+    if (!messageText || !selectedProvider || !validConfig) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -184,21 +208,21 @@ export default function AIChatPage() {
         body: JSON.stringify({
           message: messageText,
           provider: selectedProvider,
-          model: validConfig?.modelName || undefined,
+          model: validConfig.modelName || undefined,
           sessionId: sessionId,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message");
+      }
 
-      // Update sessionId if this is a new chat
       if (data.sessionId && !sessionId) {
         setSessionId(data.sessionId);
       }
 
-      // Create assistant message from response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "ASSISTANT",
@@ -208,9 +232,9 @@ export default function AIChatPage() {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Refresh sessions to show updated chat
       fetchSessions();
     } catch (error: any) {
+      console.error("Send message error:", error);
       toast({
         title: "ผิดพลาด",
         description: error.message || "ไม่สามารถส่งข้อความได้",
@@ -228,32 +252,29 @@ export default function AIChatPage() {
 
   const handleDeleteSession = async (delSessionId: string) => {
     try {
-      await fetch(`/api/ai/sessions?id=${delSessionId}`, {
+      const res = await fetch(`/api/ai/sessions?id=${delSessionId}`, {
         method: "DELETE",
       });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete session");
+      }
+
       toast({ title: "ลบสำเร็จ!" });
       fetchSessions();
       if (delSessionId === sessionId) {
         handleNewChat();
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Delete session error:", error);
       toast({
         title: "ผิดพลาด",
-        description: "ไม่สามารถลบ session ได้",
+        description: error.message || "ไม่สามารถลบ session ได้",
         variant: "destructive",
       });
     }
   };
-
-  const validConfig =
-    Array.isArray(configs)
-      ? configs.find(
-          (c) =>
-            c.provider === selectedProvider &&
-            c.isValid &&
-            c.hasApiKey
-        )
-      : undefined;
 
   const formatTime = (dateString: string) => {
     try {
@@ -311,7 +332,7 @@ export default function AIChatPage() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-slate-400">
-                          {session._count.messages} messages
+                          {session._count?.messages ?? 0} messages
                         </p>
                         <span className="text-xs text-slate-500">•</span>
                         <p className="text-xs text-slate-400">
@@ -345,7 +366,10 @@ export default function AIChatPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <Select
+                  value={selectedProvider}
+                  onValueChange={setSelectedProvider}
+                >
                   <SelectTrigger className="w-48 bg-slate-800 border-slate-700 text-white">
                     <SelectValue placeholder="เลือก AI Model" />
                   </SelectTrigger>
@@ -402,7 +426,10 @@ export default function AIChatPage() {
                 </div>
               ) : (
                 messages
-                  .filter((msg): msg is Message => !!msg && !!msg.role && !!msg.content)
+                  .filter(
+                    (msg): msg is Message =>
+                      !!msg && !!msg.role && !!msg.content
+                  )
                   .map((msg) => (
                     <div
                       key={msg.id}

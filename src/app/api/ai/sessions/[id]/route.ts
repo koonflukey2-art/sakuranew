@@ -1,23 +1,26 @@
+// src/app/api/ai/sessions/[id]/route.ts
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth"; // ถ้าใช้ชื่ออื่น เช่น getUserFromClerk ให้เปลี่ยนตรงนี้ให้ตรงกับโปรเจกต์จริง
 
 type RouteParams = {
-  params: { id: string };
+  params: {
+    id: string;
+  };
 };
 
-// GET - ดึง session + message ทั้งหมดของ session นั้น
 export async function GET(_req: Request, { params }: RouteParams) {
   try {
-    const { id } = await context.params;
+    // ดึง user ปัจจุบัน
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // ใช้ params.id แทน context.params (ตัวเดิมที่พัง)
     const session = await prisma.chatSession.findFirst({
       where: {
-        id,
+        id: params.id,
         userId: user.id,
       },
       include: {
@@ -28,53 +31,24 @@ export async function GET(_req: Request, { params }: RouteParams) {
     });
 
     if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Session not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(session);
+    return NextResponse.json({
+      id: session.id,
+      title: session.title,
+      provider: session.provider,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      messages: session.messages,
+    });
   } catch (error) {
     console.error("Get session messages error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch session messages" },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - ลบ session + messages ของ session นั้น
-export async function DELETE(_req: Request, { params }: RouteParams) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const session = await prisma.chatSession.findFirst({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
-    }
-
-    // ลบ messages ก่อน
-    await prisma.chatMessage.deleteMany({
-      where: { sessionId: session.id },
-    });
-
-    // แล้วค่อยลบ session
-    await prisma.chatSession.delete({
-      where: { id: session.id },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Delete session error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete session" },
+      { error: "Failed to load session" },
       { status: 500 }
     );
   }
