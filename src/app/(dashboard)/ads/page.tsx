@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +76,8 @@ const platformColors: Record<string, string> = {
 
 export default function AdsPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -83,6 +86,23 @@ export default function AdsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<AdCampaign | null>(null);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=ads");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
 
   // Create Campaign Form
   const createForm = useForm<CampaignFormData>({
@@ -327,6 +347,10 @@ export default function AdsPage() {
     if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
     return value.toString();
   };
+
+  if (hasAccess === null) {
+    return <div className="p-6">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">

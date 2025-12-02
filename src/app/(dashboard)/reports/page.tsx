@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -48,10 +49,29 @@ interface TopProduct {
 
 export default function ReportsPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [dateRange, setDateRange] = useState("7days");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDialog, setShowCustomDialog] = useState(false);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=reports");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
 
   const [reportData, setReportData] = useState<ReportData>({
     totalRevenue: 0,
@@ -197,6 +217,10 @@ export default function ReportsPage() {
       description: `${customStartDate} ถึง ${customEndDate}`,
     });
   };
+
+  if (hasAccess === null) {
+    return <div className="p-6">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   if (loading) {
     return (

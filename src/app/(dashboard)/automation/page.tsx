@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,9 @@ interface AutomationRule {
 }
 
 export default function AutomationPage() {
+  const router = useRouter();
   const { toast } = useToast();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -57,10 +60,31 @@ export default function AutomationPage() {
     actionValue: "",
   });
 
+  // Check access permission
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=automation");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        console.error("Error checking access:", error);
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
+
   // Fetch rules
   useEffect(() => {
-    fetchRules();
-  }, []);
+    if (hasAccess === true) {
+      fetchRules();
+    }
+  }, [hasAccess]);
 
   const fetchRules = async () => {
     try {
@@ -341,6 +365,17 @@ export default function AutomationPage() {
     };
     return metrics[metric] || metric;
   };
+
+  if (hasAccess === null) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
