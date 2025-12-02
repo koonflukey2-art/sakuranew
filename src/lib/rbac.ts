@@ -1,5 +1,6 @@
 // src/lib/rbac.ts
-"use server";
+// ❗️ไฟล์นี้ใช้ฝั่ง Server เท่านั้น อย่านำไปใช้ใน Client Component
+// สำหรับฝั่ง client ให้ใช้: "@/lib/rbac-core"
 
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
