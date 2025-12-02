@@ -200,9 +200,9 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-4">
           <StatsCardSkeleton />
           <StatsCardSkeleton />
           <StatsCardSkeleton />
@@ -240,19 +240,19 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">รายงาน</h1>
-          <p className="text-muted-foreground">วิเคราะห์ผลประกอบการและข้อมูลโฆษณา</p>
+          <h1 className="text-2xl md:text-3xl font-bold">รายงาน</h1>
+          <p className="text-muted-foreground text-sm md:text-base">วิเคราะห์ผลประกอบการและข้อมูลโฆษณา</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportExcel}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={handleExportExcel} className="w-full sm:w-auto">
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Export Excel
           </Button>
-          <Button variant="outline" onClick={handleExportPDF}>
+          <Button variant="outline" onClick={handleExportPDF} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export PDF
           </Button>
@@ -262,35 +262,39 @@ export default function ReportsPage() {
       {/* Date Range Selector */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button
               variant={dateRange === "today" ? "default" : "outline"}
               onClick={() => setDateRange("today")}
+              className="w-full sm:w-auto"
             >
               วันนี้
             </Button>
             <Button
               variant={dateRange === "7days" ? "default" : "outline"}
               onClick={() => setDateRange("7days")}
+              className="w-full sm:w-auto"
             >
               7 วันล่าสุด
             </Button>
             <Button
               variant={dateRange === "30days" ? "default" : "outline"}
               onClick={() => setDateRange("30days")}
+              className="w-full sm:w-auto"
             >
               30 วันล่าสุด
             </Button>
             <Button
               variant={dateRange === "90days" ? "default" : "outline"}
               onClick={() => setDateRange("90days")}
+              className="w-full sm:w-auto"
             >
               90 วันล่าสุด
             </Button>
 
             <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
               <DialogTrigger asChild>
-                <Button variant={dateRange === "custom" ? "default" : "outline"}>
+                <Button variant={dateRange === "custom" ? "default" : "outline"} className="w-full sm:w-auto">
                   <Calendar className="h-4 w-4 mr-2" />
                   กำหนดเอง
                 </Button>
@@ -329,7 +333,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-4">
         <Card className="bg-gradient-to-br from-green-500/10 to-green-600/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -394,7 +398,7 @@ export default function ReportsPage() {
       {/* Trend Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>แนวโน้มรายได้และกำไร</CardTitle>
+          <CardTitle className="text-lg md:text-xl">แนวโน้มรายได้และกำไร</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>
@@ -433,10 +437,11 @@ export default function ReportsPage() {
       {/* Platform Statistics */}
       <Card>
         <CardHeader>
-          <CardTitle>สถิติแพลตฟอร์มโฆษณา</CardTitle>
+          <CardTitle className="text-lg md:text-xl">สถิติแพลตฟอร์มโฆษณา</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table className="min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead>แพลตฟอร์ม</TableHead>
@@ -472,16 +477,18 @@ export default function ReportsPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
       {/* Top 10 Products */}
       <Card>
         <CardHeader>
-          <CardTitle>Top 10 สินค้า (เรียงตามมูลค่า)</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Top 10 สินค้า (เรียงตามมูลค่า)</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table className="min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead>อันดับ</TableHead>
@@ -505,6 +512,7 @@ export default function ReportsPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

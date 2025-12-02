@@ -438,10 +438,10 @@ export default function WorkflowsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold flex items-center gap-2 text-gray-800">
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 text-gray-800">
             <Workflow className="h-8 w-8 text-blue-600" />
             n8n Workflow Generator
           </h1>
@@ -451,7 +451,7 @@ export default function WorkflowsPage() {
         {/* Template Selector */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-xl font-bold text-gray-800">เลือก Template</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">เลือก Template</CardTitle>
             <CardDescription className="text-gray-600 font-medium">เลือก Workflow Template ที่ต้องการ</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
@@ -473,10 +473,10 @@ export default function WorkflowsPage() {
             </Select>
 
             {/* Template Info Card - High Contrast */}
-            <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-6 rounded-xl border-2 border-cyan-300">
-              <div className="flex items-start justify-between">
+            <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-4 md:p-6 rounded-xl border-2 border-cyan-300">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                 <div className="space-y-3">
-                  <h3 className="font-bold text-xl text-gray-800">{currentTemplate.name}</h3>
+                  <h3 className="font-bold text-lg md:text-xl text-gray-800">{currentTemplate.name}</h3>
                   <p className="text-sm text-gray-700 font-medium">{currentTemplate.description}</p>
                   <div className="flex gap-2 mt-2">
                     <Badge className="bg-purple-500 text-white border-0 font-semibold">{currentTemplate.category}</Badge>
@@ -491,7 +491,7 @@ export default function WorkflowsPage() {
         {/* Webhook URL Generator */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
               <Link2 className="h-5 w-5 text-blue-600" />
               Webhook URL Generator
             </CardTitle>
@@ -513,7 +513,7 @@ export default function WorkflowsPage() {
 
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-gray-700">Webhook URL สำหรับ Template นี้</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={webhookURL}
                   readOnly
@@ -523,7 +523,7 @@ export default function WorkflowsPage() {
                   variant="outline"
                   size="icon"
                   onClick={handleCopyURL}
-                  className="flex-shrink-0 border-2 border-green-300 text-green-600 hover:bg-green-50"
+                  className="w-full sm:w-auto flex-shrink-0 border-2 border-green-300 text-green-600 hover:bg-green-50"
                 >
                   {copiedURL ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </Button>
@@ -538,7 +538,7 @@ export default function WorkflowsPage() {
         {/* Node List Accordion */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-xl font-bold text-gray-800">📋 รายละเอียด Workflow</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">📋 รายละเอียด Workflow</CardTitle>
             <CardDescription className="text-gray-600 font-medium">โครงสร้าง Nodes และ Connections</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
@@ -584,11 +584,11 @@ export default function WorkflowsPage() {
         {/* Export Buttons */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-xl font-bold text-gray-800">Export Workflow</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">Export Workflow</CardTitle>
             <CardDescription className="text-gray-600 font-medium">ดาวน์โหลดหรือคัดลอก JSON เพื่อนำไป import ใน n8n</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button
                 onClick={handleExport}
                 size="lg"
@@ -624,7 +624,7 @@ export default function WorkflowsPage() {
         {/* Instructions */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
               <AlertCircle className="h-5 w-5 text-blue-600" />
               💡 วิธีใช้งาน
             </CardTitle>
@@ -677,10 +677,10 @@ export default function WorkflowsPage() {
         {/* Quick Links */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-xl font-bold text-gray-800">Quick Links</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">Quick Links</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <a
                 href="https://n8n.io"
                 target="_blank"

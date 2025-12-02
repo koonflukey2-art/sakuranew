@@ -181,10 +181,10 @@ export default function ProfitCalculatorPage() {
   const progress = (currentStep / 3) * 100;
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">คำนวณกำไร (Advanced)</h1>
-        <p className="text-muted-foreground">เครื่องมือคำนวณกำไรแบบละเอียด 3 ขั้นตอน</p>
+        <h1 className="text-xl md:text-2xl font-bold">คำนวณกำไร (Advanced)</h1>
+        <p className="text-sm md:text-base text-muted-foreground">เครื่องมือคำนวณกำไรแบบละเอียด 3 ขั้นตอน</p>
       </div>
 
       {/* Progress Bar */}
@@ -204,11 +204,11 @@ export default function ProfitCalculatorPage() {
       </div>
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground overflow-x-auto pb-2">
         <Badge variant={currentStep === 1 ? "default" : "outline"}>Step 1</Badge>
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4 flex-shrink-0" />
         <Badge variant={currentStep === 2 ? "default" : "outline"}>Step 2</Badge>
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4 flex-shrink-0" />
         <Badge variant={currentStep === 3 ? "default" : "outline"}>Step 3</Badge>
       </div>
 
@@ -216,13 +216,13 @@ export default function ProfitCalculatorPage() {
       {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
               <Calculator className="h-5 w-5" />
               ข้อมูลสินค้า
             </CardTitle>
             <CardDescription>กรอกข้อมูลพื้นฐานของสินค้า</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6">
             {/* Toggle สร้าง/เลือกสินค้าเดิม */}
             <div className="flex items-center space-x-2 p-4 bg-slate-50 rounded-lg">
               <Switch
@@ -307,12 +307,12 @@ export default function ProfitCalculatorPage() {
             </div>
 
             {/* ปุ่ม */}
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={handleGenerateReport}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button variant="outline" className="w-full sm:flex-1" onClick={handleGenerateReport}>
                 <FileText className="h-4 w-4 mr-2" />
                 สรุปรายงานทุกแพลตฟอร์ม
               </Button>
-              <Button onClick={handleNext} className="flex-1">
+              <Button onClick={handleNext} className="w-full sm:flex-1">
                 ถัดไป
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
@@ -325,11 +325,11 @@ export default function ProfitCalculatorPage() {
       {currentStep === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>คำนวณต้นทุน</CardTitle>
+            <CardTitle className="text-lg md:text-xl">คำนวณต้นทุน</CardTitle>
             <CardDescription>กรอกข้อมูลต้นทุนและค่าใช้จ่ายต่างๆ</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardContent className="space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
               {/* Column 1 */}
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -463,12 +463,12 @@ export default function ProfitCalculatorPage() {
             </div>
 
             {/* ปุ่ม */}
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={handleBack}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleBack}>
                 <ChevronLeft className="h-4 w-4 mr-2" />
                 ย้อนกลับ
               </Button>
-              <Button onClick={handleNext} className="flex-1">
+              <Button onClick={handleNext} className="w-full sm:flex-1">
                 ถัดไป
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
@@ -481,12 +481,12 @@ export default function ProfitCalculatorPage() {
       {currentStep === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>เป้าหมายและผลลัพธ์</CardTitle>
+            <CardTitle className="text-lg md:text-xl">เป้าหมายและผลลัพธ์</CardTitle>
             <CardDescription>กรอกเป้าหมายและดูผลการคำนวณ</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6">
             {/* ฟอร์ม */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>เป้าหมายกำไร</Label>
@@ -527,41 +527,41 @@ export default function ProfitCalculatorPage() {
 
               {/* ผลลัพธ์ */}
               <div className="space-y-4">
-                <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 p-6 rounded-lg space-y-4">
-                  <h3 className="font-semibold text-lg">📊 ผลการคำนวณ</h3>
+                <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 p-4 md:p-6 rounded-lg space-y-4">
+                  <h3 className="font-semibold text-base md:text-lg">📊 ผลการคำนวณ</h3>
 
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">กำไร{formData.profitGoalPeriod}/หน่วย:</span>
-                      <span className={`font-bold text-lg ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">กำไร{formData.profitGoalPeriod}/หน่วย:</span>
+                      <span className={`font-bold text-base md:text-lg ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
                         ฿{netProfit.toFixed(2)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">จุดคุ้มทุน ROAS:</span>
-                      <span className="font-bold text-lg text-blue-600">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">จุดคุ้มทุน ROAS:</span>
+                      <span className="font-bold text-base md:text-lg text-blue-600">
                         {breakEvenROAS.toFixed(2)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">ยอดขายเป้าหมาย:</span>
-                      <span className="font-bold text-lg">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">ยอดขายเป้าหมาย:</span>
+                      <span className="font-bold text-base md:text-lg">
                         ฿{targetRevenue.toLocaleString()}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">จำนวนออเดอร์:</span>
-                      <span className="font-bold text-lg text-purple-600">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">จำนวนออเดอร์:</span>
+                      <span className="font-bold text-base md:text-lg text-purple-600">
                         {targetOrders.toLocaleString()} ออเดอร์
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">งบโฆษณา:</span>
-                      <span className="font-bold text-lg text-orange-600">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">งบโฆษณา:</span>
+                      <span className="font-bold text-base md:text-lg text-orange-600">
                         ฿{adBudget.toLocaleString()}
                       </span>
                     </div>
@@ -579,12 +579,12 @@ export default function ProfitCalculatorPage() {
             </div>
 
             {/* ปุ่ม */}
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={handleBack}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleBack}>
                 <ChevronLeft className="h-4 w-4 mr-2" />
                 ย้อนกลับ
               </Button>
-              <Button onClick={handleSave} className="flex-1">
+              <Button onClick={handleSave} className="w-full sm:flex-1">
                 <Save className="h-4 w-4 mr-2" />
                 บันทึกผลลัพธ์
               </Button>

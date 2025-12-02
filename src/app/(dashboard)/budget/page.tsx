@@ -318,21 +318,21 @@ export default function BudgetPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">งบประมาณ</h1>
+          <h1 className="text-xl md:text-2xl font-bold">งบประมาณ</h1>
           <p className="text-muted-foreground">จัดการงบประมาณและติดตามกำไร</p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)}>
+        <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           ตั้งงบประมาณใหม่
         </Button>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">งบประมาณรวม</CardTitle>
@@ -397,7 +397,7 @@ export default function BudgetPage() {
       {/* Add Budget Form */}
       <Card>
         <CardHeader>
-          <CardTitle>เพิ่มงบประมาณใหม่</CardTitle>
+          <CardTitle className="text-lg md:text-xl">เพิ่มงบประมาณใหม่</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...addForm}>
@@ -430,7 +430,7 @@ export default function BudgetPage() {
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={addForm.control}
                   name="startDate"
@@ -487,7 +487,7 @@ export default function BudgetPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>รายการงบประมาณ</CardTitle>
+            <CardTitle className="text-lg md:text-xl">รายการงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -497,7 +497,8 @@ export default function BudgetPage() {
                 ไม่มีงบประมาณ
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
                   <TableHead>วัตถุประสงค์</TableHead>
@@ -575,17 +576,18 @@ export default function BudgetPage() {
                 })}
               </TableBody>
             </Table>
+              </div>
           )}
         </CardContent>
       </Card>
       )}
 
       {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {/* Pie Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>สัดส่วนงบประมาณ</CardTitle>
+            <CardTitle className="text-lg md:text-xl">สัดส่วนงบประมาณ</CardTitle>
           </CardHeader>
           <CardContent>
             {budgets.length === 0 ? (
@@ -624,7 +626,7 @@ export default function BudgetPage() {
         {/* Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>งบประมาณ vs ใช้ไป</CardTitle>
+            <CardTitle className="text-lg md:text-xl">งบประมาณ vs ใช้ไป</CardTitle>
           </CardHeader>
           <CardContent>
             {budgets.length === 0 ? (
@@ -651,7 +653,7 @@ export default function BudgetPage() {
 
       {/* Update Spent Dialog */}
       <Dialog open={isUpdateSpentOpen} onOpenChange={setIsUpdateSpentOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>อัพเดทค่าใช้จ่าย</DialogTitle>
             <DialogDescription>{updatingBudget?.purpose}</DialogDescription>
@@ -686,7 +688,7 @@ export default function BudgetPage() {
                 />
               </div>
             </div>
-            <DialogFooter className="mt-6">
+            <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -694,10 +696,11 @@ export default function BudgetPage() {
                   setIsUpdateSpentOpen(false);
                   setUpdatingBudget(null);
                 }}
+                className="w-full sm:w-auto"
               >
                 ยกเลิก
               </Button>
-              <Button type="submit" disabled={updating}>
+              <Button type="submit" disabled={updating} className="w-full sm:w-auto">
                 {updating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -714,7 +717,7 @@ export default function BudgetPage() {
 
       {/* Edit Budget Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>แก้ไขงบประมาณ</DialogTitle>
             <DialogDescription>อัปเดตข้อมูลงบประมาณ</DialogDescription>
@@ -749,7 +752,7 @@ export default function BudgetPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={editForm.control}
                       name="startDate"
@@ -791,7 +794,7 @@ export default function BudgetPage() {
                     )}
                   />
                 </div>
-                <DialogFooter className="mt-6">
+                <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -799,10 +802,11 @@ export default function BudgetPage() {
                       setIsEditOpen(false);
                       setSelectedBudget(null);
                     }}
+                    className="w-full sm:w-auto"
                   >
                     ยกเลิก
                   </Button>
-                  <Button type="submit">บันทึก</Button>
+                  <Button type="submit" className="w-full sm:w-auto">บันทึก</Button>
                 </DialogFooter>
               </form>
             </Form>

@@ -352,20 +352,20 @@ export default function AutomationPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
-            <p className="text-gray-600 mt-2">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
+            <p className="text-gray-600 mt-2 text-sm md:text-base">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
           </div>
           <Dialog open={openDialog} onOpenChange={setOpenDialog}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold">
+              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 สร้าง Rule ใหม่
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-yellow-500" />
@@ -373,7 +373,7 @@ export default function AutomationPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>แพลตฟอร์ม</Label>
                   <Select value={formData.platform} onValueChange={(value) => setFormData({ ...formData, platform: value })}>
@@ -489,11 +489,11 @@ export default function AutomationPage() {
                 </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenDialog(false)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setOpenDialog(false)} className="w-full sm:w-auto">
                 ยกเลิก
               </Button>
-              <Button onClick={handleCreate} disabled={submitting}>
+              <Button onClick={handleCreate} disabled={submitting} className="w-full sm:w-auto">
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 บันทึก
               </Button>
@@ -503,7 +503,7 @@ export default function AutomationPage() {
       </div>
 
         {/* Stats Cards - High Contrast */}
-        <div className="grid gap-6 md:grid-cols-3 mb-6">
+        <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3 mb-6">
           <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -556,7 +556,7 @@ export default function AutomationPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
             {rules.map((rule) => (
               <Card
                 key={rule.id}
@@ -565,8 +565,8 @@ export default function AutomationPage() {
                 <CardHeader className="border-b border-gray-100 bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
-                      <CardDescription className="text-gray-700 font-medium mt-1">
+                      <CardTitle className="text-lg md:text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
+                      <CardDescription className="text-gray-700 font-medium mt-1 text-sm md:text-base">
                         {rule.platform} • {rule.tool}
                       </CardDescription>
                     </div>
@@ -649,12 +649,12 @@ export default function AutomationPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>แก้ไข Automation Rule</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>แพลตฟอร์ม</Label>
                 <Select value={formData.platform} onValueChange={(value) => setFormData({ ...formData, platform: value })}>
@@ -767,11 +767,11 @@ export default function AutomationPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenEditDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setOpenEditDialog(false)} className="w-full sm:w-auto">
               ยกเลิก
             </Button>
-            <Button onClick={handleUpdate} disabled={submitting}>
+            <Button onClick={handleUpdate} disabled={submitting} className="w-full sm:w-auto">
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               บันทึก
             </Button>
@@ -781,16 +781,16 @@ export default function AutomationPage() {
 
       {/* Delete Dialog */}
       <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[95vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-sm md:text-base">
               คุณแน่ใจหรือไม่ที่จะลบ Rule "{selectedRule?.ruleName}" การกระทำนี้ไม่สามารถย้อนกลับได้
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-red-500 hover:bg-red-600">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-red-500 hover:bg-red-600 w-full sm:w-auto">
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               ลบ
             </AlertDialogAction>
@@ -800,7 +800,7 @@ export default function AutomationPage() {
 
       {/* Test Rule Dialog */}
       <Dialog open={openTestDialog} onOpenChange={setOpenTestDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <TestTube className="h-5 w-5 text-blue-500" />
@@ -853,9 +853,9 @@ export default function AutomationPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button onClick={() => setOpenTestDialog(false)}>ปิด</Button>
-            <Button variant="outline" onClick={() => selectedRule && handleTestRule(selectedRule)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button onClick={() => setOpenTestDialog(false)} className="w-full sm:w-auto">ปิด</Button>
+            <Button variant="outline" onClick={() => selectedRule && handleTestRule(selectedRule)} className="w-full sm:w-auto">
               <TestTube className="h-4 w-4 mr-2" />
               ทดสอบอีกครั้ง
             </Button>

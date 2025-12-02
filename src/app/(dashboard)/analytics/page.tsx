@@ -102,9 +102,9 @@ export default function AnalyticsPage() {
   // first render – ยังไม่โหลดเสร็จ
   if (loading && !data) {
     return (
-      <div className="space-y-6 text-slate-900 dark:text-slate-50">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+      <div className="space-y-4 md:space-y-6 text-slate-900 dark:text-slate-50">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
             การวิเคราะห์
           </h1>
         </div>
@@ -178,18 +178,18 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-50">
+    <div className="space-y-4 md:space-y-6 text-slate-900 dark:text-slate-50">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
             การวิเคราะห์
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
+          <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mt-1">
             ภาพรวมธุรกิจและประสิทธิภาพ
           </p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center w-full sm:w-auto">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
               <SelectValue placeholder="เลือกช่วงเวลา" />
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -383,11 +383,11 @@ export default function AnalyticsPage() {
 
       {/* Top Products */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg md:text-xl text-slate-900 dark:text-white">
             สินค้าขายดี
           </CardTitle>
-          <ExportButton
+          <ExportButton className="w-full sm:w-auto"
             data={exportProducts}
             filename={`top-products-${dateRange}days`}
             columns={[
@@ -440,11 +440,11 @@ export default function AnalyticsPage() {
 
       {/* Top Categories */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg md:text-xl text-slate-900 dark:text-white">
             หมวดหมู่ยอดนิยม
           </CardTitle>
-          <ExportButton
+          <ExportButton className="w-full sm:w-auto"
             data={exportCategories}
             filename={`top-categories-${dateRange}days`}
             columns={[
@@ -487,11 +487,11 @@ export default function AnalyticsPage() {
 
       {/* Campaign Performance */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg md:text-xl text-slate-900 dark:text-white">
             ประสิทธิภาพแคมเปญ
           </CardTitle>
-          <ExportButton
+          <ExportButton className="w-full sm:w-auto"
             data={exportCampaigns}
             filename={`campaigns-${dateRange}days`}
             columns={[
@@ -540,8 +540,8 @@ export default function AnalyticsPage() {
 
       {/* Ad performance by platform */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-slate-900 dark:text-white">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="text-lg md:text-xl text-slate-900 dark:text-white">
             ประสิทธิภาพโฆษณาต่อแพลตฟอร์ม
           </CardTitle>
         </CardHeader>
