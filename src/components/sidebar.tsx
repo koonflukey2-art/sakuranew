@@ -191,10 +191,11 @@ export function Sidebar() {
       </div>
     </aside>
 
-      {/* Mobile Menu Button - Clear */}
+      {/* Mobile Menu Button - Bottom-Left (to avoid AI Assistant overlap) */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed bottom-4 right-4 lg:hidden z-50 bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full shadow-lg"
+        className="fixed bottom-20 left-4 lg:hidden z-40 bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95"
+        aria-label={isMobileOpen ? "Close menu" : "Open menu"}
       >
         {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
