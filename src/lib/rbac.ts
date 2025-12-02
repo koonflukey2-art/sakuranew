@@ -1,3 +1,6 @@
+// src/lib/rbac.ts
+"use server";
+
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -49,7 +52,9 @@ export async function getUserRole(): Promise<UserRole> {
     });
 
     if (!dbUser) {
-      console.warn(`User not found in database for clerkId: ${clerkUser.id}, defaulting to EMPLOYEE role`);
+      console.warn(
+        `User not found in database for clerkId: ${clerkUser.id}, defaulting to EMPLOYEE role`
+      );
       return "EMPLOYEE";
     }
 

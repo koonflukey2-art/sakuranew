@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getRolePermissions } from "@/lib/rbac";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { getRolePermissions } from "@/lib/rbac-core"; // ⬅ เปลี่ยนมาใช้ rbac-core (ไม่มี server-only import)
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,14 +28,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Workflow, 
-  Link2, 
-  Copy, 
-  CheckCircle2, 
+import {
+  Workflow,
+  Link2,
+  Copy,
+  CheckCircle2,
   Download,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 
 // Workflow templates
@@ -42,7 +48,11 @@ const workflowTemplates = {
     workflow: {
       nodes: [
         { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
-        { id: "facebook", name: "Facebook Ads", type: "n8n-nodes-base.facebookAds" },
+        {
+          id: "facebook",
+          name: "Facebook Ads",
+          type: "n8n-nodes-base.facebookAds",
+        },
         { id: "filter", name: "Filter", type: "n8n-nodes-base.filter" },
         { id: "set", name: "Set Values", type: "n8n-nodes-base.set" },
       ],
@@ -57,7 +67,11 @@ const workflowTemplates = {
     workflow: {
       nodes: [
         { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
-        { id: "analytics", name: "Analytics", type: "n8n-nodes-base.googleAnalytics" },
+        {
+          id: "analytics",
+          name: "Analytics",
+          type: "n8n-nodes-base.googleAnalytics",
+        },
       ],
       connections: {},
     },
@@ -70,7 +84,11 @@ const workflowTemplates = {
     workflow: {
       nodes: [
         { id: "webhook", name: "Webhook", type: "n8n-nodes-base.webhook" },
-        { id: "sheets", name: "Google Sheets", type: "n8n-nodes-base.googleSheets" },
+        {
+          id: "sheets",
+          name: "Google Sheets",
+          type: "n8n-nodes-base.googleSheets",
+        },
       ],
       connections: {},
     },
@@ -101,7 +119,7 @@ const workflowTemplates = {
       connections: {},
     },
   },
-  "custom": {
+  custom: {
     name: "Custom Workflow",
     description: "สร้าง Workflow แบบกำหนดเอง",
     category: "Custom",
@@ -116,9 +134,11 @@ const workflowTemplates = {
 export default function WorkflowsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof workflowTemplates>("profit-pilot");
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<keyof typeof workflowTemplates>("profit-pilot");
   const [webhookDomain, setWebhookDomain] = useState("https://app.n8n.cloud");
   const [copiedURL, setCopiedURL] = useState(false);
+  const [copiedJSON, setCopiedJSON] = useState(false); // ⬅ เพิ่ม state นี้
   const [isAuthorized, setIsAuthorized] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -163,9 +183,11 @@ export default function WorkflowsPage() {
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block">
-            <div className="h-12 w-12 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+            <div className="h-12 w-12 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin" />
           </div>
-          <p className="text-gray-600 mt-4 font-medium">กำลังตรวจสอบสิทธิ์...</p>
+          <p className="text-gray-600 mt-4 font-medium">
+            กำลังตรวจสอบสิทธิ์...
+          </p>
         </div>
       </div>
     );
@@ -224,30 +246,68 @@ export default function WorkflowsPage() {
             <Workflow className="h-8 w-8 text-blue-600" />
             n8n Workflow Generator
           </h1>
-          <p className="text-gray-600 mt-2">สร้าง Workflow JSON สำหรับ n8n โดยอัตโนมัติ 🔄</p>
+          <p className="text-gray-600 mt-2">
+            สร้าง Workflow JSON สำหรับ n8n โดยอัตโนมัติ 🔄
+          </p>
         </div>
 
         {/* Template Selector */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">เลือก Template</CardTitle>
-            <CardDescription className="text-gray-600 font-medium">เลือก Workflow Template ที่ต้องการ</CardDescription>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              เลือก Template
+            </CardTitle>
+            <CardDescription className="text-gray-600 font-medium">
+              เลือก Workflow Template ที่ต้องการ
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <Select
               value={selectedTemplate}
-              onValueChange={(value) => setSelectedTemplate(value as keyof typeof workflowTemplates)}
+              onValueChange={(value) =>
+                setSelectedTemplate(value as keyof typeof workflowTemplates)
+              }
             >
               <SelectTrigger className="bg-white border-2 border-gray-300 text-gray-800">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-white border-2 border-gray-300">
-                <SelectItem value="profit-pilot" className="font-semibold text-gray-800">Profit Pilot Automation</SelectItem>
-                <SelectItem value="scale-revenue" className="font-semibold text-gray-800">Scale Revenue & Optimize CPA</SelectItem>
-                <SelectItem value="lead-gen" className="font-semibold text-gray-800">Lead Generation Flow</SelectItem>
-                <SelectItem value="ecommerce-order" className="font-semibold text-gray-800">E-commerce Order Processing</SelectItem>
-                <SelectItem value="low-stock-alert" className="font-semibold text-gray-800">Low Stock Alert</SelectItem>
-                <SelectItem value="custom" className="font-semibold text-gray-800">Custom Workflow</SelectItem>
+                <SelectItem
+                  value="profit-pilot"
+                  className="font-semibold text-gray-800"
+                >
+                  Profit Pilot Automation
+                </SelectItem>
+                <SelectItem
+                  value="scale-revenue"
+                  className="font-semibold text-gray-800"
+                >
+                  Scale Revenue & Optimize CPA
+                </SelectItem>
+                <SelectItem
+                  value="lead-gen"
+                  className="font-semibold text-gray-800"
+                >
+                  Lead Generation Flow
+                </SelectItem>
+                <SelectItem
+                  value="ecommerce-order"
+                  className="font-semibold text-gray-800"
+                >
+                  E-commerce Order Processing
+                </SelectItem>
+                <SelectItem
+                  value="low-stock-alert"
+                  className="font-semibold text-gray-800"
+                >
+                  Low Stock Alert
+                </SelectItem>
+                <SelectItem
+                  value="custom"
+                  className="font-semibold text-gray-800"
+                >
+                  Custom Workflow
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -255,11 +315,19 @@ export default function WorkflowsPage() {
             <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-4 md:p-6 rounded-xl border-2 border-cyan-300">
               <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                 <div className="space-y-3">
-                  <h3 className="font-bold text-lg md:text-xl text-gray-800">{currentTemplate.name}</h3>
-                  <p className="text-sm text-gray-700 font-medium">{currentTemplate.description}</p>
+                  <h3 className="font-bold text-lg md:text-xl text-gray-800">
+                    {currentTemplate.name}
+                  </h3>
+                  <p className="text-sm text-gray-700 font-medium">
+                    {currentTemplate.description}
+                  </p>
                   <div className="flex gap-2 mt-2">
-                    <Badge className="bg-purple-500 text-white border-0 font-semibold">{currentTemplate.category}</Badge>
-                    <Badge className="bg-blue-500 text-white border-0 font-semibold">{currentTemplate.nodes} nodes</Badge>
+                    <Badge className="bg-purple-500 text-white border-0 font-semibold">
+                      {currentTemplate.category}
+                    </Badge>
+                    <Badge className="bg-blue-500 text-white border-0 font-semibold">
+                      {currentTemplate.nodes} nodes
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -274,11 +342,15 @@ export default function WorkflowsPage() {
               <Link2 className="h-5 w-5 text-blue-600" />
               Webhook URL Generator
             </CardTitle>
-            <CardDescription className="text-gray-600 font-medium">กำหนด URL ของ n8n instance และสร้าง webhook URL</CardDescription>
+            <CardDescription className="text-gray-600 font-medium">
+              กำหนด URL ของ n8n instance และสร้าง webhook URL
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-gray-700">n8n Instance URL</Label>
+              <Label className="text-sm font-semibold text-gray-700">
+                n8n Instance URL
+              </Label>
               <Input
                 value={webhookDomain}
                 onChange={(e) => setWebhookDomain(e.target.value)}
@@ -286,12 +358,15 @@ export default function WorkflowsPage() {
                 className="bg-white border-2 border-gray-300 text-gray-800 placeholder:text-gray-400 focus:border-pink-400 focus:ring-2 focus:ring-pink-100"
               />
               <p className="text-xs text-gray-600 font-medium">
-                ใส่ URL ของ n8n instance ของคุณ (เช่น https://app.n8n.cloud หรือ self-hosted URL)
+                ใส่ URL ของ n8n instance ของคุณ (เช่น
+                https://app.n8n.cloud หรือ self-hosted URL)
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-gray-700">Webhook URL สำหรับ Template นี้</Label>
+              <Label className="text-sm font-semibold text-gray-700">
+                Webhook URL สำหรับ Template นี้
+              </Label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={webhookURL}
@@ -304,11 +379,16 @@ export default function WorkflowsPage() {
                   onClick={handleCopyURL}
                   className="w-full sm:w-auto flex-shrink-0 border-2 border-green-300 text-green-600 hover:bg-green-50"
                 >
-                  {copiedURL ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {copiedURL ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               <p className="text-xs text-gray-600 font-medium">
-                ใช้ URL นี้ในการเรียก webhook หลังจาก import workflow ใน n8n แล้ว
+                ใช้ URL นี้ในการเรียก webhook หลังจาก import workflow ใน
+                n8n แล้ว
               </p>
             </div>
           </CardContent>
@@ -317,8 +397,12 @@ export default function WorkflowsPage() {
         {/* Node List Accordion */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">📋 รายละเอียด Workflow</CardTitle>
-            <CardDescription className="text-gray-600 font-medium">โครงสร้าง Nodes และ Connections</CardDescription>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              📋 รายละเอียด Workflow
+            </CardTitle>
+            <CardDescription className="text-gray-600 font-medium">
+              โครงสร้าง Nodes และ Connections
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <Accordion type="single" collapsible className="w-full">
@@ -329,13 +413,20 @@ export default function WorkflowsPage() {
                 <AccordionContent>
                   <div className="space-y-2">
                     {currentTemplate.workflow.nodes.map((node, idx) => (
-                      <div key={node.id} className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200">
+                      <div
+                        key={node.id}
+                        className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200"
+                      >
                         <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold flex-shrink-0">
                           {idx + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="font-bold text-sm text-gray-800">{node.name}</p>
-                          <p className="text-xs text-gray-600 font-medium">{node.type}</p>
+                          <p className="font-bold text-sm text-gray-800">
+                            {node.name}
+                          </p>
+                          <p className="text-xs text-gray-600 font-medium">
+                            {node.type}
+                          </p>
                         </div>
                         <Badge className="text-xs bg-purple-500 text-white border-0 font-semibold">
                           {node.type.split(".").pop()}
@@ -347,11 +438,15 @@ export default function WorkflowsPage() {
               </AccordionItem>
 
               <AccordionItem value="json">
-                <AccordionTrigger className="text-gray-800 font-semibold">JSON Preview</AccordionTrigger>
+                <AccordionTrigger className="text-gray-800 font-semibold">
+                  JSON Preview
+                </AccordionTrigger>
                 <AccordionContent>
                   <div className="bg-gray-900 p-4 rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
                     <pre className="text-xs text-green-400 font-mono">
-                      <code>{JSON.stringify(currentTemplate.workflow, null, 2)}</code>
+                      <code>
+                        {JSON.stringify(currentTemplate.workflow, null, 2)}
+                      </code>
                     </pre>
                   </div>
                 </AccordionContent>
@@ -363,8 +458,12 @@ export default function WorkflowsPage() {
         {/* Export Buttons */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">Export Workflow</CardTitle>
-            <CardDescription className="text-gray-600 font-medium">ดาวน์โหลดหรือคัดลอก JSON เพื่อนำไป import ใน n8n</CardDescription>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              Export Workflow
+            </CardTitle>
+            <CardDescription className="text-gray-600 font-medium">
+              ดาวน์โหลดหรือคัดลอก JSON เพื่อนำไป import ใน n8n
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -393,8 +492,9 @@ export default function WorkflowsPage() {
 
             <div className="bg-blue-50 border-2 border-blue-300 p-4 rounded-xl">
               <p className="text-sm text-blue-800 font-medium">
-                💡 <strong>คำแนะนำ:</strong> หลังดาวน์โหลดหรือคัดลอกแล้ว ไปที่ n8n.io → Workflows →
-                Import from File/Clipboard
+                💡 <strong>คำแนะนำ:</strong>{" "}
+                หลังดาวน์โหลดหรือคัดลอกแล้ว ไปที่ n8n.io → Workflows → Import
+                from File/Clipboard
               </p>
             </div>
           </CardContent>
@@ -432,13 +532,18 @@ export default function WorkflowsPage() {
                   desc: "คลิกสวิตช์ Active ที่มุมบนขวาเพื่อเปิดใช้งาน workflow",
                 },
               ].map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                >
                   <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 text-sm font-bold">
                     {idx + 1}
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-800">{step.title}</h4>
-                    <p className="text-gray-600 font-medium mt-1">{step.desc}</p>
+                    <p className="text-gray-600 font-medium mt-1">
+                      {step.desc}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -446,8 +551,9 @@ export default function WorkflowsPage() {
 
             <div className="bg-yellow-50 border-2 border-yellow-300 p-4 rounded-xl mt-4">
               <p className="text-sm text-yellow-800 font-medium">
-                ⚠️ <strong>หมายเหตุ:</strong> อย่าลืมแทนที่ค่า Placeholder เช่น YOUR_SHEET_ID,
-                YOUR_API เป็นค่าจริงของคุณหลังจาก import workflow แล้ว
+                ⚠️ <strong>หมายเหตุ:</strong>{" "}
+                อย่าลืมแทนที่ค่า Placeholder เช่น YOUR_SHEET_ID, YOUR_API เป็นค่าจริงของคุณหลังจาก
+                import workflow แล้ว
               </p>
             </div>
           </CardContent>
@@ -456,7 +562,9 @@ export default function WorkflowsPage() {
         {/* Quick Links */}
         <Card className="bg-white border-2 border-gray-200 shadow-md">
           <CardHeader className="border-b border-gray-100 bg-gray-50">
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">Quick Links</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              Quick Links
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -475,7 +583,9 @@ export default function WorkflowsPage() {
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 rounded-xl transition-all border-2 border-blue-200 hover:border-blue-300"
               >
-                <span className="font-bold text-sm text-gray-800">n8n Documentation</span>
+                <span className="font-bold text-sm text-gray-800">
+                  n8n Documentation
+                </span>
                 <ExternalLink className="h-4 w-4 text-blue-600" />
               </a>
               <a
@@ -484,7 +594,9 @@ export default function WorkflowsPage() {
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 rounded-xl transition-all border-2 border-green-200 hover:border-green-300"
               >
-                <span className="font-bold text-sm text-gray-800">n8n Community</span>
+                <span className="font-bold text_sm text-gray-800">
+                  n8n Community
+                </span>
                 <ExternalLink className="h-4 w-4 text-green-600" />
               </a>
             </div>
