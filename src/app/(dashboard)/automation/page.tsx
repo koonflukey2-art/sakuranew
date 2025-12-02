@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,10 +73,12 @@ export default function AutomationPage() {
   const { toast } = useToast();
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [openDialog, setOpenDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openTestDialog, setOpenTestDialog] = useState(false);
+
   const [selectedRule, setSelectedRule] = useState<AutomationRule | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -379,156 +382,239 @@ export default function AutomationPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50">
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        {/* Header + Create Dialog */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Automation Rules Builder</h1>
-            <p className="text-gray-600 mt-2 text-sm md:text-base">สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              Automation Rules Builder
+            </h1>
+            <p className="text-gray-600 mt-2 text-sm md:text-base">
+              สร้างกฎอัตโนมัติสำหรับการจัดการโฆษณา 🚀
+            </p>
           </div>
           <Dialog open={openDialog} onOpenChange={setOpenDialog}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold w-full sm:w-auto">
+              <Button
+                onClick={resetForm}
+                className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-lg font-semibold w-full sm:w-auto"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 สร้าง Rule ใหม่
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-[95vw] sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                สร้าง Automation Rule
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>แพลตฟอร์ม</Label>
-                  <Select value={formData.platform} onValueChange={(value) => setFormData({ ...formData, platform: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Facebook Ads">Facebook Ads</SelectItem>
-                      <SelectItem value="Google Ads">Google Ads</SelectItem>
-                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                      <SelectItem value="X Ads">X Ads</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>เครื่องมือ</Label>
-                  <Select value={formData.tool} onValueChange={(value) => setFormData({ ...formData, tool: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Revealbot">Revealbot</SelectItem>
-                      <SelectItem value="AdEspresso">AdEspresso</SelectItem>
-                      <SelectItem value="Madgicx">Madgicx</SelectItem>
-                      <SelectItem value="Custom (n8n webhook)">Custom (n8n webhook)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>ชื่อ Rule</Label>
-                <Input
-                  placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
-                  value={formData.ruleName}
-                  onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>เงื่อนไข (Condition)</Label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Select value={formData.metric} onValueChange={(value) => setFormData({ ...formData, metric: value })}>
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-yellow-500" />
+                  สร้าง Automation Rule
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>แพลตฟอร์ม</Label>
+                    <Select
+                      value={formData.platform}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, platform: value })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CPA">CPA (ต้นทุนต่อการแปลง)</SelectItem>
-                        <SelectItem value="ROAS">ROAS (ผลตอบแทนจากค่าโฆษณา)</SelectItem>
-                        <SelectItem value="CTR">CTR (อัตราการคลิก)</SelectItem>
-                        <SelectItem value="Spend">Spend (ค่าใช้จ่าย)</SelectItem>
-                        <SelectItem value="Conversions">Conversions (การแปลง)</SelectItem>
+                        <SelectItem value="Facebook Ads">
+                          Facebook Ads
+                        </SelectItem>
+                        <SelectItem value="Google Ads">
+                          Google Ads
+                        </SelectItem>
+                        <SelectItem value="TikTok Ads">
+                          TikTok Ads
+                        </SelectItem>
+                        <SelectItem value="X Ads">X Ads</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="w-24">
-                    <Select value={formData.operator} onValueChange={(value) => setFormData({ ...formData, operator: value })}>
+                  <div className="space-y-2">
+                    <Label>เครื่องมือ</Label>
+                    <Select
+                      value={formData.tool}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, tool: value })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value=">">{'>'}</SelectItem>
-                        <SelectItem value="<">{'<'}</SelectItem>
-                        <SelectItem value="=">=</SelectItem>
-                        <SelectItem value=">=">{'>='}</SelectItem>
-                        <SelectItem value="<=">{'<='}</SelectItem>
+                        <SelectItem value="Revealbot">Revealbot</SelectItem>
+                        <SelectItem value="AdEspresso">AdEspresso</SelectItem>
+                        <SelectItem value="Madgicx">Madgicx</SelectItem>
+                        <SelectItem value="Custom (n8n webhook)">
+                          Custom (n8n webhook)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div className="flex-1">
-                    <Input
-                      type="number"
-                      placeholder="ค่า"
-                      value={formData.value || ""}
-                      onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  IF {getMetricLabel(formData.metric)} {formData.operator} {formData.value}
-                </p>
-              </div>
 
-              <div className="space-y-2">
-                <Label>การกระทำ (Action)</Label>
-                <Select value={formData.actionType} onValueChange={(value) => setFormData({ ...formData, actionType: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pauseCampaign">หยุดแคมเปญ</SelectItem>
-                    <SelectItem value="increaseBudget">เพิ่มงบ</SelectItem>
-                    <SelectItem value="decreaseBudget">ลดงบ</SelectItem>
-                    <SelectItem value="sendNotification">ส่งการแจ้งเตือน</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {(formData.actionType === "increaseBudget" || formData.actionType === "decreaseBudget") && (
                 <div className="space-y-2">
-                  <Label>จำนวนเงิน (%)</Label>
+                  <Label>ชื่อ Rule</Label>
                   <Input
-                    type="number"
-                    placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
-                    value={formData.actionValue}
-                    onChange={(e) => setFormData({ ...formData, actionValue: e.target.value })}
+                    placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
+                    value={formData.ruleName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ruleName: e.target.value })
+                    }
                   />
                 </div>
-              )}
-            </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setOpenDialog(false)} className="w-full sm:w-auto">
-                ยกเลิก
-              </Button>
-              <Button onClick={handleCreate} disabled={submitting} className="w-full sm:w-auto">
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                บันทึก
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
 
-        {/* Stats Cards - High Contrast */}
+                <div className="space-y-2">
+                  <Label>เงื่อนไข (Condition)</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={formData.metric}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, metric: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CPA">
+                            CPA (ต้นทุนต่อการแปลง)
+                          </SelectItem>
+                          <SelectItem value="ROAS">
+                            ROAS (ผลตอบแทนจากค่าโฆษณา)
+                          </SelectItem>
+                          <SelectItem value="CTR">
+                            CTR (อัตราการคลิก)
+                          </SelectItem>
+                          <SelectItem value="Spend">
+                            Spend (ค่าใช้จ่าย)
+                          </SelectItem>
+                          <SelectItem value="Conversions">
+                            Conversions (การแปลง)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-24">
+                      <Select
+                        value={formData.operator}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, operator: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=">">{">"}</SelectItem>
+                          <SelectItem value="<">{"<"}</SelectItem>
+                          <SelectItem value="=">=</SelectItem>
+                          <SelectItem value=">=">{">="}</SelectItem>
+                          <SelectItem value="<=">{"<="}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex-1">
+                      <Input
+                        type="number"
+                        placeholder="ค่า"
+                        value={formData.value || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            value: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    IF {getMetricLabel(formData.metric)} {formData.operator}{" "}
+                    {formData.value}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>การกระทำ (Action)</Label>
+                  <Select
+                    value={formData.actionType}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, actionType: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pauseCampaign">
+                        หยุดแคมเปญ
+                      </SelectItem>
+                      <SelectItem value="increaseBudget">
+                        เพิ่มงบ
+                      </SelectItem>
+                      <SelectItem value="decreaseBudget">
+                        ลดงบ
+                      </SelectItem>
+                      <SelectItem value="sendNotification">
+                        ส่งการแจ้งเตือน
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(formData.actionType === "increaseBudget" ||
+                  formData.actionType === "decreaseBudget") && (
+                  <div className="space-y-2">
+                    <Label>จำนวนเงิน (%)</Label>
+                    <Input
+                      type="number"
+                      placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
+                      value={formData.actionValue}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          actionValue: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenDialog(false)}
+                  className="w-full sm:w-auto"
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  {submitting && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  บันทึก
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Stats Cards */}
         <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3 mb-6">
           <Card className="bg-white border-2 border-gray-200 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
@@ -603,10 +689,12 @@ export default function AutomationPage() {
                 <CardHeader className="border-b border-gray-100 bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg md:text-xl font-bold text-gray-800 mb-2">{rule.ruleName}</CardTitle>
+                      <CardTitle className="text-lg md:text-xl font-bold text-gray-800 mb-2">
+                        {rule.ruleName}
+                      </CardTitle>
                       <CardDescription className="text-gray-700 font-medium mt-1 text-sm md:text-base">
                         {rule.platform} • {rule.tool}
-                      </p>
+                      </CardDescription>
                     </div>
                     <Badge
                       className={
@@ -720,17 +808,18 @@ export default function AutomationPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl bg-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-800">
-              <Zap className="h-5 w-5 text-yellow-500" />
-              สร้าง Automation Rule
+            <DialogTitle className="text-gray-800 font-bold">
+              แก้ไข Automation Rule
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-gray-800 font-semibold">แพลตฟอร์ม</Label>
+                <Label className="text-gray-800 font-semibold">
+                  แพลตฟอร์ม
+                </Label>
                 <Select
                   value={formData.platform}
                   onValueChange={(value) =>
@@ -741,11 +830,36 @@ export default function AutomationPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-2 border-gray-300">
-                    <SelectItem value="Facebook Ads" className="font-semibold text-gray-800">Facebook Ads</SelectItem>
-                    <SelectItem value="Google Ads" className="font-semibold text-gray-800">Google Ads</SelectItem>
-                    <SelectItem value="TikTok Ads" className="font-semibold text-gray-800">TikTok Ads</SelectItem>
-                    <SelectItem value="X Ads" className="font-semibold text-gray-800">X Ads</SelectItem>
-                    <SelectItem value="Other" className="font-semibold text-gray-800">Other</SelectItem>
+                    <SelectItem
+                      value="Facebook Ads"
+                      className="font-semibold text-gray-800"
+                    >
+                      Facebook Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="Google Ads"
+                      className="font-semibold text-gray-800"
+                    >
+                      Google Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="TikTok Ads"
+                      className="font-semibold text-gray-800"
+                    >
+                      TikTok Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="X Ads"
+                      className="font-semibold text-gray-800"
+                    >
+                      X Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="Other"
+                      className="font-semibold text-gray-800"
+                    >
+                      Other
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -762,10 +876,28 @@ export default function AutomationPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-2 border-gray-300">
-                    <SelectItem value="Revealbot" className="font-semibold text-gray-800">Revealbot</SelectItem>
-                    <SelectItem value="AdEspresso" className="font-semibold text-gray-800">AdEspresso</SelectItem>
-                    <SelectItem value="Madgicx" className="font-semibold text-gray-800">Madgicx</SelectItem>
-                    <SelectItem value="Custom (n8n webhook)" className="font-semibold text-gray-800">
+                    <SelectItem
+                      value="Revealbot"
+                      className="font-semibold text-gray-800"
+                    >
+                      Revealbot
+                    </SelectItem>
+                    <SelectItem
+                      value="AdEspresso"
+                      className="font-semibold text-gray-800"
+                    >
+                      AdEspresso
+                    </SelectItem>
+                    <SelectItem
+                      value="Madgicx"
+                      className="font-semibold text-gray-800"
+                    >
+                      Madgicx
+                    </SelectItem>
+                    <SelectItem
+                      value="Custom (n8n webhook)"
+                      className="font-semibold text-gray-800"
+                    >
                       Custom (n8n webhook)
                     </SelectItem>
                   </SelectContent>
@@ -786,7 +918,9 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800 font-semibold">เงื่อนไข (Condition)</Label>
+              <Label className="text-gray-800 font-semibold">
+                เงื่อนไข (Condition)
+              </Label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select
@@ -799,19 +933,34 @@ export default function AutomationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-2 border-gray-300">
-                      <SelectItem value="CPA" className="font-semibold text-gray-800">
+                      <SelectItem
+                        value="CPA"
+                        className="font-semibold text-gray-800"
+                      >
                         CPA (ต้นทุนต่อการแปลง)
                       </SelectItem>
-                      <SelectItem value="ROAS" className="font-semibold text-gray-800">
+                      <SelectItem
+                        value="ROAS"
+                        className="font-semibold text-gray-800"
+                      >
                         ROAS (ผลตอบแทนจากค่าโฆษณา)
                       </SelectItem>
-                      <SelectItem value="CTR" className="font-semibold text-gray-800">
+                      <SelectItem
+                        value="CTR"
+                        className="font-semibold text-gray-800"
+                      >
                         CTR (อัตราการคลิก)
                       </SelectItem>
-                      <SelectItem value="Spend" className="font-semibold text-gray-800">
+                      <SelectItem
+                        value="Spend"
+                        className="font-semibold text-gray-800"
+                      >
                         Spend (ค่าใช้จ่าย)
                       </SelectItem>
-                      <SelectItem value="Conversions" className="font-semibold text-gray-800">
+                      <SelectItem
+                        value="Conversions"
+                        className="font-semibold text-gray-800"
+                      >
                         Conversions (การแปลง)
                       </SelectItem>
                     </SelectContent>
@@ -829,11 +978,36 @@ export default function AutomationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-2 border-gray-300">
-                      <SelectItem value=">" className="font-semibold text-gray-800">{">"}</SelectItem>
-                      <SelectItem value="<" className="font-semibold text-gray-800">{"<"}</SelectItem>
-                      <SelectItem value="=" className="font-semibold text-gray-800">=</SelectItem>
-                      <SelectItem value=">=" className="font-semibold text-gray-800">{">="}</SelectItem>
-                      <SelectItem value="<=" className="font-semibold text-gray-800">{"<="}</SelectItem>
+                      <SelectItem
+                        value=">"
+                        className="font-semibold text-gray-800"
+                      >
+                        {">"}
+                      </SelectItem>
+                      <SelectItem
+                        value="<"
+                        className="font-semibold text-gray-800"
+                      >
+                        {"<"}
+                      </SelectItem>
+                      <SelectItem
+                        value="="
+                        className="font-semibold text-gray-800"
+                      >
+                        =
+                      </SelectItem>
+                      <SelectItem
+                        value=">="
+                        className="font-semibold text-gray-800"
+                      >
+                        {">="}
+                      </SelectItem>
+                      <SelectItem
+                        value="<="
+                        className="font-semibold text-gray-800"
+                      >
+                        {"<="}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -860,7 +1034,9 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-gray-800 font-semibold">การกระทำ (Action)</Label>
+              <Label className="text-gray-800 font-semibold">
+                การกระทำ (Action)
+              </Label>
               <Select
                 value={formData.actionType}
                 onValueChange={(value) =>
@@ -871,12 +1047,28 @@ export default function AutomationPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-2 border-gray-300">
-                  <SelectItem value="pauseCampaign" className="font-semibold text-gray-800">
+                  <SelectItem
+                    value="pauseCampaign"
+                    className="font-semibold text-gray-800"
+                  >
                     หยุดแคมเปญ
                   </SelectItem>
-                  <SelectItem value="increaseBudget" className="font-semibold text-gray-800">เพิ่มงบ</SelectItem>
-                  <SelectItem value="decreaseBudget" className="font-semibold text-gray-800">ลดงบ</SelectItem>
-                  <SelectItem value="sendNotification" className="font-semibold text-gray-800">
+                  <SelectItem
+                    value="increaseBudget"
+                    className="font-semibold text-gray-800"
+                  >
+                    เพิ่มงบ
+                  </SelectItem>
+                  <SelectItem
+                    value="decreaseBudget"
+                    className="font-semibold text-gray-800"
+                  >
+                    ลดงบ
+                  </SelectItem>
+                  <SelectItem
+                    value="sendNotification"
+                    className="font-semibold text-gray-800"
+                  >
                     ส่งการแจ้งเตือน
                   </SelectItem>
                 </SelectContent>
@@ -886,208 +1078,9 @@ export default function AutomationPage() {
             {(formData.actionType === "increaseBudget" ||
               formData.actionType === "decreaseBudget") && (
               <div className="space-y-2">
-                <Label className="text-gray-800 font-semibold">จำนวนเงิน (%)</Label>
-                <Input
-                  type="number"
-                  placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
-                  value={formData.actionValue}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      actionValue: e.target.value,
-                    })
-                  }
-                  className="border-2 border-gray-300 text-gray-800 bg-white"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenDialog(false)}
-              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={submitting}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white font-semibold"
-            >
-              {submitting && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              บันทึก
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent className="max-w-2xl bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-gray-800 font-bold">
-              แก้ไข Automation Rule
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-gray-800 font-semibold">แพลตฟอร์ม</Label>
-                <Select
-                  value={formData.platform}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, platform: value })
-                  }
-                >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-2 border-gray-300">
-                    <SelectItem value="Facebook Ads" className="font-semibold text-gray-800">Facebook Ads</SelectItem>
-                    <SelectItem value="Google Ads" className="font-semibold text-gray-800">Google Ads</SelectItem>
-                    <SelectItem value="TikTok Ads" className="font-semibold text-gray-800">TikTok Ads</SelectItem>
-                    <SelectItem value="X Ads" className="font-semibold text-gray-800">X Ads</SelectItem>
-                    <SelectItem value="Other" className="font-semibold text-gray-800">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-800 font-semibold">เครื่องมือ</Label>
-                <Select
-                  value={formData.tool}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, tool: value })
-                  }
-                >
-                  <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-2 border-gray-300">
-                    <SelectItem value="Revealbot" className="font-semibold text-gray-800">Revealbot</SelectItem>
-                    <SelectItem value="AdEspresso" className="font-semibold text-gray-800">AdEspresso</SelectItem>
-                    <SelectItem value="Madgicx" className="font-semibold text-gray-800">Madgicx</SelectItem>
-                    <SelectItem value="Custom (n8n webhook)" className="font-semibold text-gray-800">
-                      Custom (n8n webhook)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-gray-800 font-semibold">ชื่อ Rule</Label>
-              <Input
-                placeholder="เช่น 'หยุดแคมเปญเมื่อ CPA สูงเกิน 200'"
-                value={formData.ruleName}
-                onChange={(e) =>
-                  setFormData({ ...formData, ruleName: e.target.value })
-                }
-                className="border-2 border-gray-300 text-gray-800 bg-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-gray-800 font-semibold">เงื่อนไข (Condition)</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Select
-                    value={formData.metric}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, metric: value })
-                    }
-                  >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-2 border-gray-300">
-                      <SelectItem value="CPA" className="font-semibold text-gray-800">
-                        CPA (ต้นทุนต่อการแปลง)
-                      </SelectItem>
-                      <SelectItem value="ROAS" className="font-semibold text-gray-800">
-                        ROAS (ผลตอบแทนจากค่าโฆษณา)
-                      </SelectItem>
-                      <SelectItem value="CTR" className="font-semibold text-gray-800">
-                        CTR (อัตราการคลิก)
-                      </SelectItem>
-                      <SelectItem value="Spend" className="font-semibold text-gray-800">
-                        Spend (ค่าใช้จ่าย)
-                      </SelectItem>
-                      <SelectItem value="Conversions" className="font-semibold text-gray-800">
-                        Conversions (การแปลง)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="w-24">
-                  <Select
-                    value={formData.operator}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, operator: value })
-                    }
-                  >
-                    <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-2 border-gray-300">
-                      <SelectItem value=">" className="font-semibold text-gray-800">{">"}</SelectItem>
-                      <SelectItem value="<" className="font-semibold text-gray-800">{"<"}</SelectItem>
-                      <SelectItem value="=" className="font-semibold text-gray-800">=</SelectItem>
-                      <SelectItem value=">=" className="font-semibold text-gray-800">{">="}</SelectItem>
-                      <SelectItem value="<=" className="font-semibold text-gray-800">{"<="}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    placeholder="ค่า"
-                    value={formData.value || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        value: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="border-2 border-gray-300 text-gray-800 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-gray-800 font-semibold">การกระทำ (Action)</Label>
-              <Select
-                value={formData.actionType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, actionType: value })
-                }
-              >
-                <SelectTrigger className="border-2 border-gray-300 text-gray-800 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-2 border-gray-300">
-                  <SelectItem value="pauseCampaign" className="font-semibold text-gray-800">
-                    หยุดแคมเปญ
-                  </SelectItem>
-                  <SelectItem value="increaseBudget" className="font-semibold text-gray-800">เพิ่มงบ</SelectItem>
-                  <SelectItem value="decreaseBudget" className="font-semibold text-gray-800">ลดงบ</SelectItem>
-                  <SelectItem value="sendNotification" className="font-semibold text-gray-800">
-                    ส่งการแจ้งเตือน
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {(formData.actionType === "increaseBudget" ||
-              formData.actionType === "decreaseBudget") && (
-              <div className="space-y-2">
-                <Label className="text-gray-800 font-semibold">จำนวนเงิน (%)</Label>
+                <Label className="text-gray-800 font-semibold">
+                  จำนวนเงิน (%)
+                </Label>
                 <Input
                   type="number"
                   placeholder="เช่น 20 (เพิ่ม/ลด 20%)"
@@ -1104,11 +1097,21 @@ export default function AutomationPage() {
             )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setOpenEditDialog(false)} className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setOpenEditDialog(false)}
+              className="w-full sm:w-auto"
+            >
               ยกเลิก
             </Button>
-            <Button onClick={handleUpdate} disabled={submitting} className="w-full sm:w-auto">
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button
+              onClick={handleUpdate}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              {submitting && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               บันทึก
             </Button>
           </DialogFooter>
@@ -1116,7 +1119,10 @@ export default function AutomationPage() {
       </Dialog>
 
       {/* Delete Dialog */}
-      <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+      <AlertDialog
+        open={openDeleteDialog}
+        onOpenChange={setOpenDeleteDialog}
+      >
         <AlertDialogContent className="max-w-[95vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
@@ -1125,9 +1131,17 @@ export default function AutomationPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="w-full sm:w-auto">ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-red-500 hover:bg-red-600 w-full sm:w-auto">
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <AlertDialogCancel className="w-full sm:w-auto">
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={submitting}
+              className="bg-red-500 hover:bg-red-600 w-full sm:w-auto"
+            >
+              {submitting && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               ลบ
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1197,19 +1211,30 @@ export default function AutomationPage() {
             )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button onClick={() => setOpenTestDialog(false)} className="w-full sm:w-auto">ปิด</Button>
-            <Button variant="outline" onClick={() => selectedRule && handleTestRule(selectedRule)} className="w-full sm:w-auto">
-              <TestTube className="h-4 w-4 mr-2" />
-              ทดสอบอีกครั้ง
+            <Button
+              onClick={() => setOpenTestDialog(false)}
+              className="w-full sm:w-auto"
+            >
+              ปิด
             </Button>
             {selectedRule && (
-              <Button
-                onClick={() => handleTestRule(selectedRule)}
-                className="bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold hover:opacity-90"
-              >
-                <TestTube className="h-4 w-4 mr-2" />
-                ทดสอบอีกครั้ง
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestRule(selectedRule)}
+                  className="w-full sm:w-auto"
+                >
+                  <TestTube className="h-4 w-4 mr-2" />
+                  ทดสอบอีกครั้ง
+                </Button>
+                <Button
+                  onClick={() => handleTestRule(selectedRule)}
+                  className="bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold hover:opacity-90 w-full sm:w-auto"
+                >
+                  <TestTube className="h-4 w-4 mr-2" />
+                  ทดสอบอีกครั้ง
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
