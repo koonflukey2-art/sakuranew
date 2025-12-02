@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -22,152 +20,108 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Users,
   Shield,
-  Trash2,
-  MoreVertical,
-  UserCog,
-  Search,
-  Filter,
-  ShieldAlert,
+  Package,
+  Briefcase,
+  Loader2,
+  Crown,
+  RefreshCw,
 } from "lucide-react";
-
-import { useToast } from "@/hooks/use-toast";
-import { TableSkeleton } from "@/components/loading-states";
-import { EmptyUsers } from "@/components/empty-states";
-
-type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
+import { motion } from "framer-motion";
 
 interface User {
   id: string;
   email: string;
   name: string | null;
-  role: UserRole;
+  role: "ADMIN" | "STOCK" | "EMPLOYEE";
   createdAt: string;
-  lastLogin: string | null;
+  updatedAt: string;
 }
-
-const roleColors: Record<UserRole, string> = {
-  ADMIN: "bg-red-500",
-  STOCK: "bg-blue-500",
-  EMPLOYEE: "bg-gray-500",
-};
-
-const roleLabels: Record<UserRole, string> = {
-  ADMIN: "ผู้ดูแลระบบ",
-  STOCK: "พนักงานสต็อก",
-  EMPLOYEE: "พนักงาน",
-};
 
 export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
-
-  // RBAC: Check access permission (ADMIN only)
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-
+  
+  // Authorization state
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  
+  // Users state
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
-
-  // Role dialog
-  const [showRoleDialog, setShowRoleDialog] = useState(false);
+  
+  // Dialog state
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [newRole, setNewRole] = useState<UserRole | "">("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState<"ADMIN" | "STOCK" | "EMPLOYEE">("EMPLOYEE");
+  const [updating, setUpdating] = useState(false);
 
-  // Delete dialog
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-
-  // Check RBAC access (ADMIN only)
+  // Check authorization
   useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        const response = await fetch("/api/check-permission?page=users");
-        const data = await response.json();
-        if (!data.hasAccess) {
-          router.push("/");
-        } else {
-          setHasAccess(true);
-        }
-      } catch (error) {
-        console.error("Error checking access:", error);
-        router.push("/");
-      }
-    };
     checkAccess();
-  }, [router]);
+  }, []);
 
+  // Fetch users on mount
   useEffect(() => {
-    if (hasAccess === true) {
+    if (isAuthorized) {
       fetchUsers();
     }
-  }, [hasAccess]);
+  }, [isAuthorized]);
+
+  const checkAccess = async () => {
+    try {
+      const response = await fetch("/api/rbac/check-access");
+      
+      if (!response.ok) {
+        console.error("Failed to check permissions");
+        router.push("/");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.permissions.canAccessUsers) {
+        console.warn("User does not have permission to access user management");
+        toast({
+          title: "ไม่มีสิทธิ์เข้าถึง",
+          description: "คุณไม่มีสิทธิ์เข้าถึงหน้านี้",
+          variant: "destructive",
+        });
+        router.push("/");
+        return;
+      }
+
+      setIsAuthorized(true);
+    } catch (error) {
+      console.error("RBAC check failed:", error);
+      router.push("/");
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      setError(null);
-
-      const res = await fetch("/api/users");
-
-      if (res.status === 401) {
-        setError("กรุณาเข้าสู่ระบบใหม่");
-        toast({
-          title: "Session หมดอายุ",
-          description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
-          variant: "destructive",
-        });
-        setTimeout(() => router.push("/sign-in"), 2000);
-        return;
-      }
-
-      if (res.status === 403) {
-        setError("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-        setUsers([]);
-        return;
-      }
-
-      if (!res.ok) {
+      const response = await fetch("/api/users");
+      
+      if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
 
-      const data: User[] = await res.json();
-      setUsers(data);
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
-      setError("ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
+      const data = await response.json();
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
       toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลผู้ใช้ได้",
+        title: "ผิดพลาด",
+        description: "ไม่สามารถโหลดข้อมูลผู้ใช้งานได้",
         variant: "destructive",
       });
     } finally {
@@ -175,361 +129,348 @@ export default function UsersPage() {
     }
   };
 
-  const handleRoleChange = async () => {
-    if (!selectedUser || !newRole) return;
-
-    try {
-      const res = await fetch("/api/users", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedUser.id, role: newRole }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update role");
-
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, role: newRole } : u
-        )
-      );
-
-      toast({
-        title: "อัปเดตสำเร็จ",
-        description: `เปลี่ยนบทบาทของ ${selectedUser.email} เป็น ${
-          roleLabels[newRole]
-        } แล้ว`,
-      });
-
-      setShowRoleDialog(false);
-      setSelectedUser(null);
-      setNewRole("");
-    } catch (err) {
-      console.error("Failed to update role:", err);
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถเปลี่ยนบทบาทได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!userToDelete) return;
-
-    try {
-      const res = await fetch(`/api/users?id=${userToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Failed to delete user");
-
-      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
-
-      toast({
-        title: "ลบสำเร็จ",
-        description: `ลบผู้ใช้ ${userToDelete.email} แล้ว`,
-      });
-
-      setShowDeleteDialog(false);
-      setUserToDelete(null);
-    } catch (err) {
-      console.error("Failed to delete user:", err);
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบผู้ใช้ได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openRoleDialog = (user: User) => {
+  const handleOpenDialog = (user: User) => {
     setSelectedUser(user);
     setNewRole(user.role);
-    setShowRoleDialog(true);
+    setIsDialogOpen(true);
   };
 
-  const openDeleteDialog = (user: User) => {
-    setUserToDelete(user);
-    setShowDeleteDialog(true);
+  const handleUpdateRole = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setUpdating(true);
+      
+      const response = await fetch("/api/users/role", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          newRole,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update role");
+      }
+
+      toast({
+        title: "✅ อัปเดตสำเร็จ",
+        description: `เปลี่ยนสิทธิ์เป็น ${getRoleLabel(newRole)} แล้ว`,
+      });
+
+      setIsDialogOpen(false);
+      fetchUsers(); // Refresh list
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "ไม่สามารถอัปเดตสิทธิ์ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
-  // filters
-  const filteredUsers = users.filter((user) => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      user.email.toLowerCase().includes(q) ||
-      (user.name?.toLowerCase() || "").includes(q);
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return <Crown className="w-4 h-4" />;
+      case "STOCK":
+        return <Package className="w-4 h-4" />;
+      case "EMPLOYEE":
+        return <Briefcase className="w-4 h-4" />;
+      default:
+        return <Users className="w-4 h-4" />;
+    }
+  };
 
-    const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "ผู้ดูแลระบบ";
+      case "STOCK":
+        return "พนักงานสต๊อก";
+      case "EMPLOYEE":
+        return "พนักงาน";
+      default:
+        return "ไม่ระบุ";
+    }
+  };
 
-    return matchesSearch && matchesRole;
-  });
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "bg-gradient-to-r from-yellow-500 to-orange-500";
+      case "STOCK":
+        return "bg-gradient-to-r from-blue-500 to-cyan-500";
+      case "EMPLOYEE":
+        return "bg-gradient-to-r from-gray-500 to-gray-600";
+      default:
+        return "bg-gray-500";
+    }
+  };
 
-  // stats
-  const totalUsers = users.length;
-  const adminCount = users.filter((u) => u.role === "ADMIN").length;
-  const stockCount = users.filter((u) => u.role === "STOCK").length;
-  const employeeCount = users.filter((u) => u.role === "EMPLOYEE").length;
-
-  // Show loading state while checking permissions
-  if (hasAccess === null) {
+  // Loading state
+  if (isAuthorized === null) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-lg text-muted-foreground">กำลังตรวจสอบสิทธิ์...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
       </div>
     );
   }
 
+  // Not authorized
+  if (!isAuthorized) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">จัดการผู้ใช้</h1>
-          <p className="text-muted-foreground">สำหรับผู้ดูแลระบบเท่านั้น</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
+            <Users className="w-8 h-8" />
+            User Management
+          </h1>
+          <p className="text-gray-600 mt-1">
+            จัดการผู้ใช้งานและสิทธิ์การเข้าถึงระบบ
+          </p>
         </div>
-        <Badge variant="destructive" className="flex items-center gap-1">
-          <Shield className="h-3 w-3" /> Admin Only
-        </Badge>
+        <Button onClick={fetchUsers} variant="outline" size="sm">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              ผู้ใช้ทั้งหมด
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-red-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Admin</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {adminCount}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-yellow-700 font-medium">Admins</p>
+                <p className="text-2xl font-bold text-yellow-800">
+                  {users.filter((u) => u.role === "ADMIN").length}
+                </p>
+              </div>
+              <Crown className="w-8 h-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              พนักงานสต็อก
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {stockCount}
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-700 font-medium">Stock Staff</p>
+                <p className="text-2xl font-bold text-blue-800">
+                  {users.filter((u) => u.role === "STOCK").length}
+                </p>
+              </div>
+              <Package className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">ผู้ใช้ทั่วไป</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-600">
-              {employeeCount}
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-700 font-medium">Employees</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {users.filter((u) => u.role === "EMPLOYEE").length}
+                </p>
+              </div>
+              <Briefcase className="w-8 h-8 text-gray-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search + filter */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="ค้นหาชื่อหรืออีเมล..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select
-              value={roleFilter}
-              onValueChange={(value) =>
-                setRoleFilter(value as UserRole | "ALL")
-              }
-            >
-              <SelectTrigger className="w-[200px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="กรองตามบทบาท" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">ทั้งหมด</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="STOCK">พนักงานสต็อก</SelectItem>
-                <SelectItem value="EMPLOYEE">พนักงาน</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Users table */}
-      <Card>
+      {/* Users Table */}
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            รายชื่อผู้ใช้ ({filteredUsers.length})
-          </CardTitle>
+          <CardTitle className="text-xl text-gray-800">All Users</CardTitle>
+          <CardDescription className="text-gray-600">
+            จำนวนผู้ใช้งานทั้งหมด: {users.length} คน
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <TableSkeleton />
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <ShieldAlert className="h-16 w-16 text-red-500" />
-              <p className="text-lg font-semibold text-slate-200">
-                {error}
-              </p>
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
             </div>
-          ) : filteredUsers.length === 0 ? (
-            <EmptyUsers />
+          ) : users.length === 0 ? (
+            <div className="text-center py-8 text-gray-600">
+              <Users className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+              <p>ไม่พบข้อมูลผู้ใช้งาน</p>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ชื่อ</TableHead>
-                  <TableHead>อีเมล</TableHead>
-                  <TableHead>บทบาท</TableHead>
-                  <TableHead>เข้าสู่ระบบล่าสุด</TableHead>
-                  <TableHead>วันที่สร้าง</TableHead>
-                  <TableHead className="text-right">จัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      {user.name || "ไม่ระบุชื่อ"}
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge className={roleColors[user.role]}>
-                        {roleLabels[user.role]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {user.lastLogin
-                        ? new Date(
-                            user.lastLogin
-                          ).toLocaleString("th-TH")
-                        : "ยังไม่เคยเข้าสู่ระบบ"}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(
-                        user.createdAt
-                      ).toLocaleDateString("th-TH")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {user.role !== "ADMIN" && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openRoleDialog(user)}
-                            >
-                              <UserCog className="h-4 w-4 mr-2" />
-                              เปลี่ยนบทบาท
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openDeleteDialog(user)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              ลบผู้ใช้
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                      Email
+                    </th>
+                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                      Name
+                    </th>
+                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                      Role
+                    </th>
+                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                      Created
+                    </th>
+                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user, index) => (
+                    <motion.tr
+                      key={user.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="p-4 text-gray-800 font-medium">
+                        {user.email}
+                      </td>
+                      <td className="p-4 text-gray-700">
+                        {user.name || "-"}
+                      </td>
+                      <td className="p-4">
+                        <Badge
+                          className={`${getRoleBadgeColor(user.role)} text-white flex items-center gap-1 w-fit`}
+                        >
+                          {getRoleIcon(user.role)}
+                          {getRoleLabel(user.role)}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {new Date(user.createdAt).toLocaleDateString("th-TH")}
+                      </td>
+                      <td className="p-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenDialog(user)}
+                          className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                        >
+                          <Shield className="w-4 h-4 mr-2" />
+                          Change Role
+                        </Button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Role dialog */}
-      <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
-        <DialogContent>
+      {/* Change Role Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="bg-white border-2 border-gray-300">
           <DialogHeader>
-            <DialogTitle>เปลี่ยนบทบาทผู้ใช้</DialogTitle>
+            <DialogTitle className="text-gray-800">Change User Role</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              เปลี่ยนสิทธิ์การเข้าถึงระบบของผู้ใช้งาน
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>ผู้ใช้</Label>
-              <Input value={selectedUser?.email || ""} disabled />
+
+          {selectedUser && (
+            <div className="space-y-4 py-4">
+              <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-semibold text-gray-800">
+                  {selectedUser.email}
+                </p>
+                {selectedUser.name && (
+                  <>
+                    <p className="text-sm text-gray-600 mt-2">Name</p>
+                    <p className="font-semibold text-gray-800">
+                      {selectedUser.name}
+                    </p>
+                  </>
+                )}
+                <p className="text-sm text-gray-600 mt-2">Current Role</p>
+                <Badge
+                  className={`${getRoleBadgeColor(selectedUser.role)} text-white mt-1`}
+                >
+                  {getRoleLabel(selectedUser.role)}
+                </Badge>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  New Role
+                </label>
+                <Select value={newRole} onValueChange={(value: any) => setNewRole(value)}>
+                  <SelectTrigger className="bg-gray-50 border-2 border-gray-300 text-gray-800">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem value="ADMIN" className="font-semibold text-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-yellow-600" />
+                        ผู้ดูแลระบบ (ADMIN)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="STOCK" className="font-semibold text-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-blue-600" />
+                        พนักงานสต๊อก (STOCK)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="EMPLOYEE" className="font-semibold text-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-gray-600" />
+                        พนักงาน (EMPLOYEE)
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>หมายเหตุ:</strong> การเปลี่ยนสิทธิ์จะมีผลทันที
+                  ผู้ใช้งานอาจต้อง refresh หน้าเว็บ
+                </p>
+              </div>
             </div>
-            <div>
-              <Label>บทบาทใหม่</Label>
-              <Select
-                value={newRole}
-                onValueChange={(value) => setNewRole(value as UserRole)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกบทบาท" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EMPLOYEE">พนักงาน</SelectItem>
-                  <SelectItem value="STOCK">พนักงานสต็อก</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowRoleDialog(false)}
-              >
-                ยกเลิก
-              </Button>
-              <Button onClick={handleRoleChange}>บันทึก</Button>
-            </div>
-          </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={updating}
+              className="border-2 border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateRole}
+              disabled={updating || newRole === selectedUser?.role}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+            >
+              {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Update Role
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบผู้ใช้</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการลบผู้ใช้ {userToDelete?.email} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              ลบ
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
