@@ -1,131 +1,58 @@
+// src/app/api/users/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { currentUser } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+import { getUserRole } from "@/lib/rbac";
 
+/**
+ * GET /api/users
+ * Fetch all users (ADMIN only)
+ */
 export async function GET() {
-  // Only ADMIN can view all users
   try {
-    await requireRole(["ADMIN"]);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Unauthorized" },
-      { status: error.status || 401 }
-    );
-  }
-  try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        lastLogin: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return NextResponse.json(users);
-  } catch (error) {
-    console.error("Failed to fetch users:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch users" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const body = await request.json();
-    const { id, role } = body;
-
-    if (!id || !role) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
       return NextResponse.json(
-        { error: "ID and role are required" },
-        { status: 400 }
+        { error: "Unauthorized - No user found" },
+        { status: 401 }
       );
     }
 
-    // Only ADMIN can update user roles
-    try {
-      await requireRole(["ADMIN"]);
-    } catch (error: any) {
+    // Check if current user is admin
+    const currentRole = await getUserRole();
+    if (currentRole !== "ADMIN") {
       return NextResponse.json(
-        { error: error.message || "Unauthorized" },
-        { status: error.status || 401 }
-      );
-    }
-
-    // Validate role
-    if (!["EMPLOYEE", "STOCK", "ADMIN"].includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-
-    const user = await prisma.user.update({
-      where: { id },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        lastLogin: true,
-      },
-    });
-
-    return NextResponse.json(user);
-  } catch (error) {
-    console.error("Failed to update user role:", error);
-    return NextResponse.json(
-      { error: "Failed to update user role" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: Request) {
-  // Only ADMIN can delete users
-  try {
-    await requireRole(["ADMIN"]);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Unauthorized" },
-      { status: error.status || 401 }
-    );
-  }
-
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json({ error: "ID required" }, { status: 400 });
-    }
-
-    // Check if user exists and is not an admin
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.role === "ADMIN") {
-      return NextResponse.json(
-        { error: "Cannot delete admin users" },
+        { error: "Forbidden - Only admins can view users" },
         { status: 403 }
       );
     }
 
-    await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    // Fetch all users
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [
+        { role: "asc" }, // ADMIN first, then STOCK, then EMPLOYEE
+        { createdAt: "desc" }, // Newest first within each role
+      ],
+    });
+
+    return NextResponse.json({
+      success: true,
+      users,
+      count: users.length,
+    });
   } catch (error) {
-    console.error("Failed to delete user:", error);
+    console.error("Error fetching users:", error);
     return NextResponse.json(
-      { error: "Failed to delete user" },
+      { error: "Failed to fetch users" },
       { status: 500 }
     );
   }
