@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,6 +149,9 @@ interface MetricsPlan {
 }
 
 export default function MetricsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [plans, setPlans] = useState<MetricsPlan[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [period, setPeriod] = useState<string>("monthly");
@@ -155,7 +159,23 @@ export default function MetricsPage() {
   const [actual, setActual] = useState<Record<string, number>>({});
   const [editingPlan, setEditingPlan] = useState<MetricsPlan | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const { toast } = useToast();
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=metrics");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
 
   useEffect(() => {
     fetchPlans();
@@ -293,6 +313,10 @@ export default function MetricsPage() {
     if (progress >= 40) return "text-yellow-500";
     return "text-red-500";
   };
+
+  if (hasAccess === null) {
+    return <div className="p-6">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   const currentTemplate = metricsTemplates.find((t) => t.id === selectedTemplate);
 

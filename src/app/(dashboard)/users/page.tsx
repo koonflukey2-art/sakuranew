@@ -88,6 +88,9 @@ export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // RBAC: Check access permission (ADMIN only)
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,9 +107,30 @@ export default function UsersPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  // Check RBAC access (ADMIN only)
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=users");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        console.error("Error checking access:", error);
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
+
+  useEffect(() => {
+    if (hasAccess === true) {
+      fetchUsers();
+    }
+  }, [hasAccess]);
 
   const fetchUsers = async () => {
     try {
@@ -246,6 +270,18 @@ export default function UsersPage() {
   const adminCount = users.filter((u) => u.role === "ADMIN").length;
   const stockCount = users.filter((u) => u.role === "STOCK").length;
   const employeeCount = users.filter((u) => u.role === "EMPLOYEE").length;
+
+  // Show loading state while checking permissions
+  if (hasAccess === null) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-lg text-muted-foreground">กำลังตรวจสอบสิทธิ์...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

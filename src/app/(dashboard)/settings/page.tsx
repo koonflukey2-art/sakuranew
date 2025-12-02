@@ -41,6 +41,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface AIProvider {
   id: string;
@@ -54,6 +55,38 @@ interface AIProvider {
 }
 
 export default function SettingsPage() {
+  // RBAC: Only ADMIN can access settings
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/rbac/check-access");
+
+        if (!response.ok) {
+          console.error("Failed to check permissions");
+          router.push("/");
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!data.permissions.canAccessSettings) {
+          console.warn("User does not have permission to access settings");
+          router.push("/"); // Redirect to dashboard if no access
+          return;
+        }
+
+        setIsAuthorized(true);
+      } catch (error) {
+        console.error("RBAC check failed:", error);
+        router.push("/");
+      }
+    };
+
+    checkAccess();
+  }, [router]);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string>("GEMINI");
@@ -335,139 +368,18 @@ export default function SettingsPage() {
     }
   };
 
-  // Ad Accounts functions
-  const fetchAdAccounts = async () => {
-    try {
-      setLoadingAdAccounts(true);
-      const response = await fetch("/api/ad-accounts");
-      if (response.ok) {
-        const data = await response.json();
-        setAdAccounts(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch ad accounts:", error);
-    } finally {
-      setLoadingAdAccounts(false);
-    }
-  };
+  // Don't render until authorization check is complete
+  if (isAuthorized === null) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-  const handleAddAdAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const response = await fetch("/api/ad-accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(adAccountForm),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to add account");
-      }
-
-      toast({
-        title: "สำเร็จ!",
-        description: "เพิ่ม Ad Account เรียบร้อยแล้ว",
-      });
-
-      setIsAdAccountDialogOpen(false);
-      setAdAccountForm({
-        platform: "FACEBOOK",
-        accountName: "",
-        accountId: "",
-        apiKey: "",
-        apiSecret: "",
-        accessToken: "",
-        refreshToken: "",
-      });
-
-      fetchAdAccounts();
-    } catch (error: any) {
-      toast({
-        title: "ผิดพลาด",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTestAdAccount = async (id: string) => {
-    try {
-      setTestingAdAccount(id);
-      const response = await fetch("/api/ad-accounts/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-
-      const result = await response.json();
-
-      toast({
-        title: result.success ? "✅ เชื่อมต่อสำเร็จ!" : "❌ เชื่อมต่อไม่สำเร็จ",
-        description: result.message,
-        variant: result.success ? "default" : "destructive",
-      });
-
-      fetchAdAccounts();
-    } catch (error) {
-      toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
-        variant: "destructive",
-      });
-    } finally {
-      setTestingAdAccount(null);
-    }
-  };
-
-  const handleSetDefaultAdAccount = async (id: string, platform: string) => {
-    try {
-      const response = await fetch("/api/ad-accounts/set-default", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, platform }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "สำเร็จ!",
-          description: "ตั้งเป็น Default Account แล้ว",
-        });
-        fetchAdAccounts();
-      }
-    } catch (error) {
-      toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถตั้งค่าได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteAdAccount = async (id: string) => {
-    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบ Ad Account นี้?")) return;
-
-    try {
-      const response = await fetch(`/api/ad-accounts?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast({
-          title: "สำเร็จ!",
-          description: "ลบ Ad Account แล้ว",
-        });
-        fetchAdAccounts();
-      }
-    } catch (error) {
-      toast({
-        title: "ผิดพลาด",
-        description: "ไม่สามารถลบได้",
-        variant: "destructive",
-      });
-    }
-  };
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">

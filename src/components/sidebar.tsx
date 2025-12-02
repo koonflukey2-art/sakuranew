@@ -32,24 +32,29 @@ import {
 
 type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
 
+// Updated nav items based on RBAC requirements
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-cyan-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/stock", label: "จัดการสินค้า", icon: Package, color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/ads", label: "โฆษณา", icon: Megaphone, color: "text-pink-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/budget", label: "งบประมาณ", icon: Wallet, color: "text-amber-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/budget-requests", label: "Budget Requests", icon: FileText, color: "text-amber-500", roles: ["ADMIN", "STOCK"] },
-  { href: "/reports", label: "รายงาน", icon: FileBarChart, color: "text-blue-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+  { href: "/budget-requests", label: "Budget Requests", icon: FileText, color: "text-amber-500", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/analytics", label: "การวิเคราะห์", icon: BarChart3, badge: "New", color: "text-violet-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/profit", label: "คำนวณกำไร", icon: Calculator, color: "text-green-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New", color: "text-orange-400", roles: ["ADMIN", "EMPLOYEE"] },
-  { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New", color: "text-yellow-400", roles: ["ADMIN"] },
-  { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta", color: "text-indigo-400", roles: ["ADMIN"] },
   { href: "/ai-chat", label: "AI Chat", icon: Bot, badge: "New", color: "text-emerald-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/ai-assistant", label: "AI Assistant", icon: Bot, badge: "AI", color: "text-blue-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/ai-dashboard", label: "AI Dashboard", icon: Sparkles, badge: "New", color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/notifications", label: "การแจ้งเตือน", icon: Bell, color: "text-red-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+
+  // STOCK and ADMIN only pages
+  { href: "/ads", label: "โฆษณา", icon: Megaphone, color: "text-pink-400", roles: ["ADMIN", "STOCK"] },
+  { href: "/budget", label: "งบประมาณ", icon: Wallet, color: "text-amber-400", roles: ["ADMIN", "STOCK"] },
+  { href: "/reports", label: "รายงาน", icon: FileBarChart, color: "text-blue-400", roles: ["ADMIN", "STOCK"] },
+  { href: "/profit", label: "คำนวณกำไร", icon: Calculator, color: "text-green-400", roles: ["ADMIN", "STOCK"] },
+
+  // ADMIN only pages
+  { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New", color: "text-yellow-400", roles: ["ADMIN"] },
+  { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta", color: "text-indigo-400", roles: ["ADMIN"] },
+  { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New", color: "text-orange-400", roles: ["ADMIN"] },
   { href: "/users", label: "ผู้ใช้งาน", icon: Users, color: "text-teal-400", roles: ["ADMIN"] },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-muted-foreground", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+  { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-muted-foreground", roles: ["ADMIN"] },
 ];
 
 export function Sidebar() {

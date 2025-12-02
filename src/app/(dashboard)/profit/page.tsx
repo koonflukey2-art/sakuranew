@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +45,28 @@ interface FormData {
 
 export default function ProfitCalculatorPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await fetch("/api/check-permission?page=profit");
+        const data = await response.json();
+        if (!data.hasAccess) {
+          router.push("/");
+        } else {
+          setHasAccess(true);
+        }
+      } catch (error) {
+        router.push("/");
+      }
+    };
+    checkAccess();
+  }, [router]);
 
   const [formData, setFormData] = useState<FormData>({
     useExistingProduct: false,
@@ -179,6 +199,10 @@ export default function ProfitCalculatorPage() {
   };
 
   const progress = (currentStep / 3) * 100;
+
+  if (hasAccess === null) {
+    return <div className="p-6">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">

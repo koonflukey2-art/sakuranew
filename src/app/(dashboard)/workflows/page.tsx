@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getRolePermissions } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -112,11 +114,67 @@ const workflowTemplates = {
 };
 
 export default function WorkflowsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof workflowTemplates>("profit-pilot");
   const [webhookDomain, setWebhookDomain] = useState("https://app.n8n.cloud");
   const [copiedURL, setCopiedURL] = useState(false);
-  const [copiedJSON, setCopiedJSON] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check RBAC permissions on mount
+  useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/me");
+
+        if (!response.ok) {
+          // User not authenticated
+          router.push("/");
+          return;
+        }
+
+        const user = await response.json();
+        const permissions = getRolePermissions(user.role);
+
+        if (!permissions.canAccessWorkflows) {
+          setIsAuthorized(false);
+          router.push("/");
+          return;
+        }
+
+        setIsAuthorized(true);
+      } catch (error) {
+        console.error("Error checking permissions:", error);
+        // On error, redirect to home as a safety measure
+        router.push("/");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkPermissions();
+  }, [router]);
+
+  // Show loading state while checking permissions
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block">
+            <div className="h-12 w-12 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-600 mt-4 font-medium">กำลังตรวจสอบสิทธิ์...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Return null if not authorized (redirect will happen in useEffect)
+  if (!isAuthorized) {
+    return null;
+  }
 
   const currentTemplate = workflowTemplates[selectedTemplate];
   const webhookURL = `${webhookDomain}/webhook/${selectedTemplate}`;
