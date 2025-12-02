@@ -87,6 +87,7 @@ export default function SettingsPage() {
 
     checkAccess();
   }, [router]);
+
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string>("GEMINI");
@@ -126,10 +127,12 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    fetchProviders();
-    fetchPlatformCreds();
-    fetchAdAccounts();
-  }, []);
+    if (isAuthorized) {
+      fetchProviders();
+      fetchPlatformCreds();
+      fetchAdAccounts();
+    }
+  }, [isAuthorized]);
 
   // AI Provider functions
   const fetchProviders = async () => {
@@ -368,6 +371,150 @@ export default function SettingsPage() {
     }
   };
 
+  // ✅ Ad Accounts Functions (ที่ขาดหายไป)
+  const fetchAdAccounts = async () => {
+    try {
+      setLoadingAdAccounts(true);
+      const res = await fetch("/api/ad-accounts");
+      if (res.ok) {
+        const data = await res.json();
+        setAdAccounts(data.accounts || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch ad accounts:", error);
+    } finally {
+      setLoadingAdAccounts(false);
+    }
+  };
+
+  const handleAddAdAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const res = await fetch("/api/ad-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adAccountForm),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to add ad account");
+      }
+
+      toast({
+        title: "✅ เพิ่มสำเร็จ",
+        description: "เพิ่ม Ad Account เรียบร้อยแล้ว",
+      });
+
+      setIsAdAccountDialogOpen(false);
+      setAdAccountForm({
+        platform: "FACEBOOK",
+        accountName: "",
+        accountId: "",
+        apiKey: "",
+        apiSecret: "",
+        accessToken: "",
+        refreshToken: "",
+      });
+
+      fetchAdAccounts();
+    } catch (error: any) {
+      toast({
+        title: "ผิดพลาด",
+        description: error.message || "ไม่สามารถเพิ่ม Ad Account ได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTestAdAccount = async (id: string) => {
+    try {
+      setTestingAdAccount(id);
+      const res = await fetch("/api/ad-accounts/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast({
+          title: "✅ ทดสอบสำเร็จ",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "❌ ทดสอบไม่สำเร็จ",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+
+      fetchAdAccounts();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingAdAccount(null);
+    }
+  };
+
+  const handleSetDefaultAdAccount = async (id: string, platform: string) => {
+    try {
+      const res = await fetch("/api/ad-accounts/set-default", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, platform }),
+      });
+
+      if (!res.ok) throw new Error("Failed to set default");
+
+      toast({
+        title: "✅ ตั้งเป็น Default แล้ว",
+        description: "Ad Account นี้ถูกตั้งเป็นค่าเริ่มต้นแล้ว",
+      });
+
+      fetchAdAccounts();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถตั้งค่าได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAdAccount = async (id: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบ Ad Account นี้?")) return;
+
+    try {
+      const res = await fetch(`/api/ad-accounts?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete ad account");
+
+      toast({
+        title: "✅ ลบสำเร็จ",
+        description: "ลบ Ad Account เรียบร้อยแล้ว",
+      });
+
+      fetchAdAccounts();
+    } catch (error) {
+      toast({
+        title: "ผิดพลาด",
+        description: "ไม่สามารถลบได้",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Don't render until authorization check is complete
   if (isAuthorized === null) {
     return (
@@ -382,44 +529,62 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white">AI Provider Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          AI Provider Settings
+        </h1>
+        <p className="text-gray-600 mt-1">
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
 
       {/* Add New Provider */}
-      <Card className="bg-card border-border">
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl text-white">เพิ่ม AI Provider</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-lg md:text-xl text-gray-800">
+            เพิ่ม AI Provider
+          </CardTitle>
+          <CardDescription className="text-gray-600">
             เลือก Provider และใส่ API Key
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
-              <Label className="text-white">AI Provider</Label>
-              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                <SelectTrigger className="bg-muted border-border text-white">
+              <Label className="text-gray-700 font-semibold">
+                AI Provider
+              </Label>
+              <Select
+                value={selectedProvider}
+                onValueChange={setSelectedProvider}
+              >
+                <SelectTrigger className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="GEMINI">
+                <SelectContent className="bg-white border-2 border-gray-300">
+                  <SelectItem
+                    value="GEMINI"
+                    className="font-semibold text-gray-800"
+                  >
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
                       Google Gemini
                     </div>
                   </SelectItem>
-                  <SelectItem value="OPENAI">
+                  <SelectItem
+                    value="OPENAI"
+                    className="font-semibold text-gray-800"
+                  >
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
                       OpenAI GPT
                     </div>
                   </SelectItem>
-                  <SelectItem value="N8N">
+                  <SelectItem
+                    value="N8N"
+                    className="font-semibold text-gray-800"
+                  >
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
                       n8n Workflow
@@ -430,18 +595,20 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label className="text-white">Model Name (Optional)</Label>
+              <Label className="text-gray-700 font-semibold">
+                Model Name (Optional)
+              </Label>
               <Input
                 placeholder="เช่น gemini-pro, gpt-4"
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
-                className="bg-muted border-border text-white"
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
               />
             </div>
           </div>
 
           <div>
-            <Label className="text-white">
+            <Label className="text-gray-700 font-semibold">
               {selectedProvider === "N8N" ? "Webhook URL" : "API Key"}
             </Label>
             <Input
@@ -453,9 +620,9 @@ export default function SettingsPage() {
               }
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="bg-muted border-border text-white"
+              className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
             />
-            <p className="text-xs text-slate-200 mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               {selectedProvider === "GEMINI" && (
                 <>
                   Get API key from{" "}
@@ -463,7 +630,7 @@ export default function SettingsPage() {
                     href="https://makersuite.google.com/app/apikey"
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-blue-600 hover:underline"
                   >
                     Google AI Studio
                   </a>
@@ -476,7 +643,7 @@ export default function SettingsPage() {
                     href="https://platform.openai.com/api-keys"
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-blue-600 hover:underline"
                   >
                     OpenAI Platform
                   </a>
@@ -487,7 +654,11 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+          >
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             บันทึก API Key
           </Button>
@@ -495,33 +666,37 @@ export default function SettingsPage() {
       </Card>
 
       {/* Existing Providers */}
-      <Card className="bg-card border-border">
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl text-white">AI Providers ที่บันทึกไว้</CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardTitle className="text-lg md:text-xl text-gray-800">
+            AI Providers ที่บันทึกไว้
+          </CardTitle>
+          <CardDescription className="text-gray-600">
             จัดการและทดสอบ API Keys
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-200" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500" />
             </div>
           ) : providers.length === 0 ? (
-            <div className="text-center py-8 text-slate-200">
+            <div className="text-center py-8 text-gray-600">
               <p>ยังไม่มี AI Provider</p>
-              <p className="text-sm mt-2">เพิ่ม Provider ด้านบนเพื่อเริ่มใช้งาน</p>
+              <p className="text-sm mt-2">
+                เพิ่ม Provider ด้านบนเพื่อเริ่มใช้งาน
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-slate-50">
+                      <h3 className="font-semibold text-gray-800">
                         {provider.provider === "GEMINI" && "Google Gemini"}
                         {provider.provider === "OPENAI" && "OpenAI GPT"}
                         {provider.provider === "N8N" && "n8n Workflow"}
@@ -542,12 +717,12 @@ export default function SettingsPage() {
                       )}
                     </div>
                     {provider.modelName && (
-                      <p className="text-sm text-slate-200 mt-1">
+                      <p className="text-sm text-gray-600 mt-1">
                         Model: {provider.modelName}
                       </p>
                     )}
                     {provider.lastTested && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         ทดสอบล่าสุด:{" "}
                         {new Date(provider.lastTested).toLocaleString("th-TH")}
                       </p>
@@ -560,7 +735,7 @@ export default function SettingsPage() {
                       variant="outline"
                       onClick={() => handleTest(provider.id)}
                       disabled={testingId === provider.id}
-                      className="flex-1 sm:flex-none"
+                      className="flex-1 sm:flex-none border-2 border-purple-300"
                     >
                       {testingId === provider.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -574,7 +749,7 @@ export default function SettingsPage() {
                       <Button
                         size="sm"
                         onClick={() => handleSetDefault(provider.id)}
-                        className="flex-1 sm:flex-none"
+                        className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-cyan-500"
                       >
                         ตั้งเป็นค่าเริ่มต้น
                       </Button>
@@ -596,19 +771,22 @@ export default function SettingsPage() {
       </Card>
 
       {/* Ad Accounts Section */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-gray-800 flex items-center gap-2">
                 <Facebook className="w-5 h-5" />
                 Ad Accounts
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-gray-600">
                 จัดการบัญชีโฆษณาทุกแพลตฟอร์ม
               </CardDescription>
             </div>
-            <Button onClick={() => setIsAdAccountDialogOpen(true)}>
+            <Button
+              onClick={() => setIsAdAccountDialogOpen(true)}
+              className="bg-gradient-to-r from-purple-500 to-pink-500"
+            >
               <Plus className="w-4 h-4 mr-2" />
               เพิ่ม Ad Account
             </Button>
@@ -617,10 +795,10 @@ export default function SettingsPage() {
         <CardContent>
           {loadingAdAccounts ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
             </div>
           ) : adAccounts.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
+            <div className="text-center py-8 text-gray-600">
               <p>ยังไม่มี Ad Account</p>
               <p className="text-sm mt-2">
                 เพิ่ม Ad Account เพื่อเริ่มใช้งานระบบโฆษณา
@@ -631,7 +809,7 @@ export default function SettingsPage() {
               {adAccounts.map((account: any) => (
                 <Card
                   key={account.id}
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-gray-50 border-2 border-gray-200"
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
@@ -663,14 +841,14 @@ export default function SettingsPage() {
                           )}
                         </div>
 
-                        <h4 className="text-white font-semibold">
+                        <h4 className="text-gray-800 font-semibold">
                           {account.accountName}
                         </h4>
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-gray-600">
                           Account ID: {account.accountId}
                         </p>
                         {account.lastTested && (
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1">
                             Last tested:{" "}
                             {new Date(account.lastTested).toLocaleString(
                               "th-TH"
@@ -678,7 +856,7 @@ export default function SettingsPage() {
                           </p>
                         )}
                         {account.testMessage && (
-                          <p className="text-xs text-slate-400 mt-1">
+                          <p className="text-xs text-gray-600 mt-1">
                             {account.testMessage}
                           </p>
                         )}
@@ -690,6 +868,7 @@ export default function SettingsPage() {
                           variant="outline"
                           onClick={() => handleTestAdAccount(account.id)}
                           disabled={testingAdAccount === account.id}
+                          className="border-2 border-purple-300"
                         >
                           {testingAdAccount === account.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -707,6 +886,7 @@ export default function SettingsPage() {
                                 account.platform
                               )
                             }
+                            className="bg-gradient-to-r from-blue-500 to-cyan-500"
                           >
                             Set Default
                           </Button>
@@ -734,33 +914,57 @@ export default function SettingsPage() {
         open={isAdAccountDialogOpen}
         onOpenChange={setIsAdAccountDialogOpen}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white border-2 border-gray-300">
           <DialogHeader>
-            <DialogTitle>เพิ่ม Ad Account</DialogTitle>
+            <DialogTitle className="text-gray-800">
+              เพิ่ม Ad Account
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddAdAccount} className="space-y-4">
             <div>
-              <Label>Platform</Label>
+              <Label className="text-gray-700 font-semibold">Platform</Label>
               <Select
                 value={adAccountForm.platform}
                 onValueChange={(value) =>
                   setAdAccountForm({ ...adAccountForm, platform: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-gray-50 border-2 border-gray-300 mt-1">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FACEBOOK">Facebook Ads</SelectItem>
-                  <SelectItem value="GOOGLE">Google Ads</SelectItem>
-                  <SelectItem value="TIKTOK">TikTok Ads</SelectItem>
-                  <SelectItem value="LINE">LINE Ads</SelectItem>
+                <SelectContent className="bg-white border-2 border-gray-300">
+                  <SelectItem
+                    value="FACEBOOK"
+                    className="font-semibold text-gray-800"
+                  >
+                    Facebook Ads
+                  </SelectItem>
+                  <SelectItem
+                    value="GOOGLE"
+                    className="font-semibold text-gray-800"
+                  >
+                    Google Ads
+                  </SelectItem>
+                  <SelectItem
+                    value="TIKTOK"
+                    className="font-semibold text-gray-800"
+                  >
+                    TikTok Ads
+                  </SelectItem>
+                  <SelectItem
+                    value="LINE"
+                    className="font-semibold text-gray-800"
+                  >
+                    LINE Ads
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Account Name</Label>
+              <Label className="text-gray-700 font-semibold">
+                Account Name
+              </Label>
               <Input
                 value={adAccountForm.accountName}
                 onChange={(e) =>
@@ -770,12 +974,15 @@ export default function SettingsPage() {
                   })
                 }
                 placeholder="My Business Account"
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                 required
               />
             </div>
 
             <div>
-              <Label>Account ID</Label>
+              <Label className="text-gray-700 font-semibold">
+                Account ID
+              </Label>
               <Input
                 value={adAccountForm.accountId}
                 onChange={(e) =>
@@ -785,13 +992,16 @@ export default function SettingsPage() {
                   })
                 }
                 placeholder="act_123456789"
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                 required
               />
             </div>
 
             {adAccountForm.platform === "FACEBOOK" && (
               <div>
-                <Label>Access Token</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Access Token
+                </Label>
                 <Input
                   type="password"
                   value={adAccountForm.accessToken}
@@ -802,15 +1012,16 @@ export default function SettingsPage() {
                     })
                   }
                   placeholder="EAAxxxx..."
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   required
                 />
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-600 mt-1">
                   Get from{" "}
                   <a
                     href="https://developers.facebook.com/tools/explorer/"
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-blue-600 hover:underline"
                   >
                     Facebook Graph API Explorer
                   </a>
@@ -821,7 +1032,9 @@ export default function SettingsPage() {
             {adAccountForm.platform === "GOOGLE" && (
               <>
                 <div>
-                  <Label>Access Token</Label>
+                  <Label className="text-gray-700 font-semibold">
+                    Access Token
+                  </Label>
                   <Input
                     type="password"
                     value={adAccountForm.accessToken}
@@ -832,11 +1045,14 @@ export default function SettingsPage() {
                       })
                     }
                     placeholder="Access Token"
+                    className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                     required
                   />
                 </div>
                 <div>
-                  <Label>Refresh Token (Optional)</Label>
+                  <Label className="text-gray-700 font-semibold">
+                    Refresh Token (Optional)
+                  </Label>
                   <Input
                     type="password"
                     value={adAccountForm.refreshToken}
@@ -847,6 +1063,7 @@ export default function SettingsPage() {
                       })
                     }
                     placeholder="Refresh Token"
+                    className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   />
                 </div>
               </>
@@ -854,7 +1071,9 @@ export default function SettingsPage() {
 
             {adAccountForm.platform === "TIKTOK" && (
               <div>
-                <Label>Access Token</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Access Token
+                </Label>
                 <Input
                   type="password"
                   value={adAccountForm.apiKey}
@@ -865,6 +1084,7 @@ export default function SettingsPage() {
                     })
                   }
                   placeholder="Access Token"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   required
                 />
               </div>
@@ -872,7 +1092,9 @@ export default function SettingsPage() {
 
             {adAccountForm.platform === "LINE" && (
               <div>
-                <Label>Channel Access Token</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Channel Access Token
+                </Label>
                 <Input
                   type="password"
                   value={adAccountForm.apiKey}
@@ -883,6 +1105,7 @@ export default function SettingsPage() {
                     })
                   }
                   placeholder="Channel Access Token"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   required
                 />
               </div>
@@ -893,25 +1116,31 @@ export default function SettingsPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsAdAccountDialogOpen(false)}
+                className="border-2 border-gray-300"
               >
                 ยกเลิก
               </Button>
-              <Button type="submit">เพิ่ม Ad Account</Button>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+              >
+                เพิ่ม Ad Account
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
       {/* Platform API Settings */}
-      <Card className="bg-card border-border">
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg md:text-xl text-white flex items-center gap-2">
+              <CardTitle className="text-lg md:text-xl text-gray-800 flex items-center gap-2">
                 <Globe2 className="w-5 h-5" />
                 Platform API Settings
               </CardTitle>
-              <CardDescription className="text-slate-200">
+              <CardDescription className="text-gray-600">
                 ตั้งค่า API Key / Access Token สำหรับแพลตฟอร์มหลัก (Facebook,
                 TikTok, Lazada ฯลฯ)
               </CardDescription>
@@ -923,30 +1152,54 @@ export default function SettingsPage() {
           <form onSubmit={handleSavePlatformCred} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label className="text-white">Platform</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Platform
+                </Label>
                 <Select
                   value={platformForm.platform}
                   onValueChange={(value) =>
                     setPlatformForm((prev) => ({ ...prev, platform: value }))
                   }
                 >
-                  <SelectTrigger className="bg-muted border-border mt-1">
+                  <SelectTrigger className="bg-gray-50 border-2 border-gray-300 mt-1">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted border-border">
-                    <SelectItem value="FACEBOOK_ADS">Facebook Ads</SelectItem>
-                    <SelectItem value="TIKTOK_ADS">TikTok Ads</SelectItem>
-                    <SelectItem value="LAZADA">Lazada</SelectItem>
-                    <SelectItem value="SHOPEE">Shopee</SelectItem>
+                  <SelectContent className="bg-white border-2 border-gray-300">
+                    <SelectItem
+                      value="FACEBOOK_ADS"
+                      className="font-semibold text-gray-800"
+                    >
+                      Facebook Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="TIKTOK_ADS"
+                      className="font-semibold text-gray-800"
+                    >
+                      TikTok Ads
+                    </SelectItem>
+                    <SelectItem
+                      value="LAZADA"
+                      className="font-semibold text-gray-800"
+                    >
+                      Lazada
+                    </SelectItem>
+                    <SelectItem
+                      value="SHOPEE"
+                      className="font-semibold text-gray-800"
+                    >
+                      Shopee
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label className="text-white">API Key (ถ้ามี)</Label>
+                <Label className="text-gray-700 font-semibold">
+                  API Key (ถ้ามี)
+                </Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   value={platformForm.apiKey}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({
@@ -959,10 +1212,12 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">API Secret (ถ้ามี)</Label>
+                <Label className="text-gray-700 font-semibold">
+                  API Secret (ถ้ามี)
+                </Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   value={platformForm.apiSecret}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({
@@ -975,10 +1230,12 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">Access Token (ถ้ามี)</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Access Token (ถ้ามี)
+                </Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   value={platformForm.accessToken}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({
@@ -991,10 +1248,12 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label className="text-white">Refresh Token (ถ้ามี)</Label>
+                <Label className="text-gray-700 font-semibold">
+                  Refresh Token (ถ้ามี)
+                </Label>
                 <Input
                   type="password"
-                  className="bg-muted border-border text-white mt-1"
+                  className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
                   value={platformForm.refreshToken}
                   onChange={(e) =>
                     setPlatformForm((prev) => ({
@@ -1008,7 +1267,10 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button type="submit" className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2">
+              <Button
+                type="submit"
+                className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+              >
                 <KeyRound className="w-4 h-4" />
                 บันทึก API Settings
               </Button>
@@ -1016,13 +1278,13 @@ export default function SettingsPage() {
           </form>
 
           {/* List of Platforms */}
-          <div className="border-t border-border pt-4">
+          <div className="border-t-2 border-gray-200 pt-4">
             {loadingPlatformCreds ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-slate-200" />
+                <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
               </div>
             ) : platformCreds.length === 0 ? (
-              <p className="text-slate-200 text-sm">
+              <p className="text-gray-600 text-sm">
                 ยังไม่มีการตั้งค่า Platform ใด ๆ
               </p>
             ) : (
@@ -1034,7 +1296,7 @@ export default function SettingsPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Card className="bg-muted border-border">
+                    <Card className="bg-gray-50 border-2 border-gray-200">
                       <CardContent className="p-4 flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
@@ -1061,15 +1323,15 @@ export default function SettingsPage() {
                             )}
                           </div>
                           {cred.lastTested && (
-                            <p className="text-xs text-slate-300">
+                            <p className="text-xs text-gray-600">
                               Last tested:{" "}
-                              {new Date(
-                                cred.lastTested
-                              ).toLocaleString("th-TH")}
+                              {new Date(cred.lastTested).toLocaleString(
+                                "th-TH"
+                              )}
                             </p>
                           )}
                           {cred.testMessage && (
-                            <p className="text-xs text-slate-200 mt-1">
+                            <p className="text-xs text-gray-700 mt-1">
                               {cred.testMessage}
                             </p>
                           )}
@@ -1081,7 +1343,7 @@ export default function SettingsPage() {
                             variant="outline"
                             onClick={() => handleTestPlatformCred(cred.id)}
                             disabled={testingPlatformId === cred.id}
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 sm:flex-none border-2 border-purple-300"
                           >
                             {testingPlatformId === cred.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1109,11 +1371,13 @@ export default function SettingsPage() {
       </Card>
 
       {/* Instructions */}
-      <Card className="bg-card border-border">
+      <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl text-white">วิธีใช้งาน</CardTitle>
+          <CardTitle className="text-lg md:text-xl text-gray-800">
+            วิธีใช้งาน
+          </CardTitle>
         </CardHeader>
-        <CardContent className="text-slate-300 space-y-2 text-sm sm:text-base">
+        <CardContent className="text-gray-700 space-y-2 text-sm sm:text-base">
           <p>1. เลือก AI Provider ที่ต้องการ (Gemini, OpenAI, หรือ n8n)</p>
           <p>2. ใส่ API Key หรือ Webhook URL</p>
           <p>3. คลิก "บันทึก API Key"</p>
