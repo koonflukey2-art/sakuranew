@@ -470,12 +470,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-50">
-          AI Provider Settings
-        </h1>
-        <p className="text-slate-200 mt-1">
+        <h1 className="text-2xl md:text-3xl font-bold text-white">AI Provider Settings</h1>
+        <p className="text-muted-foreground mt-1">
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
@@ -483,13 +481,13 @@ export default function SettingsPage() {
       {/* Add New Provider */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-slate-50">เพิ่ม AI Provider</CardTitle>
-          <CardDescription className="text-slate-200">
+          <CardTitle className="text-lg md:text-xl text-white">เพิ่ม AI Provider</CardTitle>
+          <CardDescription className="text-muted-foreground">
             เลือก Provider และใส่ API Key
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
               <Label className="text-white">AI Provider</Label>
               <Select value={selectedProvider} onValueChange={setSelectedProvider}>
@@ -577,7 +575,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             บันทึก API Key
           </Button>
@@ -587,10 +585,8 @@ export default function SettingsPage() {
       {/* Existing Providers */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-slate-50">
-            AI Providers ที่บันทึกไว้
-          </CardTitle>
-          <CardDescription className="text-slate-200">
+          <CardTitle className="text-lg md:text-xl text-white">AI Providers ที่บันทึกไว้</CardTitle>
+          <CardDescription className="text-muted-foreground">
             จัดการและทดสอบ API Keys
           </CardDescription>
         </CardHeader>
@@ -609,7 +605,7 @@ export default function SettingsPage() {
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
@@ -646,12 +642,13 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleTest(provider.id)}
                       disabled={testingId === provider.id}
+                      className="flex-1 sm:flex-none"
                     >
                       {testingId === provider.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -665,6 +662,7 @@ export default function SettingsPage() {
                       <Button
                         size="sm"
                         onClick={() => handleSetDefault(provider.id)}
+                        className="flex-1 sm:flex-none"
                       >
                         ตั้งเป็นค่าเริ่มต้น
                       </Button>
@@ -995,9 +993,9 @@ export default function SettingsPage() {
       {/* Platform API Settings */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-slate-50 flex items-center gap-2">
+              <CardTitle className="text-lg md:text-xl text-white flex items-center gap-2">
                 <Globe2 className="w-5 h-5" />
                 Platform API Settings
               </CardTitle>
@@ -1011,7 +1009,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           {/* Form */}
           <form onSubmit={handleSavePlatformCred} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-white">Platform</Label>
                 <Select
@@ -1098,7 +1096,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button type="submit" className="flex items-center gap-2">
+              <Button type="submit" className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2">
                 <KeyRound className="w-4 h-4" />
                 บันทึก API Settings
               </Button>
@@ -1125,7 +1123,7 @@ export default function SettingsPage() {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Card className="bg-muted border-border">
-                      <CardContent className="p-4 flex items-start justify-between gap-4">
+                      <CardContent className="p-4 flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <Badge className="bg-blue-600">
@@ -1165,12 +1163,13 @@ export default function SettingsPage() {
                           )}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleTestPlatformCred(cred.id)}
                             disabled={testingPlatformId === cred.id}
+                            className="flex-1 sm:flex-none"
                           >
                             {testingPlatformId === cred.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1182,6 +1181,7 @@ export default function SettingsPage() {
                             size="sm"
                             variant="destructive"
                             onClick={() => handleDeletePlatformCred(cred.id)}
+                            className="flex-1 sm:flex-none"
                           >
                             ลบ
                           </Button>
@@ -1199,9 +1199,9 @@ export default function SettingsPage() {
       {/* Instructions */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-slate-50">วิธีใช้งาน</CardTitle>
+          <CardTitle className="text-lg md:text-xl text-white">วิธีใช้งาน</CardTitle>
         </CardHeader>
-        <CardContent className="text-slate-200 space-y-2">
+        <CardContent className="text-slate-300 space-y-2 text-sm sm:text-base">
           <p>1. เลือก AI Provider ที่ต้องการ (Gemini, OpenAI, หรือ n8n)</p>
           <p>2. ใส่ API Key หรือ Webhook URL</p>
           <p>3. คลิก "บันทึก API Key"</p>

@@ -376,23 +376,24 @@ export default function StockPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header + Bulk actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">Stock Management</h1>
-          <p className="text-slate-400 mt-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Stock Management</h1>
+          <p className="text-slate-400 mt-1 text-sm md:text-base">
             จัดการสินค้าและสต็อก
             {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           {selectedIds.length > 0 && (
             <>
               <Button
                 variant="outline"
                 onClick={handleBulkExport}
                 disabled={bulkDeleting}
+                className="w-full sm:w-auto"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export ({selectedIds.length})
@@ -401,6 +402,7 @@ export default function StockPage() {
                 variant="destructive"
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
+                className="w-full sm:w-auto"
               >
                 {bulkDeleting ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -432,12 +434,13 @@ export default function StockPage() {
                 { header: "ราคาขาย", dataKey: "ราคาขาย" },
               ]}
               pdfTitle="รายงานสต็อกสินค้า"
+              className="w-full sm:w-auto"
             />
           )}
 
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
-              <Button onClick={() => addForm.reset()}>
+              <Button onClick={() => addForm.reset()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 เพิ่มสินค้า
               </Button>
@@ -570,7 +573,7 @@ export default function StockPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">สินค้าทั้งหมด</CardTitle>
@@ -610,7 +613,7 @@ export default function StockPage() {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>สต็อกตามหมวดหมู่</CardTitle>
+            <CardTitle className="text-lg md:text-xl">สต็อกตามหมวดหมู่</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -644,119 +647,121 @@ export default function StockPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={
-                        filteredProducts.length > 0 &&
-                        selectedIds.length === filteredProducts.length
-                      }
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead className="text-slate-300">ชื่อสินค้า</TableHead>
-                  <TableHead className="text-slate-300">หมวดหมู่</TableHead>
-                  <TableHead className="text-right text-slate-300">
-                    จำนวน
-                  </TableHead>
-                  <TableHead className="text-right text-slate-300">
-                    ราคาทุน
-                  </TableHead>
-                  <TableHead className="text-right text-slate-300">
-                    ราคาขาย
-                  </TableHead>
-                  <TableHead className="text-slate-300">สถานะ</TableHead>
-                  <TableHead className="text-right text-slate-300">
-                    จัดการ
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.length === 0 ? (
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <Table className="min-w-full">
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      className="text-center text-muted-foreground"
-                    >
-                      ไม่พบสินค้า
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredProducts.map((product) => {
-                    const profit = product.sellPrice - product.costPrice;
-                    const profitPercent = (
-                      (profit / (product.costPrice || 1)) *
-                      100
-                    ).toFixed(1);
-                    const isLowStock =
-                      product.quantity < product.minStockLevel;
-
-                    return (
-                      <TableRow
-                        key={product.id}
-                        className={
-                          selectedIds.includes(product.id)
-                            ? "bg-slate-700/50"
-                            : ""
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={
+                          filteredProducts.length > 0 &&
+                          selectedIds.length === filteredProducts.length
                         }
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead className="text-slate-300">ชื่อสินค้า</TableHead>
+                    <TableHead className="text-slate-300">หมวดหมู่</TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      จำนวน
+                    </TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      ราคาทุน
+                    </TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      ราคาขาย
+                    </TableHead>
+                    <TableHead className="text-slate-300">สถานะ</TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      จัดการ
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={8}
+                        className="text-center text-muted-foreground"
                       >
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.includes(product.id)}
-                            onCheckedChange={() => toggleSelect(product.id)}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {product.name}
-                        </TableCell>
-                        <TableCell>{product.category}</TableCell>
-                        <TableCell className="text-right">
-                          {product.quantity}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ฿{product.costPrice.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ฿{product.sellPrice.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {isLowStock ? (
-                            <Badge variant="destructive">สต็อกต่ำ</Badge>
-                          ) : product.quantity <
-                            product.minStockLevel * 1.5 ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-orange-500/10 text-orange-500"
-                            >
-                              ใกล้หมด
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="bg-green-500/10 text-green-500"
-                            >
-                              ปกติ
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                        ไม่พบสินค้า
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredProducts.map((product) => {
+                      const profit = product.sellPrice - product.costPrice;
+                      const profitPercent = (
+                        (profit / (product.costPrice || 1)) *
+                        100
+                      ).toFixed(1);
+                      const isLowStock =
+                        product.quantity < product.minStockLevel;
+
+                      return (
+                        <TableRow
+                          key={product.id}
+                          className={
+                            selectedIds.includes(product.id)
+                              ? "bg-slate-700/50"
+                              : ""
+                          }
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.includes(product.id)}
+                              onCheckedChange={() => toggleSelect(product.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {product.name}
+                          </TableCell>
+                          <TableCell>{product.category}</TableCell>
+                          <TableCell className="text-right">
+                            {product.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ฿{product.costPrice.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ฿{product.sellPrice.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {isLowStock ? (
+                              <Badge variant="destructive">สต็อกต่ำ</Badge>
+                            ) : product.quantity <
+                              product.minStockLevel * 1.5 ? (
+                              <Badge
+                                variant="secondary"
+                                className="bg-orange-500/10 text-orange-500"
+                              >
+                                ใกล้หมด
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="bg-green-500/10 text-green-500"
+                              >
+                                ปกติ
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

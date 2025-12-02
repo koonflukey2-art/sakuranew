@@ -329,14 +329,14 @@ export default function AdsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">จัดการโฆษณา</h1>
           <p className="text-muted-foreground">ติดตามประสิทธิภาพแคมเปญโฆษณา</p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
+        <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           สร้างแคมเปญ
         </Button>
@@ -354,7 +354,7 @@ export default function AdsPage() {
       </Tabs>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">งบประมาณทั้งหมด</CardTitle>
@@ -424,7 +424,8 @@ export default function AdsPage() {
                 ไม่มีแคมเปญ
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
                   <TableHead>Platform</TableHead>
@@ -508,21 +509,22 @@ export default function AdsPage() {
                 ))}
               </TableBody>
             </Table>
-          )}
+              </div>
+            )}
         </CardContent>
       </Card>
       )}
 
       {/* Create Campaign Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>สร้างแคมเปญใหม่</DialogTitle>
             <DialogDescription>กรอกข้อมูลแคมเปญโฆษณา</DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(handleCreateCampaign)}>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <FormField
                     control={createForm.control}
@@ -678,15 +680,16 @@ export default function AdsPage() {
                 />
               </div>
 
-              <DialogFooter className="mt-6">
+              <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsCreateOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   ยกเลิก
                 </Button>
-                <Button type="submit" disabled={creating}>
+                <Button type="submit" disabled={creating} className="w-full sm:w-auto">
                   {creating ? <ButtonLoading /> : "สร้างแคมเปญ"}
                 </Button>
               </DialogFooter>
@@ -697,7 +700,7 @@ export default function AdsPage() {
 
       {/* Edit Campaign Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>แก้ไขแคมเปญ</DialogTitle>
             <DialogDescription>อัปเดตข้อมูลแคมเปญ</DialogDescription>
@@ -705,7 +708,7 @@ export default function AdsPage() {
           {selectedCampaign && (
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(handleUpdateCampaign)}>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <FormField
                       control={editForm.control}
@@ -861,7 +864,7 @@ export default function AdsPage() {
                   />
                 </div>
 
-                <DialogFooter className="mt-6">
+                <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -869,10 +872,11 @@ export default function AdsPage() {
                       setIsEditOpen(false);
                       setSelectedCampaign(null);
                     }}
+                    className="w-full sm:w-auto"
                   >
                     ยกเลิก
                   </Button>
-                  <Button type="submit">บันทึก</Button>
+                  <Button type="submit" className="w-full sm:w-auto">บันทึก</Button>
                 </DialogFooter>
               </form>
             </Form>

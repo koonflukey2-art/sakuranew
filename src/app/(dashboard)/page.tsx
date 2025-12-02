@@ -315,19 +315,19 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-6 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header - Simple & Clear */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           Dashboard
         </h1>
-        <p className="text-gray-600 mt-2">
+        <p className="text-sm md:text-base text-gray-600 mt-2">
           ภาพรวมธุรกิจของคุณ 🚀
         </p>
       </div>
 
       {/* Stats Cards - Vibrant */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1 - Pink (Profit) */}
         <Card className="stat-card-pink hover-lift border-0 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
@@ -427,14 +427,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {/* Revenue vs Spent Line Chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
               รายได้ vs ค่าใช้จ่าย (7 วัน)
             </CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardDescription className="text-sm md:text-base text-gray-600">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
@@ -504,10 +504,10 @@ export default function DashboardPage() {
         {/* ROI by Platform Bar Chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
               ROI แต่ละ Platform
             </CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardDescription className="text-sm md:text-base text-gray-600">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
@@ -551,11 +551,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {/* Budget Pie Chart */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
               สัดส่วนงบประมาณ
             </CardTitle>
           </CardHeader>
@@ -606,9 +606,9 @@ export default function DashboardPage() {
 
         {/* Low Stock Products */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
+              <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
           </CardHeader>
@@ -618,7 +618,8 @@ export default function DashboardPage() {
                 ไม่มีสินค้าใกล้หมด
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+                <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>สินค้า</TableHead>
@@ -648,6 +649,7 @@ export default function DashboardPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -657,25 +659,25 @@ export default function DashboardPage() {
       {!loading && (
         <Card className="bg-gradient-to-br from-white to-pink-50 border border-pink-200 shadow-md rounded-2xl">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-md">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-800">
+                <span className="text-lg md:text-xl font-bold text-gray-800">
                   AI Insights & Recommendations
                 </span>
               </CardTitle>
               <Button
                 size="sm"
-                className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
+                className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
                 onClick={() => router.push("/ai-chat")}
               >
                 <Bot className="w-4 h-4 mr-2" />
                 ดูทั้งหมด
               </Button>
             </div>
-            <CardDescription className="text-gray-600 mt-2">
+            <CardDescription className="text-sm md:text-base text-gray-600 mt-2">
               คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
             </CardDescription>
           </CardHeader>
