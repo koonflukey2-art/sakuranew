@@ -7,41 +7,145 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String    @id @default(cuid())
-  clerkId   String?   @unique
-  email     String    @unique
-  password  String?
-  name      String?
-  role      Role      @default(EMPLOYEE)
-  lastLogin DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  products        Product[]
-  campaigns       AdCampaign[]
-  budgets         Budget[]
-  budgetRequests  BudgetRequest[]
-  notifications   Notification[]
-  stockHistory    StockHistory[]
-  automationRules AutomationRule[]
-  metricsPlans    MetricsPlan[]
-  aiProviders     AIProvider[]
-  chatSessions    ChatSession[]
-
-  // ฝั่งตรงข้ามของ AdAccount.user
-  adAccounts AdAccount[]
-  aiConversations      AIConversation[]
-  facebookAdInsights   FacebookAdInsight[]
-  aiProductSuggestions AIProductSuggestion[]
-  platformCredentials  PlatformCredential[]
-}
+// ============================
+// ENUMS
+// ============================
 
 enum Role {
   ADMIN
   STOCK
   EMPLOYEE
 }
+
+enum StockType {
+  ADD
+  REMOVE
+  ADJUST
+}
+
+enum BudgetRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+// เดิมใช้กับ AdCampaign แต่ตอนนี้ใช้ AdPlatform แทน
+enum Platform {
+  FACEBOOK
+  TIKTOK
+  LAZADA
+  SHOPEE
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+  BUDGET_APPROVED
+  BUDGET_ALERT
+  BUDGET_REQUEST
+  LOW_STOCK
+  CAMPAIGN_COMPLETE
+  AI_ALERT
+}
+
+enum ProviderType {
+  GEMINI
+  OPENAI
+  N8N
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AdPlatform {
+  FACEBOOK
+  GOOGLE
+  TIKTOK
+  LINE
+}
+
+enum ExternalPlatform {
+  FACEBOOK_ADS
+  TIKTOK_ADS
+  LAZADA
+  SHOPEE
+}
+
+// ============================
+// ORGANIZATION (ใหม่)
+// ============================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users               User[]
+  products            Product[]
+  budgets             Budget[]
+  budgetRequests      BudgetRequest[]
+  adCampaigns         AdCampaign[]
+  adAccounts          AdAccount[]
+  aiProviders         AIProvider[]
+  platformCredentials PlatformCredential[]
+  orders              Order[]
+}
+
+// ============================
+// USER (เพิ่ม organization)
+// ============================
+
+model User {
+  id       String  @id @default(cuid())
+  clerkId  String? @unique
+  email    String  @unique
+  password String?
+  name     String?
+  role     Role    @default(EMPLOYEE)
+
+  // ✅ ผูกกับ Organization (optional เผื่อ user เก่า)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations ที่ยังผูกกับ User เหมือนเดิม
+  notifications        Notification[]
+  stockHistory         StockHistory[]
+  automationRules      AutomationRule[]
+  metricsPlans         MetricsPlan[]
+  chatSessions         ChatSession[]
+  aiConversations      AIConversation[]
+  facebookAdInsights   FacebookAdInsight[]
+  aiProductSuggestions AIProductSuggestion[]
+
+  // BudgetRequest เป็นฝั่ง requester
+  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
+
+  @@index([organizationId])
+}
+
+// ============================
+// PRODUCT (เปลี่ยน userId -> organizationId)
+// ============================
 
 model Product {
   id            String   @id @default(cuid())
@@ -53,11 +157,15 @@ model Product {
   sellPrice     Float
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  userId        String
 
-  user         User           @relation(fields: [userId], references: [id])
-  stockHistory StockHistory[]
+  // ✅ ใช้ organization แทน user
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stockHistory  StockHistory[]
   aiSuggestions AIProductSuggestion[]
+
+  @@index([organizationId])
 }
 
 model StockHistory {
@@ -73,12 +181,6 @@ model StockHistory {
   user    User    @relation(fields: [userId], references: [id])
 }
 
-enum StockType {
-  ADD
-  REMOVE
-  ADJUST
-}
-
 model Budget {
   id        String   @id @default(cuid())
   amount    Float
@@ -87,36 +189,45 @@ model Budget {
   startDate DateTime
   endDate   DateTime
   createdAt DateTime @default(now())
-  userId    String
 
-  user User @relation(fields: [userId], references: [id])
+  // ✅ ใช้ organization แทน user
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model BudgetRequest {
-  id         String              @id @default(cuid())
-  amount     Float
-  purpose    String
-  reason     String
-  status     BudgetRequestStatus @default(PENDING)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  userId     String
+  id      String @id @default(cuid())
+  amount  Float
+  purpose String
+
+  // เดิมใช้ reason ตอนนี้ใช้ description ตามโค้ดใหม่
+  description String?
+  status      BudgetRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // ✅ ผูกกับ Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ✅ ผู้ขอ (requester) ผูกกับ User
+  requesterId String
+  requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  // ฟิลด์เดิม ยังเก็บไว้
   reviewedBy String?
   reviewedAt DateTime?
   reviewNote String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum BudgetRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  @@index([organizationId])
+  @@index([requesterId])
 }
 
 model AdCampaign {
   id           String         @id @default(cuid())
-  platform     Platform
+  platform     AdPlatform
   campaignName String
   budget       Float
   spent        Float          @default(0)
@@ -125,31 +236,20 @@ model AdCampaign {
   conversions  Int            @default(0)
   roi          Float          @default(0)
   status       CampaignStatus @default(ACTIVE)
-  startDate    DateTime
+  startDate    DateTime?
   endDate      DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  userId       String
-  adAccountId  String?
 
-  user      User       @relation(fields: [userId], references: [id])
-  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+  // ✅ เปลี่ยนจาก userId เป็น organizationId
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  adAccountId String?
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
   @@index([adAccountId])
-}
-
-enum Platform {
-  FACEBOOK
-  TIKTOK
-  LAZADA
-  SHOPEE
-}
-
-enum CampaignStatus {
-  ACTIVE
-  PAUSED
-  COMPLETED
 }
 
 model Profit {
@@ -174,22 +274,12 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum NotificationType {
-  INFO
-  WARNING
-  SUCCESS
-  ERROR
-  BUDGET_APPROVED
-  BUDGET_ALERT
-  BUDGET_REQUEST
-  LOW_STOCK
-  CAMPAIGN_COMPLETE
-  AI_ALERT
-}
+// ============================
+// AIProvider (เปลี่ยน userId -> organizationId)
+// ============================
 
 model AIProvider {
   id          String       @id @default(cuid())
-  userId      String
   provider    ProviderType
   apiKey      String // Encrypted
   modelName   String?
@@ -201,9 +291,13 @@ model AIProvider {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ✅ เปลี่ยนมาใช้ organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([isDefault])
 }
 
 model ChatSession {
@@ -227,18 +321,6 @@ model ChatMessage {
   createdAt DateTime    @default(now())
 
   session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-enum ProviderType {
-  GEMINI
-  OPENAI
-  N8N
-}
-
-enum MessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
 }
 
 model AutomationRule {
@@ -282,100 +364,92 @@ model MetricsPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum AdPlatform {
-  FACEBOOK
-  GOOGLE
-  TIKTOK
-  LINE
-}
-
-enum ExternalPlatform {
-  FACEBOOK_ADS
-  TIKTOK_ADS
-  LAZADA
-  SHOPEE
-}
+// ============================
+// AdAccount (เปลี่ยน userId -> organizationId)
+// ============================
 
 model AdAccount {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
 
-  platform     AdPlatform
-  accountName  String
-  accountId    String
-  apiKey       String
+  platform    AdPlatform
+  accountName String
+  accountId   String
+
+  apiKey       String?
   apiSecret    String?
   accessToken  String?
   refreshToken String?
 
-  isActive     Boolean  @default(true)
-  isDefault    Boolean  @default(false)
-  isValid      Boolean  @default(false)
+  isActive    Boolean   @default(true)
+  isDefault   Boolean   @default(false)
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
 
-  lastTested   DateTime?
-  testMessage  String?
+  currency  String   @default("THB")
+  timezone  String   @default("Asia/Bangkok")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  currency     String   @default("THB")
-  timezone     String   @default("Asia/Bangkok")
+  // ✅ ใช้ organization แทน user
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  campaigns       AdCampaign[]
-  automationRules AutomationRule[]
+  campaigns        AdCampaign[]
+  automationRules  AutomationRule[]
   facebookInsights FacebookAdInsight[]
 
-  @@unique([userId, platform, accountId])
-  @@index([userId])
+  @@unique([organizationId, platform, accountId])
+  @@index([organizationId])
+  @@index([platform, isDefault])
 }
 
 model AIConversation {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title       String   @default("New Conversation")
-  provider    String   // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
-  messages    Json     // Array of {role, content, timestamp}
+  title    String @default("New Conversation")
+  provider String // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
+  messages Json // Array of {role, content, timestamp}
 
-  context     Json?    // Business context (products, campaigns, etc.)
+  context Json? // Business context (products, campaigns, etc.)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([createdAt])
 }
 
 model FacebookAdInsight {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  adAccountId     String
-  adAccount       AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
 
-  campaignId      String
-  campaignName    String
+  campaignId   String
+  campaignName String
 
   // Metrics
-  impressions     Int      @default(0)
-  clicks          Int      @default(0)
-  spend           Float    @default(0)
-  reach           Int      @default(0)
-  conversions     Int      @default(0)
-  ctr             Float    @default(0)
-  cpc             Float    @default(0)
-  cpm             Float    @default(0)
-  roas            Float    @default(0)
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  spend       Float @default(0)
+  reach       Int   @default(0)
+  conversions Int   @default(0)
+  ctr         Float @default(0)
+  cpc         Float @default(0)
+  cpm         Float @default(0)
+  roas        Float @default(0)
 
   // AI Analysis
-  aiRecommendation String?
+  aiRecommendation  String?
   optimizationScore Float?
 
-  date            DateTime
-  createdAt       DateTime @default(now())
+  date      DateTime
+  createdAt DateTime @default(now())
 
   @@unique([adAccountId, campaignId, date])
   @@index([userId])
@@ -383,44 +457,75 @@ model FacebookAdInsight {
 }
 
 model AIProductSuggestion {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   productName String
   category    String
-  description String   @db.Text
+  description String @db.Text
 
-  aiProvider  String
-  confidence  Float
+  aiProvider String
+  confidence Float
 
-  isApplied   Boolean  @default(false)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isApplied Boolean  @default(false)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
 
-model PlatformCredential {
-  id           String           @id @default(cuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ============================
+// PlatformCredential (เปลี่ยน userId -> organizationId)
+// ============================
 
+model PlatformCredential {
+  id String @id @default(cuid())
+
+  // ใช้ ExternalPlatform enum เดิม
   platform     ExternalPlatform
   apiKey       String?
   apiSecret    String?
   accessToken  String?
   refreshToken String?
 
-  isValid      Boolean          @default(false)
-  lastTested   DateTime?
-  testMessage  String?
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
 
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([userId, platform])
-  @@index([userId])
+  // ✅ ผูกกับ Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ============================
+// ORDER (ใหม่)
+// ============================
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  customerName String
+  totalAmount  Float
+  status       OrderStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELED
 }
