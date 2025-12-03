@@ -12,11 +12,17 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: currentUserData.id },
-      include: { aiProviders: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found. Please contact support." },
+        { status: 403 }
+      );
     }
 
     const {
@@ -26,9 +32,17 @@ export async function POST(request: Request) {
       sessionId,
     } = await request.json();
 
+    // Fetch AI providers for organization
+    const aiProviders = await prisma.aIProvider.findMany({
+      where: {
+        organizationId: user.organizationId,
+        isActive: true,
+      },
+    });
+
     // หา provider ที่ขอมา หรือใช้ default
-    const providerToUse = requestedProvider || user.aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
-    const aiProvider = user.aiProviders.find(
+    const providerToUse = requestedProvider || aiProviders.find((p) => p.isDefault && p.isValid)?.provider;
+    const aiProvider = aiProviders.find(
       (p) => p.provider === providerToUse && p.isValid
     );
 
@@ -72,7 +86,7 @@ export async function POST(request: Request) {
     });
 
     // ดึงข้อมูลทั้งระบบ
-    const context = await getSystemContext(user.id);
+    const context = await getSystemContext(user.organizationId);
 
     // เรียก AI
     const apiKey = decrypt(aiProvider.apiKey);
@@ -121,13 +135,13 @@ export async function POST(request: Request) {
 }
 
 // ดึงข้อมูลทั้งระบบ
-async function getSystemContext(userId: string) {
+async function getSystemContext(organizationId: string) {
   const [products, campaigns, budgets, adAccounts] = await Promise.all([
-    prisma.product.findMany({ where: { userId } }),
-    prisma.adCampaign.findMany({ where: { userId } }),
-    prisma.budget.findMany({ where: { userId } }),
+    prisma.product.findMany({ where: { organizationId } }),
+    prisma.adCampaign.findMany({ where: { organizationId } }),
+    prisma.budget.findMany({ where: { organizationId } }),
     prisma.adAccount.findMany({
-      where: { userId },
+      where: { organizationId },
       select: {
         id: true,
         platform: true,
