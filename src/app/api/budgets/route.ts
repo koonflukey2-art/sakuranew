@@ -1,16 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@clerk/nextjs/server";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function GET() {
   try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      // No organization yet - return empty array
+      return NextResponse.json([]);
+    }
+
     const budgets = await prisma.budget.findMany({
+      where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
       include: {
-        user: {
+        organization: {
           select: {
             name: true,
-            email: true,
           },
         },
       },
@@ -33,27 +45,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find user in database by clerkId
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
+    const orgId = await getOrganizationId();
+    if (!orgId) {
       return NextResponse.json(
-        { error: "User not found in database. Please sync your account first." },
-        { status: 404 }
+        { error: "No organization found. Please contact support." },
+        { status: 403 }
       );
     }
 
     const body = await request.json();
     const budget = await prisma.budget.create({
       data: {
-        amount: body.amount,
+        amount: parseFloat(body.amount) || 0,
         purpose: body.purpose,
-        spent: body.spent || 0,
+        spent: parseFloat(body.spent) || 0,
         startDate: new Date(body.startDate),
         endDate: new Date(body.endDate),
-        userId: user.id, // Use database user ID
+        organizationId: orgId, // Use organization ID
       },
     });
     return NextResponse.json(budget, { status: 201 });
@@ -74,13 +82,31 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
     const body = await request.json();
+
+    // Verify budget belongs to organization
+    const existing = await prisma.budget.findUnique({
+      where: { id: body.id },
+    });
+
+    if (!existing || existing.organizationId !== orgId) {
+      return NextResponse.json(
+        { error: "Budget not found or access denied" },
+        { status: 404 }
+      );
+    }
+
     const budget = await prisma.budget.update({
       where: { id: body.id },
       data: {
         purpose: body.purpose,
-        amount: body.amount,
-        spent: body.spent,
+        amount: parseFloat(body.amount) || 0,
+        spent: parseFloat(body.spent) || 0,
         startDate: new Date(body.startDate),
         endDate: new Date(body.endDate),
       },
@@ -103,11 +129,28 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json({ error: "ID required" }, { status: 400 });
+    }
+
+    // Verify budget belongs to organization
+    const budget = await prisma.budget.findUnique({
+      where: { id },
+    });
+
+    if (!budget || budget.organizationId !== orgId) {
+      return NextResponse.json(
+        { error: "Budget not found or access denied" },
+        { status: 404 }
+      );
     }
 
     await prisma.budget.delete({ where: { id } });
