@@ -18,29 +18,47 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  products        Product[]
-  campaigns       AdCampaign[]
-  budgets         Budget[]
-  budgetRequests  BudgetRequest[]
-  notifications   Notification[]
-  stockHistory    StockHistory[]
-  automationRules AutomationRule[]
-  metricsPlans    MetricsPlan[]
-  aiProviders     AIProvider[]
-  chatSessions    ChatSession[]
+  // Organization relationship
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  // ฝั่งตรงข้ามของ AdAccount.user
-  adAccounts AdAccount[]
-  aiConversations      AIConversation[]
-  facebookAdInsights   FacebookAdInsight[]
-  aiProductSuggestions AIProductSuggestion[]
-  platformCredentials  PlatformCredential[]
+  // Personal data (NOT shared between users)
+  notifications Notification[]
+  stockHistory  StockHistory[]
+  chatSessions  ChatSession[]
+
+  @@index([organizationId])
 }
 
 enum Role {
   ADMIN
   STOCK
   EMPLOYEE
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users                User[]
+  products             Product[]
+  budgets              Budget[]
+  budgetRequests       BudgetRequest[]
+  adCampaigns          AdCampaign[]
+  adAccounts           AdAccount[]
+  aiProviders          AIProvider[]
+  platformCredentials  PlatformCredential[]
+  automationRules      AutomationRule[]
+  metricsPlans         MetricsPlan[]
+  aiConversations      AIConversation[]
+  facebookAdInsights   FacebookAdInsight[]
+  aiProductSuggestions AIProductSuggestion[]
 }
 
 model Product {
@@ -53,11 +71,15 @@ model Product {
   sellPrice     Float
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  userId        String
 
-  user         User           @relation(fields: [userId], references: [id])
-  stockHistory StockHistory[]
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stockHistory  StockHistory[]
   aiSuggestions AIProductSuggestion[]
+
+  @@index([organizationId])
 }
 
 model StockHistory {
@@ -87,25 +109,33 @@ model Budget {
   startDate DateTime
   endDate   DateTime
   createdAt DateTime @default(now())
-  userId    String
 
-  user User @relation(fields: [userId], references: [id])
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model BudgetRequest {
-  id         String              @id @default(cuid())
-  amount     Float
-  purpose    String
-  reason     String
-  status     BudgetRequestStatus @default(PENDING)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  userId     String
-  reviewedBy String?
-  reviewedAt DateTime?
-  reviewNote String?
+  id          String              @id @default(cuid())
+  amount      Float
+  purpose     String
+  reason      String
+  status      BudgetRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  requesterId String // Who made the request
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([requesterId])
 }
 
 enum BudgetRequestStatus {
@@ -129,13 +159,15 @@ model AdCampaign {
   endDate      DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  userId       String
   adAccountId  String?
 
-  user      User       @relation(fields: [userId], references: [id])
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
 
-  @@index([userId])
+  @@index([organizationId])
   @@index([adAccountId])
 }
 
@@ -189,7 +221,6 @@ enum NotificationType {
 
 model AIProvider {
   id          String       @id @default(cuid())
-  userId      String
   provider    ProviderType
   apiKey      String // Encrypted
   modelName   String?
@@ -201,9 +232,13 @@ model AIProvider {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([isDefault])
 }
 
 model ChatSession {
@@ -251,13 +286,15 @@ model AutomationRule {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  userId      String
   adAccountId String?
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
 
-  @@index([userId])
+  @@index([organizationId])
   @@index([adAccountId])
 }
 
@@ -277,9 +314,12 @@ model MetricsPlan {
   actual       Json? // ค่าจริง (อัพเดททีหลัง)
   period       String // monthly, daily
   createdAt    DateTime @default(now())
-  userId       String
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 enum AdPlatform {
@@ -297,10 +337,7 @@ enum ExternalPlatform {
 }
 
 model AdAccount {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id           String     @id @default(cuid())
   platform     AdPlatform
   accountName  String
   accountId    String
@@ -309,118 +346,125 @@ model AdAccount {
   accessToken  String?
   refreshToken String?
 
-  isActive     Boolean  @default(true)
-  isDefault    Boolean  @default(false)
-  isValid      Boolean  @default(false)
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+  isValid   Boolean @default(false)
 
-  lastTested   DateTime?
-  testMessage  String?
+  lastTested  DateTime?
+  testMessage String?
 
-  currency     String   @default("THB")
-  timezone     String   @default("Asia/Bangkok")
+  currency String @default("THB")
+  timezone String @default("Asia/Bangkok")
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 
-  campaigns       AdCampaign[]
-  automationRules AutomationRule[]
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  campaigns        AdCampaign[]
+  automationRules  AutomationRule[]
   facebookInsights FacebookAdInsight[]
 
-  @@unique([userId, platform, accountId])
-  @@index([userId])
+  @@unique([organizationId, platform, accountId])
+  @@index([organizationId])
+  @@index([platform, isDefault])
 }
 
 model AIConversation {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  title     String   @default("New Conversation")
+  provider  String // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
+  messages  Json // Array of {role, content, timestamp}
+  context   Json? // Business context (products, campaigns, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  title       String   @default("New Conversation")
-  provider    String   // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
-  messages    Json     // Array of {role, content, timestamp}
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  context     Json?    // Business context (products, campaigns, etc.)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId])
+  @@index([organizationId])
   @@index([createdAt])
 }
 
 model FacebookAdInsight {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
 
-  adAccountId     String
-  adAccount       AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-
-  campaignId      String
-  campaignName    String
+  campaignId   String
+  campaignName String
 
   // Metrics
-  impressions     Int      @default(0)
-  clicks          Int      @default(0)
-  spend           Float    @default(0)
-  reach           Int      @default(0)
-  conversions     Int      @default(0)
-  ctr             Float    @default(0)
-  cpc             Float    @default(0)
-  cpm             Float    @default(0)
-  roas            Float    @default(0)
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  spend       Float @default(0)
+  reach       Int   @default(0)
+  conversions Int   @default(0)
+  ctr         Float @default(0)
+  cpc         Float @default(0)
+  cpm         Float @default(0)
+  roas        Float @default(0)
 
   // AI Analysis
-  aiRecommendation String?
+  aiRecommendation  String?
   optimizationScore Float?
 
-  date            DateTime
-  createdAt       DateTime @default(now())
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([adAccountId, campaignId, date])
-  @@index([userId])
+  @@index([organizationId])
   @@index([adAccountId])
 }
 
 model AIProductSuggestion {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id          String @id @default(cuid())
   productName String
   category    String
-  description String   @db.Text
+  description String @db.Text
 
-  aiProvider  String
-  confidence  Float
+  aiProvider String
+  confidence Float
 
-  isApplied   Boolean  @default(false)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isApplied Boolean  @default(false)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  @@index([userId])
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model PlatformCredential {
-  id           String           @id @default(cuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  platform     ExternalPlatform
+  id           String  @id @default(cuid())
+  platform     String // ExternalPlatform or "LINE_NOTIFY"
   apiKey       String?
   apiSecret    String?
   accessToken  String?
   refreshToken String?
 
-  isValid      Boolean          @default(false)
-  lastTested   DateTime?
-  testMessage  String?
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
 
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([userId, platform])
-  @@index([userId])
+  // Organization relationship (shared data)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, platform])
+  @@index([organizationId])
 }
