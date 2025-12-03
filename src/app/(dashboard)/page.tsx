@@ -1,18 +1,66 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Wallet, Package, Target, AlertTriangle, DollarSign, ShoppingCart, Activity, Loader2, Sparkles, Bot } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  TrendingUp,
+  Wallet,
+  Package,
+  Target,
+  AlertTriangle,
+  DollarSign,
+  ShoppingCart,
+  Activity,
+  Loader2,
+  Sparkles,
+  Bot,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardSkeleton } from "@/components/loading-states";
 
 // Vibrant color palette matching our pink-purple-cyan theme
-const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#6366f1"];
+const COLORS = [
+  "#ec4899",
+  "#a855f7",
+  "#06b6d4",
+  "#f59e0b",
+  "#10b981",
+  "#ef4444",
+  "#3b82f6",
+  "#6366f1",
+];
 
 interface Product {
   id: string;
@@ -73,6 +121,134 @@ export default function DashboardPage() {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // -------- utils --------
+
+  // Calculate statistics from real data
+  const calculateStats = (
+    productsData: Product[],
+    campaignsData: Campaign[],
+    budgetsData: Budget[]
+  ) => {
+    const safeCampaigns = Array.isArray(campaignsData) ? campaignsData : [];
+
+    // Total Revenue (from campaigns ROI)
+    const totalRevenue = safeCampaigns.reduce((sum, c) => {
+      const revenue = c.spent * c.roi;
+      return sum + revenue;
+    }, 0);
+
+    // Total Spent
+    const totalSpent = safeCampaigns.reduce((sum, c) => sum + c.spent, 0);
+
+    // Total Profit
+    const totalProfit = totalRevenue - totalSpent;
+
+    // Total Orders (from conversions)
+    const totalOrders = safeCampaigns.reduce(
+      (sum, c) => sum + c.conversions,
+      0
+    );
+
+    // Average ROAS
+    const avgROAS =
+      safeCampaigns.length > 0
+        ? safeCampaigns.reduce((sum, c) => sum + c.roi, 0) /
+          safeCampaigns.length
+        : 0;
+
+    const computed = { totalRevenue, totalProfit, totalOrders, avgROAS };
+    setStats(computed);
+    return computed;
+  };
+
+  // Format currency
+  const formatCurrency = (value: number) => `฿${value.toLocaleString()}`;
+
+  // Format number
+  const formatNumber = (value: number) => {
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+    return value.toString();
+  };
+
+  // -------- data fetch --------
+
+  // Fetch AI Insights
+  const fetchAIInsights = async (
+    metrics: Stats & {
+      budgetRemaining: number;
+      campaignCount: number;
+      budgetCount: number;
+      lowStockCount: number;
+    }
+  ) => {
+    try {
+      setLoadingInsights(true);
+      setAiError(null);
+
+      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(
+        0
+      )}\n- กำไร: ${metrics.totalProfit.toFixed(
+        0
+      )}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(
+        2
+      )}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(
+        0
+      )}\n- จำนวนแคมเปญ: ${
+        metrics.campaignCount
+      }\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${
+        metrics.lowStockCount
+      }`;
+
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: prompt,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        console.warn(
+          "AI insights request failed",
+          (data as any)?.error || response.statusText
+        );
+        setAiInsights([]);
+        return;
+      }
+
+      const raw =
+        typeof (data as any).response === "string"
+          ? (data as any).response
+          : typeof (data as any).message === "string"
+          ? (data as any).message
+          : "";
+
+      if (!raw) {
+        setAiInsights([]);
+        return;
+      }
+
+      const insights = raw
+        .split("\n")
+        .filter(
+          (line: string) =>
+            line.trim().startsWith("-") || line.trim().startsWith("•")
+        )
+        .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 5);
+
+      setAiInsights(insights);
+    } catch (error) {
+      console.error("AI Insights error:", error);
+      setAiInsights([]);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
   // Fetch all data from APIs
   const fetchDashboardData = async () => {
     try {
@@ -85,9 +261,22 @@ export default function DashboardPage() {
         fetch("/api/budgets"),
       ]);
 
-      const productsData = await productsRes.json();
-      const campaignsData = await campaignsRes.json();
-      const budgetsData = await budgetsRes.json();
+      const productsJson = await productsRes.json();
+      const campaignsJson = await campaignsRes.json();
+      const budgetsJson = await budgetsRes.json();
+
+      // ทำให้แน่ใจว่าทุกอันเป็น Array
+      const productsData: Product[] = Array.isArray(productsJson)
+        ? productsJson
+        : (productsJson?.products as Product[]) ?? [];
+
+      const campaignsData: Campaign[] = Array.isArray(campaignsJson)
+        ? campaignsJson
+        : (campaignsJson?.campaigns as Campaign[]) ?? [];
+
+      const budgetsData: Budget[] = Array.isArray(budgetsJson)
+        ? budgetsJson
+        : (budgetsJson?.budgets as Budget[]) ?? [];
 
       setProducts(productsData);
       setCampaigns(campaignsData);
@@ -123,111 +312,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch AI Insights
-  const fetchAIInsights = async (
-    metrics: Stats & {
-      budgetRemaining: number;
-      campaignCount: number;
-      budgetCount: number;
-      lowStockCount: number;
-    }
-  ) => {
-    try {
-      setLoadingInsights(true);
-      setAiError(null);
-
-      const prompt = `คุณเป็นนักวิเคราะห์อีคอมเมิร์ซ ช่วยสรุปสถานะธุรกิจเป็น bullet 3-5 ข้อ ภาษาไทย สั้นไม่เกิน 20 คำ โดยใช้ตัวเลขเหล่านี้:\n- รายได้รวม: ${metrics.totalRevenue.toFixed(0)}\n- กำไร: ${metrics.totalProfit.toFixed(0)}\n- ออเดอร์: ${metrics.totalOrders}\n- ROAS เฉลี่ย: ${metrics.avgROAS.toFixed(2)}\n- งบประมาณคงเหลือ: ${metrics.budgetRemaining.toFixed(0)}\n- จำนวนแคมเปญ: ${metrics.campaignCount}\n- จำนวนงบประมาณ: ${metrics.budgetCount}\n- สินค้าใกล้หมด: ${metrics.lowStockCount}`;
-
-      const response = await fetch("/api/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: prompt,
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        console.warn("AI insights request failed", data?.error || response.statusText);
-        setAiInsights([]);
-        return;
-      }
-
-      const raw =
-        typeof data.response === "string"
-          ? data.response
-          : typeof data.message === "string"
-          ? data.message
-          : "";
-
-      if (!raw) {
-        setAiInsights([]);
-        return;
-      }
-
-      const insights = raw
-        .split("\n")
-        .filter((line: string) => line.trim().startsWith("-") || line.trim().startsWith("•"))
-        .map((line: string) => line.replace(/^[-•]\s*/, "").trim())
-        .filter((line: string) => line.length > 0)
-        .slice(0, 5);
-
-      setAiInsights(insights);
-    } catch (error) {
-      console.error("AI Insights error:", error);
-      setAiInsights([]);
-    } finally {
-      setLoadingInsights(false);
-    }
-  };
-
-  // Calculate statistics from real data
-  const calculateStats = (
-    products: Product[],
-    campaigns: Campaign[],
-    budgets: Budget[]
-  ) => {
-    // Total Revenue (from campaigns ROI)
-    const totalRevenue = campaigns.reduce((sum, c) => {
-      const revenue = c.spent * c.roi;
-      return sum + revenue;
-    }, 0);
-
-    // Total Spent
-    const totalSpent = campaigns.reduce((sum, c) => sum + c.spent, 0);
-
-    // Total Profit
-    const totalProfit = totalRevenue - totalSpent;
-
-    // Total Orders (from conversions)
-    const totalOrders = campaigns.reduce((sum, c) => sum + c.conversions, 0);
-
-    // Average ROAS
-    const avgROAS =
-      campaigns.length > 0
-        ? campaigns.reduce((sum, c) => sum + c.roi, 0) / campaigns.length
-        : 0;
-
-    const computed = { totalRevenue, totalProfit, totalOrders, avgROAS };
-    setStats(computed);
-    return computed;
-  };
-
-  // Format currency
-  const formatCurrency = (value: number) => `฿${value.toLocaleString()}`;
-
-  // Format number
-  const formatNumber = (value: number) => {
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toString();
-  };
+  // -------- derived data (ใช้ state campaigns/budgets แบบ safe) --------
 
   // Get last 7 days data for line chart
   const getLast7DaysData = () => {
-    const data = [];
+    const safeCampaigns: Campaign[] = Array.isArray(campaigns) ? campaigns : [];
+    const data: {
+      date: string;
+      revenue: number;
+      spent: number;
+      profit: number;
+    }[] = [];
     const today = new Date();
 
     for (let i = 6; i >= 0; i--) {
@@ -239,14 +337,20 @@ export default function DashboardPage() {
       });
 
       // Calculate from campaigns active on that day
-      const dayCampaigns = campaigns.filter((c) => {
+      const dayCampaigns = safeCampaigns.filter((c) => {
         const start = new Date(c.startDate);
         const end = c.endDate ? new Date(c.endDate) : new Date();
         return date >= start && date <= end;
       });
 
-      const revenue = dayCampaigns.reduce((sum, c) => sum + c.spent * c.roi, 0);
-      const spent = dayCampaigns.reduce((sum, c) => sum + c.spent / 7, 0); // Divide by 7 to get daily average
+      const revenue = dayCampaigns.reduce(
+        (sum, c) => sum + c.spent * c.roi,
+        0
+      );
+      const spent = dayCampaigns.reduce(
+        (sum, c) => sum + c.spent / 7,
+        0
+      ); // Divide by 7 to get daily average
       const profit = revenue - spent;
 
       data.push({
@@ -262,14 +366,20 @@ export default function DashboardPage() {
 
   // Get ROI by platform for bar chart
   const getPlatformROIData = () => {
+    const safeCampaigns: Campaign[] = Array.isArray(campaigns) ? campaigns : [];
+
     const platformStats: Record<
       string,
       { platform: string; roi: number; count: number }
     > = {};
 
-    campaigns.forEach((c) => {
+    safeCampaigns.forEach((c) => {
       if (!platformStats[c.platform]) {
-        platformStats[c.platform] = { platform: c.platform, roi: 0, count: 0 };
+        platformStats[c.platform] = {
+          platform: c.platform,
+          roi: 0,
+          count: 0,
+        };
       }
       platformStats[c.platform].roi += c.roi;
       platformStats[c.platform].count += 1;
@@ -283,7 +393,8 @@ export default function DashboardPage() {
 
   // Get budget data for pie chart
   const getBudgetChartData = () => {
-    return budgets.map((b) => ({
+    const safeBudgets: Budget[] = Array.isArray(budgets) ? budgets : [];
+    return safeBudgets.map((b) => ({
       name: b.purpose,
       value: b.amount,
     }));
@@ -291,15 +402,15 @@ export default function DashboardPage() {
 
   // Get low stock products
   const getLowStockProducts = () => {
-    return products
-      .filter((p) => p.quantity < p.minStockLevel)
-      .slice(0, 5);
+    const safeProducts: Product[] = Array.isArray(products) ? products : [];
+    return safeProducts.filter((p) => p.quantity < p.minStockLevel).slice(0, 5);
   };
 
   // Get budget remaining
   const getBudgetRemaining = () => {
-    const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
-    const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
+    const safeBudgets: Budget[] = Array.isArray(budgets) ? budgets : [];
+    const totalBudget = safeBudgets.reduce((sum, b) => sum + b.amount, 0);
+    const totalSpent = safeBudgets.reduce((sum, b) => sum + b.spent, 0);
     return totalBudget - totalSpent;
   };
 
@@ -308,11 +419,16 @@ export default function DashboardPage() {
   const budgetChartData = getBudgetChartData();
   const lowStockProducts = getLowStockProducts();
   const budgetRemaining = getBudgetRemaining();
-  const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
+  const totalBudget = (Array.isArray(budgets) ? budgets : []).reduce(
+    (sum, b) => sum + b.amount,
+    0
+  );
 
   if (loading) {
     return <DashboardSkeleton />;
   }
+
+  // -------- render --------
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-cyan-50 p-4 md:p-6 space-y-4 md:space-y-6">
@@ -373,9 +489,7 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              จากแคมเปญทั้งหมด
-            </p>
+            <p className="text-xs text-white/80 mt-2">จากแคมเปญทั้งหมด</p>
           </CardContent>
         </Card>
 
@@ -446,28 +560,28 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="date"
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <YAxis
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend
-                    wrapperStyle={{ paddingTop: "20px" }}
-                    iconType="line"
-                  />
+                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
                   <Line
                     type="monotone"
                     dataKey="revenue"
@@ -519,22 +633,25 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="platform"
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <YAxis
                     className="text-muted-foreground"
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: "12px" }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                   />
                   <Bar
@@ -591,7 +708,7 @@ export default function DashboardPage() {
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
-                      color: "hsl(var(--foreground))"
+                      color: "hsl(var(--foreground))",
                     }}
                     formatter={(value: number) => [
                       `฿${value.toLocaleString()}`,
@@ -620,35 +737,41 @@ export default function DashboardPage() {
             ) : (
               <div className="overflow-x-auto -mx-2 sm:mx-0">
                 <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>สินค้า</TableHead>
-                    <TableHead className="text-right">คงเหลือ</TableHead>
-                    <TableHead className="text-right">ขั้นต่ำ</TableHead>
-                    <TableHead>สถานะ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lowStockProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-right">{product.quantity}</TableCell>
-                      <TableCell className="text-right">
-                        {product.minStockLevel}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            product.quantity === 0 ? "destructive" : "secondary"
-                          }
-                        >
-                          {product.quantity === 0 ? "หมด" : "ใกล้หมด"}
-                        </Badge>
-                      </TableCell>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>สินค้า</TableHead>
+                      <TableHead className="text-right">คงเหลือ</TableHead>
+                      <TableHead className="text-right">ขั้นต่ำ</TableHead>
+                      <TableHead>สถานะ</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {lowStockProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">
+                          {product.name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {product.quantity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {product.minStockLevel}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              product.quantity === 0
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {product.quantity === 0 ? "หมด" : "ใกล้หมด"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -689,7 +812,10 @@ export default function DashboardPage() {
             ) : aiInsights.length > 0 ? (
               <ul className="space-y-3">
                 {aiInsights.map((insight, idx) => (
-                  <li key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all">
+                  <li
+                    key={idx}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all"
+                  >
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                       {idx + 1}
                     </span>
@@ -722,13 +848,14 @@ export default function DashboardPage() {
               <h3 className="text-sm font-semibold text-foreground mb-2">
                 📢 แคมเปญล่าสุด
               </h3>
-              {campaigns.length === 0 ? (
+              {(Array.isArray(campaigns) ? campaigns : []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   ไม่มีแคมเปญ
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {campaigns
+                  {(Array.isArray(campaigns) ? campaigns : [])
+                    .slice()
                     .sort((a, b) => {
                       const dateA = a.createdAt
                         ? new Date(a.createdAt).getTime()
@@ -774,7 +901,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-semibold text-foreground mb-2">
                 💰 สถานะงบประมาณ
               </h3>
-              {budgets.length === 0 ? (
+              {(Array.isArray(budgets) ? budgets : []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   ไม่มีงบประมาณ
                 </div>
@@ -782,13 +909,17 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   <div className="p-4 rounded-lg bg-muted">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">งบประมาณรวม</span>
+                      <span className="text-sm text-muted-foreground">
+                        งบประมาณรวม
+                      </span>
                       <span className="text-lg font-bold text-foreground">
                         {formatCurrency(totalBudget)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">คงเหลือ</span>
+                      <span className="text-sm text-muted-foreground">
+                        คงเหลือ
+                      </span>
                       <span
                         className={`text-lg font-bold ${
                           budgetRemaining >= 0
@@ -800,46 +931,49 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">จำนวนรายการ</span>
+                      <span className="text-sm text-muted-foreground">
+                        จำนวนรายการ
+                      </span>
                       <span className="text-lg font-bold text-foreground">
-                        {budgets.length}
+                        {(Array.isArray(budgets) ? budgets : []).length}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    {budgets.slice(0, 4).map((b) => {
-                      const remaining = b.amount - b.spent;
-                      const percentage = (b.spent / b.amount) * 100;
+                    {(Array.isArray(budgets) ? budgets : [])
+                      .slice(0, 4)
+                      .map((b) => {
+                        const percentage = (b.spent / b.amount) * 100;
 
-                      return (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between py-2 border-b border-border"
-                        >
-                          <div className="flex-1">
-                            <p className="text-sm text-foreground font-medium">
-                              {b.purpose}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              ใช้ไป {formatCurrency(b.spent)} /{" "}
-                              {formatCurrency(b.amount)}
-                            </p>
-                          </div>
-                          <Badge
-                            className={
-                              percentage > 90
-                                ? "bg-gradient-to-r from-red-500 to-red-600 text-white border-0"
-                                : percentage > 70
-                                ? "bg-gradient-warning text-white border-0"
-                                : "bg-gradient-success text-white border-0"
-                            }
+                        return (
+                          <div
+                            key={b.id}
+                            className="flex items-center justify-between py-2 border-b border-border"
                           >
-                            {percentage.toFixed(0)}%
-                          </Badge>
-                        </div>
-                      );
-                    })}
+                            <div className="flex-1">
+                              <p className="text-sm text-foreground font-medium">
+                                {b.purpose}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ใช้ไป {formatCurrency(b.spent)} /{" "}
+                                {formatCurrency(b.amount)}
+                              </p>
+                            </div>
+                            <Badge
+                              className={
+                                percentage > 90
+                                  ? "bg-gradient-to-r from-red-500 to-red-600 text-white border-0"
+                                  : percentage > 70
+                                  ? "bg-gradient-warning text-white border-0"
+                                  : "bg-gradient-success text-white border-0"
+                              }
+                            >
+                              {percentage.toFixed(0)}%
+                            </Badge>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}

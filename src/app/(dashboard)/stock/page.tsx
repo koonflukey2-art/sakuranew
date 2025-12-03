@@ -65,11 +65,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { productSchema, ProductFormData } from "@/lib/validations";
-import { ProductsPageSkeleton, ButtonLoading } from "@/components/loading-states";
+import {
+  ProductsPageSkeleton,
+  ButtonLoading,
+} from "@/components/loading-states";
 import { EmptyProducts, ErrorState } from "@/components/empty-states";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ExportButton } from "@/components/export-button";
-import { fetchWithErrorHandling, handleAPIError } from "@/lib/error-handler";
+import {
+  fetchWithErrorHandling,
+  handleAPIError,
+} from "@/lib/error-handler";
 
 interface Product {
   id: string;
@@ -126,6 +132,7 @@ export default function StockPage() {
   // Fetch products
   useEffect(() => {
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProducts = async () => {
@@ -378,12 +385,15 @@ export default function StockPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header + Bulk actions */}
-      <div className="flex flex-col sm:flex-row justify-between gap-3">
+      <div className="open flex flex-col sm:flex-row justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Stock Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">
+            Stock Management
+          </h1>
           <p className="text-slate-400 mt-1 text-sm md:text-base">
             จัดการสินค้าและสต็อก
-            {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
+            {selectedIds.length > 0 &&
+              ` • เลือกแล้ว ${selectedIds.length} รายการ`}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -440,7 +450,10 @@ export default function StockPage() {
 
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
-              <Button onClick={() => addForm.reset()} className="w-full sm:w-auto">
+              <Button
+                onClick={() => addForm.reset()}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 เพิ่มสินค้า
               </Button>
@@ -576,7 +589,9 @@ export default function StockPage() {
       <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">สินค้าทั้งหมด</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              สินค้าทั้งหมด
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -585,7 +600,9 @@ export default function StockPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">สินค้าใกล้หมด</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              สินค้าใกล้หมด
+            </CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
@@ -613,7 +630,9 @@ export default function StockPage() {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl">สต็อกตามหมวดหมู่</CardTitle>
+            <CardTitle className="text-lg md:text-xl">
+              สต็อกตามหมวดหมู่
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -747,10 +766,18 @@ export default function StockPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEdit(product)}
+                              >
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => openDelete(product)}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openDelete(product)}
+                              >
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             </div>
@@ -809,7 +836,9 @@ export default function StockPage() {
                         <SelectItem value="Skincare">Skincare</SelectItem>
                         <SelectItem value="Makeup">Makeup</SelectItem>
                         <SelectItem value="Haircare">Haircare</SelectItem>
-                        <SelectItem value="Supplement">Supplement</SelectItem>
+                        <SelectItem value="Supplement">
+                          Supplement
+                        </SelectItem>
                         <SelectItem value="Fashion">Fashion</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
