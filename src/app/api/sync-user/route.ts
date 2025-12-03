@@ -25,6 +25,7 @@ export async function POST() {
     // Check if user exists in database
     let user = await prisma.user.findUnique({
       where: { email },
+      include: { organization: true },
     });
 
     if (user) {
@@ -36,7 +37,30 @@ export async function POST() {
           name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
           lastLogin: new Date(),
         },
+        include: { organization: true },
       });
+
+      // If user has no organization, create one
+      if (!user.organizationId) {
+        const orgName = `${user.name || email.split("@")[0]}'s Company`;
+        const orgSlug = `${email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`;
+
+        const org = await prisma.organization.create({
+          data: {
+            name: orgName,
+            slug: orgSlug,
+            description: "Default organization",
+          },
+        });
+
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { organizationId: org.id },
+          include: { organization: true },
+        });
+
+        console.log(`✅ Created organization for existing user: ${user.email} -> ${org.name}`);
+      }
 
       return NextResponse.json({
         success: true,
@@ -46,28 +70,53 @@ export async function POST() {
           email: user.email,
           name: user.name,
           role: user.role,
+          organizationId: user.organizationId,
         },
       });
     } else {
-      // Create new user
-      user = await prisma.user.create({
-        data: {
-          clerkId: clerkUser.id,
-          email,
-          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
-          role: "EMPLOYEE",
-          lastLogin: new Date(),
-        },
+      // Create new user WITH default organization
+      const userName = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || email.split("@")[0];
+      const orgName = `${userName}'s Company`;
+      const orgSlug = `${email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`;
+
+      // Create organization and user in transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Create organization
+        const org = await tx.organization.create({
+          data: {
+            name: orgName,
+            slug: orgSlug,
+            description: "Default organization",
+          },
+        });
+
+        // Create user linked to organization
+        const newUser = await tx.user.create({
+          data: {
+            clerkId: clerkUser.id,
+            email,
+            name: userName || null,
+            role: "ADMIN", // First user is admin
+            organizationId: org.id,
+            lastLogin: new Date(),
+          },
+          include: { organization: true },
+        });
+
+        return { user: newUser, org };
       });
+
+      console.log(`✅ Created new user and organization: ${result.user.email} -> ${result.org.name}`);
 
       return NextResponse.json({
         success: true,
         message: "User created successfully",
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
+          organizationId: result.user.organizationId,
         },
       });
     }
