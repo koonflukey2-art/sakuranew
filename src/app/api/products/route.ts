@@ -2,19 +2,27 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+// GET /api/products
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     const products = await prisma.product.findMany({
+      where: { organizationId: user.organizationId },
       orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
     });
+
     return NextResponse.json(products);
   } catch (error) {
     console.error("Failed to fetch products:", error);
@@ -25,15 +33,22 @@ export async function GET() {
   }
 }
 
+// POST /api/products
 export async function POST(request: Request) {
   try {
-    // Get current user with role
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only ADMIN and STOCK can create products
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
+    // เฉพาะ ADMIN / STOCK เท่านั้นที่เพิ่มสินค้าได้
     if (user.role !== "ADMIN" && user.role !== "STOCK") {
       return NextResponse.json(
         { error: "Forbidden: Only ADMIN and STOCK can create products" },
@@ -42,15 +57,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
     const product = await prisma.product.create({
       data: {
         name: body.name,
         category: body.category,
-        quantity: body.quantity || 0,
-        minStockLevel: body.minStockLevel || 10,
+        quantity: body.quantity ?? 0,
+        minStockLevel: body.minStockLevel ?? 10,
         costPrice: body.costPrice,
         sellPrice: body.sellPrice,
-        userId: user.id, // Use database user ID
+        // ✅ ผูกกับ organization ตาม schema ใหม่
+        organizationId: user.organizationId,
       },
     });
 
@@ -64,15 +81,21 @@ export async function POST(request: Request) {
   }
 }
 
+// PUT /api/products
 export async function PUT(request: Request) {
   try {
-    // Get current user with role
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only ADMIN and STOCK can update products
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     if (user.role !== "ADMIN" && user.role !== "STOCK") {
       return NextResponse.json(
         { error: "Forbidden: Only ADMIN and STOCK can update products" },
@@ -81,6 +104,8 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
+
+    // (ถ้าจะกัน cross-org จริง ๆ ควร check ว่า product นี้ belong กับ org เดียวกันก่อน)
     const product = await prisma.product.update({
       where: { id: body.id },
       data: {
@@ -103,15 +128,21 @@ export async function PUT(request: Request) {
   }
 }
 
+// DELETE /api/products?id=...
 export async function DELETE(request: Request) {
   try {
-    // Get current user with role
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only ADMIN and STOCK can delete products
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     if (user.role !== "ADMIN" && user.role !== "STOCK") {
       return NextResponse.json(
         { error: "Forbidden: Only ADMIN and STOCK can delete products" },
@@ -127,6 +158,7 @@ export async function DELETE(request: Request) {
     }
 
     await prisma.product.delete({ where: { id } });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete product:", error);

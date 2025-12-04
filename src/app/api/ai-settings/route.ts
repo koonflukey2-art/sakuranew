@@ -1,26 +1,34 @@
+// src/app/api/ai-settings/route.ts
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 
-// GET - ดึง AI providers ทั้งหมด
+// GET - ดึง AI providers ทั้งหมด (ต่อ org)
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const clerk = await currentUser();
+    if (!clerk) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-      include: { aiProviders: true },
+      where: { clerkId: clerk.id },
+      include: {
+        organization: {
+          include: { aiProviders: true },
+        },
+      },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.organization) {
+      return NextResponse.json(
+        { error: "User or organization not found" },
+        { status: 404 }
+      );
     }
 
-    const providers = user.aiProviders.map((p) => ({
+    const providers = user.organization.aiProviders.map((p) => ({
       id: p.id,
       provider: p.provider,
       modelName: p.modelName,
@@ -38,31 +46,45 @@ export async function GET() {
   }
 }
 
-// POST - บันทึก/อัพเดท API Key
+// POST - บันทึก/อัพเดท API Key (ต่อ org + provider)
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const clerk = await currentUser();
+    if (!clerk) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+      where: { clerkId: clerk.id },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.organizationId) {
+      return NextResponse.json(
+        { error: "User or organization not found" },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
-    const { provider, apiKey, modelName } = body;
+    const { provider, apiKey, modelName } = body as {
+      provider?: "GEMINI" | "OPENAI" | "N8N";
+      apiKey?: string;
+      modelName?: string;
+    };
+
+    if (!provider || !apiKey) {
+      return NextResponse.json(
+        { error: "Provider และ API Key จำเป็นต้องกรอก" },
+        { status: 400 }
+      );
+    }
 
     const encryptedKey = encrypt(apiKey);
 
     const aiProvider = await prisma.aIProvider.upsert({
       where: {
-        userId_provider: {
-          userId: user.id,
+        organizationId_provider: {
+          organizationId: user.organizationId,
           provider,
         },
       },
@@ -71,9 +93,10 @@ export async function POST(request: Request) {
         modelName,
         isValid: false,
         lastTested: null,
+        testMessage: null,
       },
       create: {
-        userId: user.id,
+        organizationId: user.organizationId,
         provider,
         apiKey: encryptedKey,
         modelName,
@@ -91,11 +114,11 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT - ทดสอบ API Key
+// PUT - ทดสอบ API Key ของ provider หนึ่งตัว
 export async function PUT(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const clerk = await currentUser();
+    if (!clerk) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -103,7 +126,10 @@ export async function PUT(request: Request) {
     const providerId = searchParams.get("id");
 
     if (!providerId) {
-      return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Provider ID required" },
+        { status: 400 }
+      );
     }
 
     const aiProvider = await prisma.aIProvider.findUnique({
@@ -111,7 +137,10 @@ export async function PUT(request: Request) {
     });
 
     if (!aiProvider) {
-      return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Provider not found" },
+        { status: 404 }
+      );
     }
 
     const apiKey = decrypt(aiProvider.apiKey);
@@ -134,7 +163,7 @@ export async function PUT(request: Request) {
       }
     } catch (error: any) {
       isValid = false;
-      testMessage = error.message || "การทดสอบล้มเหลว";
+      testMessage = error?.message || "การทดสอบล้มเหลว";
     }
 
     await prisma.aIProvider.update({
@@ -163,7 +192,10 @@ export async function DELETE(request: Request) {
     const providerId = searchParams.get("id");
 
     if (!providerId) {
-      return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Provider ID required" },
+        { status: 400 }
+      );
     }
 
     await prisma.aIProvider.delete({
@@ -177,28 +209,47 @@ export async function DELETE(request: Request) {
   }
 }
 
+// =========================
 // Helper functions
+// =========================
+
+// ✅ เวอร์ชันใหม่: เช็คด้วยการ list models แทน ไม่ผูกกับชื่อโมเดลใด ๆ
 async function testGemini(apiKey: string) {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Hello" }] }],
-        }),
+        method: "GET",
       }
     );
 
-    if (response.ok) {
-      return { success: true, message: "✅ Gemini API Key ใช้งานได้" };
-    } else {
-      const error = await response.json();
-      return { success: false, message: `❌ ${error.error?.message || "API Key ไม่ถูกต้อง"}` };
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({} as any));
+      const msg =
+        error?.error?.message ||
+        `${response.status} ${response.statusText || "Unknown error"}`;
+      return {
+        success: false,
+        message: `❌ Gemini API Key ไม่ถูกต้อง หรือไม่มีสิทธิ์เรียกใช้ API: ${msg}`,
+      };
     }
+
+    const data = (await response.json().catch(() => ({}))) as any;
+    const models: string[] = Array.isArray(data?.models)
+      ? data.models
+          .map((m: any) => m?.name || "")
+          .filter(Boolean)
+      : [];
+
+    const sample =
+      models.length > 0 ? ` ตัวอย่างโมเดล: ${models.slice(0, 3).join(", ")}` : "";
+
+    return {
+      success: true,
+      message: `✅ Gemini API Key ใช้งานได้.${sample}`,
+    };
   } catch (error: any) {
-    return { success: false, message: `❌ ${error.message}` };
+    return { success: false, message: `❌ ${error?.message || "Unknown error"}` };
   }
 }
 
@@ -211,7 +262,11 @@ async function testOpenAI(apiKey: string) {
     if (response.ok) {
       return { success: true, message: "✅ OpenAI API Key ใช้งานได้" };
     } else {
-      return { success: false, message: "❌ OpenAI API Key ไม่ถูกต้อง" };
+      const error = await response.json().catch(() => ({} as any));
+      const msg =
+        error?.error?.message ||
+        `${response.status} ${response.statusText || "Unknown error"}`;
+      return { success: false, message: `❌ OpenAI API Key ไม่ถูกต้อง: ${msg}` };
     }
   } catch (error: any) {
     return { success: false, message: `❌ ${error.message}` };
@@ -229,7 +284,10 @@ async function testN8N(webhookUrl: string) {
     if (response.ok) {
       return { success: true, message: "✅ n8n Webhook ใช้งานได้" };
     } else {
-      return { success: false, message: "❌ n8n Webhook ไม่ถูกต้อง" };
+      return {
+        success: false,
+        message: "❌ n8n Webhook ไม่ถูกต้อง หรือ workflow ไม่ทำงาน",
+      };
     }
   } catch (error: any) {
     return { success: false, message: `❌ ${error.message}` };

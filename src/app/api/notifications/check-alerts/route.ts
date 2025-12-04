@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/db"; // หรือ "@/lib/prisma" ถ้าโปรเจกต์คุณใช้ตัวนั้น
 
 export async function POST() {
   try {
@@ -17,9 +17,16 @@ export async function POST() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check low stock
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
+    // ✅ Check low stock (ใช้ organizationId)
     const products = await prisma.product.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
     });
 
     const lowStockProducts = products.filter(
@@ -52,9 +59,9 @@ export async function POST() {
       }
     }
 
-    // Check budget alerts
+    // ✅ Check budget alerts (ใช้ organizationId)
     const budgets = await prisma.budget.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
     });
 
     for (const budget of budgets) {
@@ -76,7 +83,10 @@ export async function POST() {
               userId: user.id,
               type: "BUDGET_ALERT",
               title: "งบประมาณใกล้หมด!",
-              message: `งบ "${budget.purpose}" ใช้ไปแล้ว ${((budget.spent / budget.amount) * 100).toFixed(0)}%`,
+              message: `งบ "${budget.purpose}" ใช้ไปแล้ว ${(
+                (budget.spent / budget.amount) *
+                100
+              ).toFixed(0)}%`,
               link: "/budgets",
             },
           });

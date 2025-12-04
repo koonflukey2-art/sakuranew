@@ -503,6 +503,7 @@ model PlatformCredential {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+  @@unique([organizationId, platform])
 }
 
 // ============================

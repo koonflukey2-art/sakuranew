@@ -4,13 +4,25 @@ import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
+    // 1) auth ปัจจุบัน
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
+    // 2) วันย้อนหลัง
     const { searchParams } = new URL(req.url);
-    const days = parseInt(searchParams.get("days") || "30", 10);
+    let days = parseInt(searchParams.get("days") || "30", 10);
+    if (Number.isNaN(days) || days <= 0) {
+      days = 30;
+    }
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -19,9 +31,13 @@ export async function GET(req: NextRequest) {
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - days);
 
-    // products ของ user นี้
+    // 3) ดึง products / campaigns ตาม organizationId
     const products = await prisma.product.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
+    });
+
+    const campaigns = await prisma.adCampaign.findMany({
+      where: { organizationId: user.organizationId },
     });
 
     const currentProducts = products.filter(
@@ -32,11 +48,6 @@ export async function GET(req: NextRequest) {
         new Date(p.createdAt) >= previousStartDate &&
         new Date(p.createdAt) < startDate
     );
-
-    // แคมเปญของ user นี้ (ใช้ AdCampaign ตาม schema จริง)
-    const campaigns = await prisma.adCampaign.findMany({
-      where: { userId: user.id },
-    });
 
     const currentCampaigns = campaigns.filter(
       (c) => new Date(c.startDate) >= startDate
@@ -140,7 +151,7 @@ export async function GET(req: NextRequest) {
       .map(([month, revenue]) => ({ month, revenue }))
       .slice(-6);
 
-    // ===== Campaign performance =====
+    // ===== Campaign performance (ช่วงวันที่เลือก) =====
     const campaignPerformance = currentCampaigns.map((c) => ({
       platform: c.platform,
       spent: c.spent ?? 0,
@@ -148,20 +159,29 @@ export async function GET(req: NextRequest) {
       conversions: c.conversions ?? 0,
     }));
 
-    // Ad metrics aggregation
-    const totalAdSpend = campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
-    const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE").length;
+    // ===== Ad metrics aggregation =====
+    const totalAdSpend = campaigns.reduce(
+      (sum, c) => sum + (c.spent || 0),
+      0
+    );
+
+    const activeCampaigns = campaigns.filter(
+      (c) => c.status === "ACTIVE"
+    ).length;
 
     const roiValues = campaigns
       .map((c) => c.roi)
-      .filter((v) => typeof v === "number" && !Number.isNaN(v)) as number[];
+      .filter(
+        (v): v is number => typeof v === "number" && !Number.isNaN(v)
+      );
 
     const avgCampaignROI =
       roiValues.length > 0
         ? roiValues.reduce((sum, v) => sum + v, 0) / roiValues.length
         : 0;
 
-    const adPerformanceByPlatform = campaigns.reduce(
+    // group by platform
+    const adPerformanceByPlatformObj = campaigns.reduce(
       (acc, c) => {
         const key = c.platform || "UNKNOWN";
         if (!acc[key]) {
@@ -192,15 +212,18 @@ export async function GET(req: NextRequest) {
       >
     );
 
-    Object.keys(adPerformanceByPlatform).forEach((key) => {
-      const group = adPerformanceByPlatform[key];
+    // คำนวณ avgROI ต่อ platform
+    Object.keys(adPerformanceByPlatformObj).forEach((key) => {
+      const group = adPerformanceByPlatformObj[key];
       const platformCampaigns = campaigns.filter(
         (c) => (c.platform || "UNKNOWN") === key && typeof c.roi === "number"
       );
       if (platformCampaigns.length > 0) {
         group.avgROI =
-          platformCampaigns.reduce((sum, c) => sum + (c.roi || 0), 0) /
-          platformCampaigns.length;
+          platformCampaigns.reduce(
+            (sum, c) => sum + (c.roi || 0),
+            0
+          ) / platformCampaigns.length;
       } else {
         group.avgROI = 0;
       }
@@ -224,7 +247,7 @@ export async function GET(req: NextRequest) {
       topCategories,
       revenueByMonth,
       campaignPerformance,
-      adPerformanceByPlatform: Object.values(adPerformanceByPlatform),
+      adPerformanceByPlatform: Object.values(adPerformanceByPlatformObj),
     };
 
     return NextResponse.json(analytics);

@@ -8,10 +8,7 @@ export function UserSync() {
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
-    // อย่า sync ถ้า:
-    // - clerk ยังไม่โหลด
-    // - ยังไม่มี user
-    // - sync ไปแล้วรอบหนึ่ง
+    // ถ้า Clerk ยังไม่โหลด, ยังไม่มี user หรือ sync ไปแล้ว → ไม่ต้องทำอะไร
     if (!isLoaded || !user || synced) return;
 
     let cancelled = false;
@@ -23,7 +20,6 @@ export function UserSync() {
           headers: {
             "Content-Type": "application/json",
           },
-          // body ไม่จำเป็น ถ้า backend ใช้ข้อมูลจาก Clerk auth เอาเอง
         });
 
         if (cancelled) return;
@@ -32,6 +28,7 @@ export function UserSync() {
           console.log("✅ User synced with database");
           setSynced(true);
         } else {
+          // log text เผื่อ debug 500 ได้ละเอียดขึ้น
           const text = await response.text().catch(() => "");
           console.error(
             "❌ Failed to sync user",

@@ -41,7 +41,8 @@ export function FloatingAssistant() {
         if (
           prev.some(
             (m) =>
-              m.id.startsWith("auto-insight-") || m.content.trim() === autoInsight.trim()
+              m.id.startsWith("auto-insight-") ||
+              m.content.trim() === autoInsight.trim()
           )
         ) {
           return prev;
@@ -97,6 +98,8 @@ export function FloatingAssistant() {
         body: JSON.stringify({
           message: userMessage.content,
           sessionId: sessionId || undefined,
+          // ✅ บังคับใช้ Gemini เป็น provider
+          provider: "GEMINI",
         }),
       });
 
@@ -255,7 +258,10 @@ export function FloatingAssistant() {
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {messages
-                  .filter((msg): msg is ChatMessage => !!msg && !!msg.role && !!msg.content)
+                  .filter(
+                    (msg): msg is ChatMessage =>
+                      !!msg && !!msg.role && !!msg.content
+                  )
                   .map((msg) => (
                     <div
                       key={msg.id}

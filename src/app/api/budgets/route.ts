@@ -1,20 +1,31 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { currentUser } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db"; // ถ้าโปรเจกต์คุณใช้ "@/lib/prisma" ก็เปลี่ยนเป็นอันนั้นได้
 
+// GET /api/budgets
 export async function GET() {
   try {
-    const budgets = await prisma.budget.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
     });
+
+    if (!user || !user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
+    const budgets = await prisma.budget.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: { createdAt: "desc" },
+    });
+
     return NextResponse.json(budgets);
   } catch (error) {
     console.error("Failed to fetch budgets:", error);
@@ -25,15 +36,14 @@ export async function GET() {
   }
 }
 
+// POST /api/budgets
 export async function POST(request: Request) {
   try {
-    // Get current Clerk user
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find user in database by clerkId
     const user = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
     });
@@ -45,7 +55,15 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
+
     const budget = await prisma.budget.create({
       data: {
         amount: body.amount,
@@ -53,9 +71,10 @@ export async function POST(request: Request) {
         spent: body.spent || 0,
         startDate: new Date(body.startDate),
         endDate: new Date(body.endDate),
-        userId: user.id, // Use database user ID
+        organizationId: user.organizationId, // ✅ ใช้ org แทน user
       },
     });
+
     return NextResponse.json(budget, { status: 201 });
   } catch (error) {
     console.error("Failed to create budget:", error);
@@ -66,15 +85,16 @@ export async function POST(request: Request) {
   }
 }
 
+// PUT /api/budgets
 export async function PUT(request: Request) {
   try {
-    // Get current Clerk user
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
+
     const budget = await prisma.budget.update({
       where: { id: body.id },
       data: {
@@ -85,6 +105,7 @@ export async function PUT(request: Request) {
         endDate: new Date(body.endDate),
       },
     });
+
     return NextResponse.json(budget);
   } catch (error) {
     console.error("Failed to update budget:", error);
@@ -95,9 +116,9 @@ export async function PUT(request: Request) {
   }
 }
 
+// DELETE /api/budgets?id=...
 export async function DELETE(request: Request) {
   try {
-    // Get current Clerk user
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

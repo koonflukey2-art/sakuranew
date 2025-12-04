@@ -170,6 +170,16 @@ export default function DashboardPage() {
     return value.toString();
   };
 
+  // helper: parse JSON อย่างปลอดภัย
+  const safeJson = async <T,>(res: Response): Promise<T | null> => {
+    if (!res.ok) return null;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
+  };
+
   // -------- data fetch --------
 
   // Fetch AI Insights
@@ -244,6 +254,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("AI Insights error:", error);
       setAiInsights([]);
+      setAiError("ไม่สามารถดึงคำแนะนำจาก AI ได้");
     } finally {
       setLoadingInsights(false);
     }
@@ -261,9 +272,28 @@ export default function DashboardPage() {
         fetch("/api/budgets"),
       ]);
 
-      const productsJson = await productsRes.json();
-      const campaignsJson = await campaignsRes.json();
-      const budgetsJson = await budgetsRes.json();
+      // ถ้า 401 แปลว่ายังไม่ได้ login → ให้โชว์ dashboard ว่าง ๆ แต่ไม่พัง
+      if (
+        productsRes.status === 401 ||
+        campaignsRes.status === 401 ||
+        budgetsRes.status === 401
+      ) {
+        console.warn("Dashboard APIs returned 401 (unauthorized)");
+        setProducts([]);
+        setCampaigns([]);
+        setBudgets([]);
+        setStats({
+          totalRevenue: 0,
+          totalProfit: 0,
+          totalOrders: 0,
+          avgROAS: 0,
+        });
+        return;
+      }
+
+      const productsJson = await safeJson<any>(productsRes);
+      const campaignsJson = await safeJson<any>(campaignsRes);
+      const budgetsJson = await safeJson<any>(budgetsRes);
 
       // ทำให้แน่ใจว่าทุกอันเป็น Array
       const productsData: Product[] = Array.isArray(productsJson)
@@ -304,6 +334,15 @@ export default function DashboardPage() {
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถโหลดข้อมูล Dashboard ได้",
         variant: "destructive",
+      });
+      setProducts([]);
+      setCampaigns([]);
+      setBudgets([]);
+      setStats({
+        totalRevenue: 0,
+        totalProfit: 0,
+        totalOrders: 0,
+        avgROAS: 0,
       });
     } finally {
       setLoading(false);
@@ -510,9 +549,7 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatNumber(stats.totalOrders)}
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              Conversions ทั้งหมด
-            </p>
+            <p className="text-xs text-white/80">Conversions ทั้งหมด</p>
           </CardContent>
         </Card>
 
@@ -533,9 +570,7 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {stats.avgROAS.toFixed(2)}x
             </div>
-            <p className="text-xs text-white/80 mt-2">
-              Return on Ad Spend
-            </p>
+            <p className="text-xs text-white/80">Return on Ad Spend</p>
           </CardContent>
         </Card>
       </div>
@@ -581,7 +616,10 @@ export default function DashboardPage() {
                       color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
+                  <Legend
+                    wrapperStyle={{ paddingTop: "20px" }}
+                    iconType="line"
+                  />
                   <Line
                     type="monotone"
                     dataKey="revenue"

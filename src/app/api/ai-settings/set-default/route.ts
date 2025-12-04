@@ -17,11 +17,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found for this user" },
+        { status: 403 }
+      );
+    }
+
     const { providerId } = await request.json();
 
-    // ตรวจสอบว่า provider นี้มีอยู่และ isValid
-    const provider = await prisma.aIProvider.findUnique({
-      where: { id: providerId },
+    if (!providerId) {
+      return NextResponse.json(
+        { error: "providerId is required" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ ต้องเป็น provider ที่อยู่ในองค์กรเดียวกับ user
+    const provider = await prisma.aIProvider.findFirst({
+      where: { id: providerId, organizationId: user.organizationId },
     });
 
     if (!provider) {
@@ -33,26 +47,32 @@ export async function POST(request: Request) {
 
     if (!provider.isValid) {
       return NextResponse.json(
-        { error: "กรุณาทดสอบการเชื่อมต่อ AI Provider ให้สำเร็จก่อนตั้งเป็นค่าเริ่มต้น" },
+        {
+          error:
+            "กรุณาทดสอบการเชื่อมต่อ AI Provider ให้สำเร็จก่อนตั้งเป็นค่าเริ่มต้น",
+        },
         { status: 400 }
       );
     }
 
-    // ยกเลิก default ทั้งหมด
+    // ยกเลิก default ทั้งหมดใน org เดียวกัน
     await prisma.aIProvider.updateMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
       data: { isDefault: false },
     });
 
-    // ตั้งเป็น default
+    // ตั้งตัวนี้เป็น default
     await prisma.aIProvider.update({
-      where: { id: providerId },
+      where: { id: provider.id },
       data: { isDefault: true },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Set default provider error:", error);
-    return NextResponse.json({ error: "Failed to set default" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to set default" },
+      { status: 500 }
+    );
   }
 }

@@ -1,80 +1,63 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST() {
   try {
-    // Get current Clerk user
     const clerkUser = await currentUser();
-
     if (!clerkUser) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const email = clerkUser.emailAddresses[0]?.emailAddress;
-    if (!email) {
-      return NextResponse.json(
-        { error: "No email found" },
-        { status: 400 }
-      );
-    }
-
-    // Check if user exists in database
-    let user = await prisma.user.findUnique({
-      where: { email },
+    // ✅ หา organization เดิม ถ้าไม่มีให้สร้างใหม่
+    let org = await prisma.organization.findFirst({
+      where: { slug: "default-org" },
     });
 
-    if (user) {
-      // Update existing user with clerkId
-      user = await prisma.user.update({
-        where: { email },
+    if (!org) {
+      org = await prisma.organization.create({
         data: {
-          clerkId: clerkUser.id,
-          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
-          lastLogin: new Date(),
+          name: "Default Organization",
+          slug: "default-org",
         },
       });
+    }
 
-      return NextResponse.json({
-        success: true,
-        message: "User synced successfully",
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        },
-      });
-    } else {
-      // Create new user
+    // ✅ หา user เดิมจาก clerkId หรือ email
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [{ clerkId: clerkUser.id }, { email: clerkUser.emailAddresses[0]?.emailAddress }],
+      },
+    });
+
+    // ✅ ถ้าไม่มี user เดิม → สร้างใหม่
+    if (!user) {
       user = await prisma.user.create({
         data: {
           clerkId: clerkUser.id,
-          email,
-          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
+          email: clerkUser.emailAddresses[0]?.emailAddress || "",
+          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim(),
           role: "EMPLOYEE",
-          lastLogin: new Date(),
+          organizationId: org.id,
         },
       });
-
-      return NextResponse.json({
-        success: true,
-        message: "User created successfully",
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+    } else {
+      // ✅ อัปเดต organizationId ให้ตรง schema ใหม่
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          organizationId: user.organizationId ?? org.id,
+          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim(),
+          email: clerkUser.emailAddresses[0]?.emailAddress || user.email,
         },
       });
     }
-  } catch (error) {
+
+    return NextResponse.json({ message: "User synced", user });
+  } catch (error: any) {
     console.error("❌ Sync user error:", error);
     return NextResponse.json(
-      { error: "Failed to sync user" },
+      { error: "Failed to sync user", details: error.message },
       { status: 500 }
     );
   }

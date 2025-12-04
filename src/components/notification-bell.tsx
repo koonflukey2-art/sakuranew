@@ -69,17 +69,15 @@ export function NotificationBell() {
       const res = await fetch("/api/notifications?unreadOnly=true");
       if (!res.ok) {
         console.error("Failed to fetch notifications: HTTP", res.status);
-        // ไม่ให้ throw error แต่เซ็ต state เป็นค่าเริ่มต้น
         setNotifications([]);
         setUnreadCount(0);
         return;
       }
       const data = await res.json();
-      setNotifications(data.slice(0, 5)); // Show only 5 most recent
+      setNotifications(data.slice(0, 5));
       setUnreadCount(data.length);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
-      // ไม่ให้ throw error
       setNotifications([]);
       setUnreadCount(0);
     }
@@ -87,7 +85,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    // Auto-refresh every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -100,11 +97,9 @@ export function NotificationBell() {
         body: JSON.stringify({ id: notification.id }),
       });
 
-      // Update local state
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
       setUnreadCount((prev) => Math.max(0, prev - 1));
 
-      // Navigate if link exists
       if (notification.link) {
         router.push(notification.link);
       }
@@ -165,15 +160,14 @@ export function NotificationBell() {
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <Bell className="h-8 w-8 mx-auto text-slate-200 mb-2" />
-            <p className="text-sm text-slate-200">
-              ไม่มีการแจ้งเตือนใหม่
-            </p>
+            <p className="text-sm text-slate-200">ไม่มีการแจ้งเตือนใหม่</p>
           </div>
         ) : (
           <>
             {notifications.map((notification) => {
               const Icon = notificationIcons[notification.type] || Bell;
-              const color = notificationColors[notification.type] || "text-gray-500";
+              const color =
+                notificationColors[notification.type] || "text-gray-500";
 
               return (
                 <DropdownMenuItem

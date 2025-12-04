@@ -1,25 +1,25 @@
+// src/app/api/platform-credentials/route.ts
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { encrypt, decrypt } from "@/lib/crypto";
+import { getCurrentUser } from "@/lib/auth";
+import { encrypt } from "@/lib/crypto";
 
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "User has no organization" },
+        { status: 403 }
+      );
     }
 
     const creds = await prisma.platformCredential.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
       select: {
         id: true,
         platform: true,
@@ -44,27 +44,20 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "User has no organization" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
-    const {
-      platform,
-      apiKey,
-      apiSecret,
-      accessToken,
-      refreshToken,
-    } = body;
+    const { platform, apiKey, apiSecret, accessToken, refreshToken } = body;
 
     if (!platform) {
       return NextResponse.json(
@@ -78,16 +71,16 @@ export async function POST(request: Request) {
     const encryptedAccessToken = accessToken ? encrypt(accessToken) : null;
     const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : null;
 
-    // upsert (1 platform ต่อ user)
+    // ถ้า schema มี @@unique([organizationId, platform]) จะใช้ upsert แบบนี้ได้
     const credential = await prisma.platformCredential.upsert({
       where: {
-        userId_platform: {
-          userId: user.id,
+        organizationId_platform: {
+          organizationId: user.organizationId,
           platform,
         },
       },
       create: {
-        userId: user.id,
+        organizationId: user.organizationId,
         platform,
         apiKey: encryptedApiKey,
         apiSecret: encryptedApiSecret,
@@ -117,17 +110,16 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "User has no organization" },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -140,8 +132,23 @@ export async function DELETE(request: Request) {
       );
     }
 
+    // เช็กว่า credential นี้อยู่ใน org เดียวกับ user
+    const existing = await prisma.platformCredential.findFirst({
+      where: {
+        id,
+        organizationId: user.organizationId,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Credential not found" },
+        { status: 404 }
+      );
+    }
+
     await prisma.platformCredential.delete({
-      where: { id, userId: user.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

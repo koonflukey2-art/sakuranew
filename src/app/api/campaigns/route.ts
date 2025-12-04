@@ -1,131 +1,137 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-export async function GET() {
+export async function POST(req: Request) {
   try {
-    const campaigns = await prisma.adCampaign.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-    return NextResponse.json(campaigns);
-  } catch (error) {
-    console.error("Failed to fetch campaigns:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch campaigns" },
-      { status: 500 }
-    );
-  }
-}
+    const { userId } = auth();
 
-export async function POST(request: Request) {
-  try {
-    // Get current Clerk user
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find user in database by clerkId
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const currentUserData = await prisma.user.findUnique({
+      where: { externalId: userId },
     });
 
-    if (!user) {
+    if (!currentUserData) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // ✅ แก้ตรงนี้
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserData.id },
+      include: { organization: true },
+    });
+
+    if (!user?.organizationId) {
       return NextResponse.json(
-        { error: "User not found in database. Please sync your account first." },
-        { status: 404 }
+        { error: "No organization found" },
+        { status: 403 }
       );
     }
 
-    const body = await request.json();
-    const campaign = await prisma.adCampaign.create({
-      data: {
-        platform: body.platform,
-        campaignName: body.campaignName,
-        budget: body.budget,
-        spent: body.spent || 0,
-        reach: body.reach || 0,
-        clicks: body.clicks || 0,
-        conversions: body.conversions || 0,
-        roi: body.roi || 0,
-        status: body.status || "ACTIVE",
-        startDate: new Date(body.startDate),
-        endDate: body.endDate ? new Date(body.endDate) : null,
-        userId: user.id, // Use database user ID
+    // ✅ ดึง provider แยก
+    const aiProvider = await prisma.aIProvider.findFirst({
+      where: {
+        organizationId: user.organizationId,
+        isDefault: true,
+        isActive: true,
       },
     });
-    return NextResponse.json(campaign, { status: 201 });
-  } catch (error) {
-    console.error("Failed to create campaign:", error);
-    return NextResponse.json(
-      { error: "Failed to create campaign" },
-      { status: 500 }
-    );
-  }
-}
 
-export async function PUT(request: Request) {
-  try {
-    // Get current Clerk user
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!aiProvider) {
+      return NextResponse.json(
+        { error: "No AI provider configured" },
+        { status: 400 }
+      );
     }
 
-    const body = await request.json();
-    const campaign = await prisma.adCampaign.update({
-      where: { id: body.id },
+    const { message, model, sessionId, provider } = await req.json();
+
+    if (!message) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Create or load conversation
+    let conversationId = sessionId;
+    if (!conversationId) {
+      const newConversation = await prisma.aIConversation.create({
+        data: {
+          userId: user.id,
+          title: message.slice(0, 40) || "New Conversation",
+          provider: provider || aiProvider.provider,
+        },
+      });
+      conversationId = newConversation.id;
+    }
+
+    // Save user message
+    await prisma.aIMessage.create({
       data: {
-        campaignName: body.campaignName,
-        budget: body.budget,
-        spent: body.spent,
-        reach: body.reach,
-        clicks: body.clicks,
-        conversions: body.conversions,
-        roi: body.roi,
-        status: body.status,
-        endDate: body.endDate ? new Date(body.endDate) : null,
+        conversationId,
+        role: "USER",
+        content: message,
       },
     });
-    return NextResponse.json(campaign);
-  } catch (error) {
-    console.error("Failed to update campaign:", error);
-    return NextResponse.json(
-      { error: "Failed to update campaign" },
-      { status: 500 }
-    );
-  }
-}
 
-export async function DELETE(request: Request) {
-  try {
-    // Get current Clerk user
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let reply = "No response generated";
+
+    // Select AI provider
+    if (aiProvider.provider === "GEMINI") {
+      const genAI = new GoogleGenerativeAI(aiProvider.apiKey);
+      const modelInstance = genAI.getGenerativeModel({
+        model: model || "gemini-1.5-flash",
+      });
+
+      const result = await modelInstance.generateContent(message);
+      reply = result?.response?.text() || "No response";
+    } else if (aiProvider.provider === "OPENAI") {
+      const openai = new OpenAI({
+        apiKey: aiProvider.apiKey,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: model || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are Sakura AI Assistant." },
+          { role: "user", content: message },
+        ],
+      });
+
+      reply = completion.choices[0].message.content || "No response";
+    } else if (aiProvider.provider === "N8N") {
+      const response = await fetch(aiProvider.endpoint || "", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: message }),
+      });
+      const data = await response.json();
+      reply = data.output || data.response || "No response from N8N workflow";
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    // Save AI message
+    await prisma.aIMessage.create({
+      data: {
+        conversationId,
+        role: "ASSISTANT",
+        content: reply,
+      },
+    });
 
-    if (!id) {
-      return NextResponse.json({ error: "ID required" }, { status: 400 });
-    }
-
-    await prisma.adCampaign.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      reply,
+      sessionId: conversationId,
+    });
   } catch (error) {
-    console.error("Failed to delete campaign:", error);
+    console.error("AI Chat error:", error);
     return NextResponse.json(
-      { error: "Failed to delete campaign" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
