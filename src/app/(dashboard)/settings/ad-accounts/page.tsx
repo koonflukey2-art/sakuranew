@@ -20,7 +20,22 @@ import {
   Store,
 } from "lucide-react";
 
-const defaultForm = {
+type AdPlatform = "facebook" | "tiktok" | "shopee" | "lazada";
+
+interface AdAccountForm {
+  id?: string;               // id ในฐานข้อมูล
+  enabled: boolean;          // map -> isActive
+  accountName: string;       // map -> accountName
+  apiKey: string;
+  apiSecret: string;
+  accessToken: string;
+  pixelOrTrackingId: string; // map -> accountId (หรือ pixel id)
+}
+
+type AdAccountsState = Record<AdPlatform, AdAccountForm>;
+
+const defaultForm: AdAccountForm = {
+  id: undefined,
   enabled: false,
   accountName: "",
   apiKey: "",
@@ -29,20 +44,10 @@ const defaultForm = {
   pixelOrTrackingId: "",
 };
 
-type AdPlatform = "facebook" | "tiktok" | "shopee" | "lazada";
-
-interface AdAccountForm {
-  enabled: boolean;
-  accountName: string;
-  apiKey: string;
-  apiSecret: string;
-  accessToken: string;
-  pixelOrTrackingId: string;
-}
-
-type AdAccountsState = Record<AdPlatform, AdAccountForm>;
-
-const platformConfigs: Record<AdPlatform, { label: string; description: string; icon: ComponentType<any> }> = {
+const platformConfigs: Record<
+  AdPlatform,
+  { label: string; description: string; icon: ComponentType<any> }
+> = {
   facebook: {
     label: "Facebook Ads",
     description:
@@ -51,53 +56,111 @@ const platformConfigs: Record<AdPlatform, { label: string; description: string; 
   },
   tiktok: {
     label: "TikTok Ads",
-    description: "เชื่อมต่อ TikTok Ads API เพื่อดูผลโฆษณา และจัดการด้วย AI ภายในระบบ",
+    description:
+      "เชื่อมต่อ TikTok Ads API เพื่อดูผลโฆษณา และจัดการด้วย AI ภายในระบบ",
     icon: RadioTower,
   },
   shopee: {
     label: "Shopee Ads",
-    description: "เชื่อมต่อโฆษณา Shopee เพื่อดูยอดขายและประสิทธิภาพแคมเปญ",
+    description:
+      "เชื่อมต่อโฆษณา Shopee เพื่อดูยอดขายและประสิทธิภาพแคมเปญ",
     icon: Store,
   },
   lazada: {
     label: "Lazada Ads",
-    description: "เชื่อมต่อโฆษณา Lazada เพื่อดูยอดเข้าชม ยอดขาย และผลลัพธ์แคมเปญ",
+    description:
+      "เชื่อมต่อโฆษณา Lazada เพื่อดูยอดเข้าชม ยอดขาย และผลลัพธ์แคมเปญ",
     icon: Building2,
   },
 };
 
+// shape ที่ backend /api/ad-accounts ส่งกลับมา
+interface AdAccountFromApi {
+  id: string;
+  platform: string;          // "FACEBOOK" | "TIKTOK" | "SHOPEE" | "LAZADA"
+  accountName: string | null;
+  accountId: string | null;
+  isActive: boolean;
+  isValid: boolean;
+  isDefault: boolean;
+  lastTested: string | null;
+  testMessage: string | null;
+}
+
+const toBackendPlatform = (platform: AdPlatform): string => {
+  switch (platform) {
+    case "facebook":
+      return "FACEBOOK";
+    case "tiktok":
+      return "TIKTOK";
+    case "shopee":
+      return "SHOPEE";
+    case "lazada":
+      return "LAZADA";
+    default:
+      return "FACEBOOK";
+  }
+};
+
 export default function AdAccountsSettingsPage() {
   const { toast } = useToast();
+
   const [forms, setForms] = useState<AdAccountsState>({
     facebook: { ...defaultForm },
     tiktok: { ...defaultForm },
     shopee: { ...defaultForm },
     lazada: { ...defaultForm },
   });
+
   const [activeTab, setActiveTab] = useState<AdPlatform>("facebook");
   const [savingPlatform, setSavingPlatform] = useState<AdPlatform | null>(null);
-  const [testingPlatform, setTestingPlatform] = useState<AdPlatform | null>(null);
+  const [testingPlatform, setTestingPlatform] = useState<AdPlatform | null>(
+    null
+  );
 
+  // ===== LOAD CONFIG จาก GET /api/ad-accounts (array) =====
   useEffect(() => {
     let mounted = true;
+
     const fetchConfigs = async () => {
       try {
-        const response = await fetch("/api/ad-accounts");
-        if (!response.ok) return;
-        const data = await response.json();
-        if (!mounted || !data) return;
+        const res = await fetch("/api/ad-accounts");
+        if (!res.ok) {
+          console.warn("โหลด ad-accounts ไม่สำเร็จ");
+          return;
+        }
+
+        const data = await res.json();
+        if (!mounted) return;
+
+        const list: AdAccountFromApi[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.accounts)
+          ? data.accounts
+          : [];
 
         setForms((prev) => {
-          const updated: Partial<AdAccountsState> = {};
-          (Object.keys(platformConfigs) as AdPlatform[]).forEach((platform) => {
-            if (data[platform]) {
-              updated[platform] = {
-                ...prev[platform],
-                ...data[platform],
-              };
-            }
+          const next: AdAccountsState = { ...prev };
+
+          list.forEach((acc) => {
+            const key = acc.platform.toLowerCase() as AdPlatform;
+            if (!platformConfigs[key]) return;
+
+            next[key] = {
+              ...prev[key],
+              id: acc.id,
+              enabled: acc.isActive,
+              accountName: acc.accountName || "",
+              // accountId จาก backend เก็บไว้ใน pixelOrTrackingId
+              pixelOrTrackingId: acc.accountId || "",
+              // apiKey / token ส่วนใหญ่ backend จะไม่ส่งกลับ
+              apiKey: prev[key].apiKey,
+              apiSecret: prev[key].apiSecret,
+              accessToken: prev[key].accessToken,
+            };
           });
-          return { ...prev, ...updated } as AdAccountsState;
+
+          return next;
         });
       } catch (error) {
         console.warn("ไม่สามารถโหลดการตั้งค่าโฆษณา", error);
@@ -110,7 +173,11 @@ export default function AdAccountsSettingsPage() {
     };
   }, []);
 
-  const handleFieldChange = (platform: AdPlatform, field: keyof AdAccountForm, value: string | boolean) => {
+  const handleFieldChange = (
+    platform: AdPlatform,
+    field: keyof AdAccountForm,
+    value: string | boolean
+  ) => {
     setForms((prev) => ({
       ...prev,
       [platform]: {
@@ -120,6 +187,7 @@ export default function AdAccountsSettingsPage() {
     }));
   };
 
+  // ===== SAVE (สร้างใหม่ / แก้ไข) =====
   const handleSave = async (platform: AdPlatform) => {
     const settings = forms[platform];
 
@@ -134,24 +202,62 @@ export default function AdAccountsSettingsPage() {
 
     try {
       setSavingPlatform(platform);
-      const response = await fetch("/api/ad-accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          settings,
-        }),
-      });
 
-      const data = await response.json().catch(() => null);
+      const backendPlatform = toBackendPlatform(platform);
 
-      if (!response.ok) {
+      const baseBody = {
+        platform: backendPlatform,
+        accountName: settings.accountName,
+        apiKey: settings.apiKey,
+        apiSecret: settings.apiSecret,
+        accessToken: settings.accessToken,
+        accountId: settings.pixelOrTrackingId || undefined,
+        isActive: settings.enabled,
+      };
+
+      let res: Response;
+
+      if (settings.id) {
+        // อัปเดตข้อมูล (PUT /api/ad-accounts)
+        res = await fetch("/api/ad-accounts", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: settings.id,
+            ...baseBody,
+          }),
+        });
+      } else {
+        // สร้างใหม่ (POST /api/ad-accounts)
+        res = await fetch("/api/ad-accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(baseBody),
+        });
+      }
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
         toast({
           variant: "destructive",
           title: "บันทึกไม่สำเร็จ",
-          description: data?.error || "ไม่สามารถบันทึกการตั้งค่าได้ โปรดตรวจสอบ API และลองใหม่",
+          description:
+            data?.error ||
+            "ไม่สามารถบันทึกการตั้งค่าได้ โปรดตรวจสอบ API และลองใหม่",
         });
         return;
+      }
+
+      // ถ้าพึ่งสร้างใหม่ให้เก็บ id กลับเข้า state
+      if (!settings.id && data?.id) {
+        setForms((prev) => ({
+          ...prev,
+          [platform]: {
+            ...prev[platform],
+            id: data.id,
+          },
+        }));
       }
 
       toast({
@@ -163,31 +269,54 @@ export default function AdAccountsSettingsPage() {
       toast({
         variant: "destructive",
         title: "บันทึกไม่สำเร็จ",
-        description: "ไม่สามารถบันทึกการตั้งค่าได้ โปรดตรวจสอบ API และลองใหม่",
+        description:
+          "ไม่สามารถบันทึกการตั้งค่าได้ โปรดตรวจสอบ API และลองใหม่",
       });
     } finally {
       setSavingPlatform(null);
     }
   };
 
+  // ===== TEST เชื่อมต่อ (POST /api/ad-accounts/test) =====
   const handleTest = async (platform: AdPlatform) => {
     const settings = forms[platform];
 
+    if (!settings.apiKey && !settings.accessToken && !settings.id) {
+      toast({
+        variant: "destructive",
+        title: "ยังไม่มีการตั้งค่า",
+        description:
+          "กรุณาบันทึก API Key / Access Token ก่อนทดสอบการเชื่อมต่อ",
+      });
+      return;
+    }
+
     try {
       setTestingPlatform(platform);
-      const response = await fetch("/api/ad-accounts/test", {
+
+      const backendPlatform = toBackendPlatform(platform);
+
+      const res = await fetch("/api/ad-accounts/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, settings }),
+        body: JSON.stringify({
+          id: settings.id,
+          platform: backendPlatform,
+          apiKey: settings.apiKey,
+          accessToken: settings.accessToken,
+        }),
       });
 
-      const data = await response.json().catch(() => null);
+      const data = await res.json().catch(() => null);
 
-      if (!response.ok || !data?.ok) {
+      if (!res.ok || !data?.success) {
         toast({
           variant: "destructive",
           title: "เชื่อมต่อไม่สำเร็จ",
-          description: data?.error || "ไม่สามารถเชื่อมต่อได้ โปรดตรวจสอบ API Key / Token อีกครั้ง",
+          description:
+            data?.message ||
+            data?.error ||
+            "ไม่สามารถเชื่อมต่อได้ โปรดตรวจสอบ API Key / Token อีกครั้ง",
         });
         return;
       }
@@ -201,7 +330,8 @@ export default function AdAccountsSettingsPage() {
       toast({
         variant: "destructive",
         title: "เชื่อมต่อไม่สำเร็จ",
-        description: "ไม่สามารถเชื่อมต่อได้ โปรดตรวจสอบ API Key / Token อีกครั้ง",
+        description:
+          "ไม่สามารถเชื่อมต่อได้ โปรดตรวจสอบ API Key / Token อีกครั้ง",
       });
     } finally {
       setTestingPlatform(null);
@@ -223,7 +353,9 @@ export default function AdAccountsSettingsPage() {
               <Icon className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">{config.label}</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {config.label}
+              </h2>
               <p className="text-sm text-slate-400">{config.description}</p>
             </div>
           </div>
@@ -244,7 +376,9 @@ export default function AdAccountsSettingsPage() {
             </div>
             <Switch
               checked={form.enabled}
-              onCheckedChange={(checked) => handleFieldChange(platform, "enabled", checked)}
+              onCheckedChange={(checked) =>
+                handleFieldChange(platform, "enabled", checked)
+              }
             />
           </div>
         </div>
@@ -255,16 +389,22 @@ export default function AdAccountsSettingsPage() {
             <Input
               value={form.accountName}
               placeholder="เช่น Main Ad Account"
-              onChange={(e) => handleFieldChange(platform, "accountName", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange(platform, "accountName", e.target.value)
+              }
             />
-            <p className="text-xs text-slate-400">ตั้งชื่อเพื่อให้จำง่ายในรายงานและหน้าโฆษณา</p>
+            <p className="text-xs text-slate-400">
+              ตั้งชื่อเพื่อให้จำง่ายในรายงานและหน้าโฆษณา
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-slate-200">API Key</Label>
             <Input
               value={form.apiKey}
               placeholder="API Key"
-              onChange={(e) => handleFieldChange(platform, "apiKey", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange(platform, "apiKey", e.target.value)
+              }
             />
           </div>
           <div className="space-y-2">
@@ -273,25 +413,37 @@ export default function AdAccountsSettingsPage() {
               type="password"
               value={form.apiSecret}
               placeholder="API Secret"
-              onChange={(e) => handleFieldChange(platform, "apiSecret", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange(platform, "apiSecret", e.target.value)
+              }
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-200">Access Token / Refresh Token</Label>
+            <Label className="text-slate-200">
+              Access Token / Refresh Token
+            </Label>
             <Input
               type="password"
               value={form.accessToken}
               placeholder="Access Token"
-              onChange={(e) => handleFieldChange(platform, "accessToken", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange(platform, "accessToken", e.target.value)
+              }
             />
-            <p className="text-xs text-slate-400">สำหรับดึงข้อมูลแคมเปญและสถิติต่าง ๆ</p>
+            <p className="text-xs text-slate-400">
+              สำหรับดึงข้อมูลแคมเปญและสถิติต่าง ๆ
+            </p>
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-200">Pixel / Tracking ID (ถ้ามี)</Label>
+            <Label className="text-slate-200">
+              Account ID / Pixel / Tracking ID (ถ้ามี)
+            </Label>
             <Input
               value={form.pixelOrTrackingId}
-              placeholder="เช่น Facebook Pixel ID, TikTok Pixel ID"
-              onChange={(e) => handleFieldChange(platform, "pixelOrTrackingId", e.target.value)}
+              placeholder="เช่น act_123..., Pixel ID, TikTok Pixel ID"
+              onChange={(e) =>
+                handleFieldChange(platform, "pixelOrTrackingId", e.target.value)
+              }
             />
           </div>
         </div>
@@ -302,14 +454,25 @@ export default function AdAccountsSettingsPage() {
             onClick={() => handleTest(platform)}
             disabled={isTesting}
           >
-            {isTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
+            {isTesting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Link2 className="h-4 w-4 mr-2" />
+            )}
             ทดสอบการเชื่อมต่อ
           </Button>
           <Button onClick={() => handleSave(platform)} disabled={isSaving}>
-            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+            )}
             บันทึกการตั้งค่า
           </Button>
-          <Badge variant="secondary" className="bg-slate-800 text-slate-300 border border-slate-700">
+          <Badge
+            variant="secondary"
+            className="bg-slate-800 text-slate-300 border border-slate-700"
+          >
             อัปเดตล่าสุด: {form.accessToken ? "พร้อมใช้งาน" : "ยังไม่ตั้งค่า"}
           </Badge>
         </div>
@@ -321,7 +484,9 @@ export default function AdAccountsSettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white">ตั้งค่า API โฆษณา</h1>
-        <p className="text-slate-400 mt-1">กำหนดค่าเชื่อมต่อโฆษณาสำหรับ Facebook, TikTok, Shopee และ Lazada</p>
+        <p className="text-slate-400 mt-1">
+          กำหนดค่าเชื่อมต่อโฆษณาสำหรับ Facebook, TikTok, Shopee และ Lazada
+        </p>
       </div>
 
       <Card className="bg-slate-900/80 border-slate-700">
@@ -329,7 +494,10 @@ export default function AdAccountsSettingsPage() {
           <CardTitle className="text-white">จัดการการเชื่อมต่อ</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdPlatform)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as AdPlatform)}
+          >
             <TabsList className="grid grid-cols-4 bg-slate-800">
               <TabsTrigger value="facebook">Facebook</TabsTrigger>
               <TabsTrigger value="tiktok">TikTok</TabsTrigger>
@@ -354,4 +522,3 @@ export default function AdAccountsSettingsPage() {
     </div>
   );
 }
-

@@ -15,12 +15,27 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const whereClause = user.role === "ADMIN" ? {} : { userId: user.id };
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found for this user" },
+        { status: 403 }
+      );
+    }
+
+    // ADMIN เห็นทุกคำขอใน org, คนอื่นเห็นเฉพาะที่ตัวเองขอ
+    const whereClause =
+      user.role === "ADMIN"
+        ? { organizationId: user.organizationId }
+        : {
+            organizationId: user.organizationId,
+            requesterId: user.id,
+          };
+
     const requests = await prisma.budgetRequest.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
       include: {
-        user: {
+        requester: {
           select: {
             name: true,
             email: true,
@@ -29,40 +44,50 @@ export async function GET() {
       },
     });
 
+    // รวบรวม reviewerIds ทั้งหมด (user.id ที่เคยอนุมัติ/รีเจ็ค)
     const reviewerIds = requests
       .map((req) => req.reviewedBy)
       .filter((id): id is string => Boolean(id));
 
-    const reviewers = await prisma.user.findMany({
-      where: { id: { in: reviewerIds } },
-      select: { id: true, name: true, email: true },
-    });
+    const reviewers =
+      reviewerIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: reviewerIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
 
-    const reviewerMap = reviewers.reduce<Record<string, { name: string; email: string }>>(
-      (acc, reviewer) => {
-        acc[reviewer.id] = {
-          name: reviewer.name || "ผู้ตรวจสอบ",
-          email: reviewer.email,
-        };
-        return acc;
-      },
-      {}
-    );
+    const reviewerMap = reviewers.reduce<
+      Record<string, { name: string; email: string }>
+    >((acc, reviewer) => {
+      acc[reviewer.id] = {
+        name: reviewer.name || "ผู้ตรวจสอบ",
+        email: reviewer.email,
+      };
+      return acc;
+    }, {});
 
+    // map ให้ตรงกับ interface ที่หน้า React ใช้
     const response = requests.map((request) => ({
       id: request.id,
       purpose: request.purpose,
       amount: request.amount,
-      reason: request.reason,
+      // description ใน DB -> reason ใน frontend
+      reason: request.description || "",
       status: request.status,
       requestedBy: {
-        name: request.user?.name || "User",
-        email: request.user?.email || "",
+        name: request.requester?.name || "User",
+        email: request.requester?.email || "",
       },
-      createdAt: request.createdAt,
-      reviewedAt: request.reviewedAt,
+      createdAt: request.createdAt.toISOString(),
+      reviewedAt: request.reviewedAt
+        ? request.reviewedAt.toISOString()
+        : undefined,
       reviewedBy: request.reviewedBy
-        ? reviewerMap[request.reviewedBy]
+        ? reviewerMap[request.reviewedBy] || {
+            name: "ผู้ตรวจสอบ",
+            email: "",
+          }
         : undefined,
     }));
 
@@ -83,6 +108,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found for this user" },
+        { status: 403 }
+      );
+    }
+
     const body: BudgetRequestPayload = await request.json();
 
     if (!body.purpose || !body.reason || typeof body.amount !== "number") {
@@ -96,12 +128,21 @@ export async function POST(request: Request) {
       data: {
         purpose: body.purpose,
         amount: body.amount,
-        reason: body.reason,
-        userId: user.id,
+        // reason จาก frontend -> description ใน DB
+        description: body.reason,
+        status: "PENDING",
+        organizationId: user.organizationId,
+        requesterId: user.id,
       },
     });
 
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json(
+      {
+        id: created.id,
+        message: "สร้างคำขอสำเร็จ",
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Budget request creation error:", error);
     return NextResponse.json(

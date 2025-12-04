@@ -120,7 +120,21 @@ export async function POST(request: Request) {
     // ดึง context ของทั้งองค์กร
     const context = await getSystemContext(orgId);
 
-    const apiKey = decrypt(aiProvider.apiKey);
+    // ---- SAFE DECRYPT API KEY ----
+    let apiKey: string;
+    try {
+      apiKey = decrypt(aiProvider.apiKey);
+    } catch (e) {
+      console.error("Failed to decrypt AI provider apiKey:", e);
+      return NextResponse.json(
+        {
+          error:
+            "ไม่สามารถถอดรหัส API Key ได้ กรุณาไปที่หน้า Settings แล้วกดบันทึก/ทดสอบ AI Provider ใหม่อีกครั้ง",
+        },
+        { status: 400 }
+      );
+    }
+
     let responseText = "";
 
     if (aiProvider.provider === "GEMINI") {
@@ -409,12 +423,6 @@ ${JSON.stringify(businessData, null, 2)}`;
 }
 
 // ---------------------
-// Gemini API – เรียกแบบเดียวกับ /api/ai-settings
-// ---------------------
-// ---------------------
-// Gemini API – ใช้ v1 (ไม่ใช้ v1beta แล้ว)
-// ---------------------
-// ---------------------
 // Gemini API (เลือก endpoint อัตโนมัติ)
 // ---------------------
 async function callGemini(
@@ -427,7 +435,8 @@ async function callGemini(
 
   // ตั้งค่า model และ endpoint ให้เหมาะสม
   const model = (modelName && modelName.trim()) || "gemini-1.5-flash";
-  const isV1beta = model.startsWith("gemini-1.5") || model.startsWith("gemini-2.0");
+  const isV1beta =
+    model.startsWith("gemini-1.5") || model.startsWith("gemini-2.0");
   const endpoint = isV1beta ? "v1beta" : "v1";
 
   try {
@@ -477,8 +486,6 @@ async function callGemini(
     );
   }
 }
-
-
 
 // ---------------------
 // OpenAI API

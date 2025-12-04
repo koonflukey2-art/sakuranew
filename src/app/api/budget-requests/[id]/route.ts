@@ -21,6 +21,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found for this user" },
+        { status: 403 }
+      );
+    }
+
     const body: UpdateBudgetRequestBody = await request.json();
 
     const existing = await prisma.budgetRequest.findUnique({
@@ -31,7 +38,8 @@ export async function PATCH(
       return NextResponse.json({ error: "ไม่พบคำขอ" }, { status: 404 });
     }
 
-    if (existing.userId !== user.id && user.role !== "ADMIN") {
+    // เฉพาะ ADMIN หรือเจ้าของคำขอเท่านั้นที่แก้ได้
+    if (existing.requesterId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -39,7 +47,7 @@ export async function PATCH(
 
     if (typeof body.amount === "number") dataToUpdate.amount = body.amount;
     if (body.purpose) dataToUpdate.purpose = body.purpose;
-    if (body.reason) dataToUpdate.reason = body.reason;
+    if (body.reason) dataToUpdate.description = body.reason;
     if (body.reviewNote) dataToUpdate.reviewNote = body.reviewNote;
 
     if (body.status) {
@@ -55,6 +63,7 @@ export async function PATCH(
 
     let createdBudget = null;
 
+    // ถ้าจากสถานะเดิมไม่ใช่ APPROVED แล้วเปลี่ยนเป็น APPROVED -> สร้าง Budget ใหม่
     if (existing.status !== "APPROVED" && body.status === "APPROVED") {
       const now = new Date();
       const nextMonth = new Date(now);
@@ -67,13 +76,15 @@ export async function PATCH(
           spent: 0,
           startDate: now,
           endDate: nextMonth,
-          userId: existing.userId,
+          // Budget model ใช้ organizationId
+          organizationId: existing.organizationId,
         },
       });
 
+      // Notification ยังใช้ userId ตาม schema เดิม (แจ้งคนที่ขอ)
       await prisma.notification.create({
         data: {
-          userId: existing.userId,
+          userId: existing.requesterId,
           type: "BUDGET_APPROVED",
           title: "คำขอเพิ่มงบได้รับการอนุมัติ",
           message: `อนุมัติคำขอเพิ่มงบ "${updated.purpose}" จำนวน ${updated.amount.toLocaleString()} บาทแล้ว`,

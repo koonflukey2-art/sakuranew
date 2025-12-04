@@ -1,71 +1,113 @@
+// src/app/api/ad-accounts/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
+// ต้องให้ตรงกับ enum AdPlatform ใน schema
+const allowedPlatforms = ["FACEBOOK", "GOOGLE", "TIKTOK", "LINE"] as const;
 type AllowedPlatform = (typeof allowedPlatforms)[number];
 
 interface AdAccountUpdatePayload {
   platform?: string;
+  // frontend อาจส่งมาว่า name หรือ accountName ก็รองรับทั้งคู่
   name?: string;
+  accountName?: string;
   apiKey?: string;
   apiSecret?: string;
   accessToken?: string;
   refreshToken?: string;
   accountId?: string;
-  pixelOrTrackingId?: string;
   isActive?: boolean;
 }
 
 function normalizePlatform(value?: string): AllowedPlatform | null {
-  const upper = typeof value === "string" ? value.toUpperCase() : "";
+  const upper = typeof value === "string" ? value.toUpperCase().trim() : "";
   return allowedPlatforms.includes(upper as AllowedPlatform)
     ? (upper as AllowedPlatform)
     : null;
 }
 
-async function findUserAdAccount(id: string, userId: string) {
-  return prisma.adAccount.findFirst({ where: { id, userId } });
+async function findOrgAdAccount(id: string, organizationId: string) {
+  return prisma.adAccount.findFirst({
+    where: { id, organizationId },
+  });
 }
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+// =======================
+// PUT - อัปเดตบัญชี
+// =======================
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "User has no organization" },
+        { status: 403 }
+      );
+    }
+
+    const { id } = params;
     if (!id) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
-    const existing = await findUserAdAccount(id, user.id);
+    const existing = await findOrgAdAccount(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const body: AdAccountUpdatePayload = await request.json();
-
     const updateData: Record<string, any> = {};
 
+    // platform
     if (body.platform) {
       const platform = normalizePlatform(body.platform);
       if (!platform) {
-        return NextResponse.json({ error: "platform ไม่ถูกต้อง" }, { status: 400 });
+        return NextResponse.json(
+          { error: "platform ไม่ถูกต้อง" },
+          { status: 400 }
+        );
       }
       updateData.platform = platform;
     }
 
-    if (typeof body.name === "string") updateData.name = body.name.trim();
-    if (typeof body.apiKey === "string") updateData.apiKey = body.apiKey.trim();
-    if (typeof body.apiSecret === "string") updateData.apiSecret = body.apiSecret.trim();
-    if (typeof body.accessToken === "string") updateData.accessToken = body.accessToken.trim();
-    if (typeof body.refreshToken === "string") updateData.refreshToken = body.refreshToken.trim();
-    if (typeof body.accountId === "string") updateData.accountId = body.accountId.trim();
-    if (typeof body.pixelOrTrackingId === "string")
-      updateData.pixelOrTrackingId = body.pixelOrTrackingId.trim();
-    if (typeof body.isActive === "boolean") updateData.isActive = body.isActive;
+    // ชื่อบัญชี (map จาก name หรือ accountName → accountName ใน DB)
+    const rawName =
+      typeof body.accountName === "string"
+        ? body.accountName
+        : typeof body.name === "string"
+        ? body.name
+        : undefined;
+
+    if (typeof rawName === "string") {
+      updateData.accountName = rawName.trim();
+    }
+
+    if (typeof body.apiKey === "string") {
+      updateData.apiKey = body.apiKey.trim();
+    }
+    if (typeof body.apiSecret === "string") {
+      updateData.apiSecret = body.apiSecret.trim();
+    }
+    if (typeof body.accessToken === "string") {
+      updateData.accessToken = body.accessToken.trim();
+    }
+    if (typeof body.refreshToken === "string") {
+      updateData.refreshToken = body.refreshToken.trim();
+    }
+    if (typeof body.accountId === "string") {
+      updateData.accountId = body.accountId.trim();
+    }
+    if (typeof body.isActive === "boolean") {
+      updateData.isActive = body.isActive;
+    }
 
     const updated = await prisma.adAccount.update({
       where: { id: existing.id },
@@ -82,19 +124,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+// =======================
+// DELETE - ลบบัญชี
+// =======================
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "User has no organization" },
+        { status: 403 }
+      );
+    }
+
+    const { id } = params;
     if (!id) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
-    const existing = await findUserAdAccount(id, user.id);
+    const existing = await findOrgAdAccount(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
