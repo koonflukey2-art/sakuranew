@@ -104,6 +104,11 @@ interface Stats {
   avgROAS: number;
 }
 
+interface OrderStats {
+  today: { revenue: number; orders: number };
+  week: { revenue: number; orders: number };
+}
+
 export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -120,6 +125,10 @@ export default function DashboardPage() {
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [orderStats, setOrderStats] = useState<OrderStats>({
+    today: { revenue: 0, orders: 0 },
+    week: { revenue: 0, orders: 0 },
+  });
 
   // -------- utils --------
 
@@ -266,22 +275,29 @@ export default function DashboardPage() {
       setLoading(true);
       setAiError(null);
 
-      const [productsRes, campaignsRes, budgetsRes] = await Promise.all([
-        fetch("/api/products"),
-        fetch("/api/campaigns"),
-        fetch("/api/budgets"),
-      ]);
+      const [productsRes, campaignsRes, budgetsRes, ordersStatsRes] =
+        await Promise.all([
+          fetch("/api/products"),
+          fetch("/api/campaigns"),
+          fetch("/api/budgets"),
+          fetch("/api/orders/stats"),
+        ]);
 
       // ถ้า 401 แปลว่ายังไม่ได้ login → ให้โชว์ dashboard ว่าง ๆ แต่ไม่พัง
       if (
         productsRes.status === 401 ||
         campaignsRes.status === 401 ||
-        budgetsRes.status === 401
+        budgetsRes.status === 401 ||
+        ordersStatsRes.status === 401
       ) {
         console.warn("Dashboard APIs returned 401 (unauthorized)");
         setProducts([]);
         setCampaigns([]);
         setBudgets([]);
+        setOrderStats({
+          today: { revenue: 0, orders: 0 },
+          week: { revenue: 0, orders: 0 },
+        });
         setStats({
           totalRevenue: 0,
           totalProfit: 0,
@@ -294,6 +310,7 @@ export default function DashboardPage() {
       const productsJson = await safeJson<any>(productsRes);
       const campaignsJson = await safeJson<any>(campaignsRes);
       const budgetsJson = await safeJson<any>(budgetsRes);
+      const ordersStatsJson = await safeJson<OrderStats>(ordersStatsRes);
 
       // ทำให้แน่ใจว่าทุกอันเป็น Array
       const productsData: Product[] = Array.isArray(productsJson)
@@ -311,6 +328,12 @@ export default function DashboardPage() {
       setProducts(productsData);
       setCampaigns(campaignsData);
       setBudgets(budgetsData);
+      setOrderStats(
+        ordersStatsJson ?? {
+          today: { revenue: 0, orders: 0 },
+          week: { revenue: 0, orders: 0 },
+        }
+      );
 
       const metrics = calculateStats(productsData, campaignsData, budgetsData);
 
@@ -338,6 +361,10 @@ export default function DashboardPage() {
       setProducts([]);
       setCampaigns([]);
       setBudgets([]);
+      setOrderStats({
+        today: { revenue: 0, orders: 0 },
+        week: { revenue: 0, orders: 0 },
+      });
       setStats({
         totalRevenue: 0,
         totalProfit: 0,
@@ -479,6 +506,41 @@ export default function DashboardPage() {
         <p className="text-sm md:text-base text-gray-600 mt-2">
           ภาพรวมธุรกิจของคุณ 🚀
         </p>
+      </div>
+
+      {/* LINE Sales Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              ยอดขายวันนี้
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              ฿{orderStats.today.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.today.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              ยอดขาย 7 วัน
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ฿{orderStats.week.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.week.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Stats Cards - Vibrant */}

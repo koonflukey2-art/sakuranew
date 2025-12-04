@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -39,6 +40,9 @@ import {
   RefreshCw,
   Globe2,
   KeyRound,
+  MessageSquare,
+  Info,
+  Save,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -97,6 +101,19 @@ export default function SettingsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const [lineSettings, setLineSettings] = useState({
+    channelAccessToken: "",
+    channelSecret: "",
+    webhookUrl: "",
+    isActive: true,
+  });
+  const [savingLine, setSavingLine] = useState(false);
+  const [loadingLine, setLoadingLine] = useState(true);
+  const webhookUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/line/webhook`
+      : "https://your-domain.com/api/line/webhook";
+
   // Platform Credentials State
   const [platformCreds, setPlatformCreds] = useState<any[]>([]);
   const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
@@ -133,6 +150,77 @@ export default function SettingsPage() {
       fetchAdAccounts();
     }
   }, [isAuthorized]);
+
+  useEffect(() => {
+    const fetchLineSettings = async () => {
+      try {
+        const res = await fetch("/api/line-settings");
+        if (!res.ok) {
+          setLoadingLine(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (data) {
+          setLineSettings({
+            channelAccessToken: data.channelAccessToken || "",
+            channelSecret: data.channelSecret || "",
+            webhookUrl: data.webhookUrl || webhookUrl,
+            isActive: data.isActive ?? true,
+          });
+        } else {
+          setLineSettings((prev) => ({ ...prev, webhookUrl }));
+        }
+      } catch (e) {
+        console.error("Failed to load LINE settings", e);
+      } finally {
+        setLoadingLine(false);
+      }
+    };
+
+    fetchLineSettings();
+  }, [webhookUrl]);
+
+  const handleSaveLineSettings = async () => {
+    try {
+      setSavingLine(true);
+      const res = await fetch("/api/line-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelAccessToken: lineSettings.channelAccessToken,
+          channelSecret: lineSettings.channelSecret,
+          webhookUrl: lineSettings.webhookUrl || webhookUrl,
+          isActive: lineSettings.isActive,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast({
+          title: "บันทึกไม่สำเร็จ",
+          description: data?.error || "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "บันทึกสำเร็จ",
+        description: "บันทึกการตั้งค่า LINE เรียบร้อยแล้ว",
+      });
+    } catch (error) {
+      console.error("Save LINE settings failed", error);
+      toast({
+        title: "บันทึกไม่สำเร็จ",
+        description: "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingLine(false);
+    }
+  };
 
   // ========== AI Provider functions ==========
 
@@ -568,6 +656,98 @@ export default function SettingsPage() {
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
+
+      {/* LINE Notification Settings */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-green-500" />
+            LINE Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <Info className="w-4 h-4" />
+            <AlertDescription>
+              เชื่อมต่อกับ LINE Messaging API เพื่อ:
+              • อ่านข้อความยอดขายอัตโนมัติ
+              • ส่งการแจ้งเตือนสินค้าใกล้หมด
+              • บันทึกข้อมูลลูกค้าและออเดอร์
+            </AlertDescription>
+          </Alert>
+
+          <div>
+            <Label>Channel Access Token</Label>
+            <Input
+              type="password"
+              value={lineSettings.channelAccessToken}
+              onChange={(e) =>
+                setLineSettings((prev) => ({
+                  ...prev,
+                  channelAccessToken: e.target.value,
+                }))
+              }
+              placeholder="Channel Access Token จาก LINE Developers"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              สร้างได้จาก{" "}
+              <a
+                href="https://developers.line.biz/"
+                target="_blank"
+                className="text-blue-500 underline"
+                rel="noreferrer"
+              >
+                LINE Developers Console
+              </a>
+            </p>
+          </div>
+
+          <div>
+            <Label>Channel Secret</Label>
+            <Input
+              type="password"
+              value={lineSettings.channelSecret}
+              onChange={(e) =>
+                setLineSettings((prev) => ({
+                  ...prev,
+                  channelSecret: e.target.value,
+                }))
+              }
+              placeholder="Channel Secret"
+            />
+          </div>
+
+          <div>
+            <Label>Webhook URL</Label>
+            <Input
+              value={lineSettings.webhookUrl || webhookUrl}
+              readOnly
+              className="bg-gray-50"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              ใช้ URL นี้ใน LINE Developers Console
+            </p>
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={handleSaveLineSettings}
+            disabled={savingLine || loadingLine}
+          >
+            {savingLine ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                กำลังบันทึก...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                บันทึกการตั้งค่า LINE
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Add New Provider */}
       <Card className="bg-white border-2 border-gray-200">
