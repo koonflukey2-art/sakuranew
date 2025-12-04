@@ -680,8 +680,6 @@ export default function SettingsPage() {
             <Label>Channel Access Token</Label>
             <Input
               type="password"
-<<<<<<< HEAD
-=======
               value={lineSettings.channelAccessToken}
               onChange={(e) =>
                 setLineSettings((prev) => ({
@@ -689,7 +687,6 @@ export default function SettingsPage() {
                   channelAccessToken: e.target.value,
                 }))
               }
->>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
               placeholder="Channel Access Token จาก LINE Developers"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -707,9 +704,6 @@ export default function SettingsPage() {
 
           <div>
             <Label>Channel Secret</Label>
-<<<<<<< HEAD
-            <Input type="password" placeholder="Channel Secret" />
-=======
             <Input
               type="password"
               value={lineSettings.channelSecret}
@@ -721,17 +715,12 @@ export default function SettingsPage() {
               }
               placeholder="Channel Secret"
             />
->>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
           </div>
 
           <div>
             <Label>Webhook URL</Label>
             <Input
-<<<<<<< HEAD
-              value={`https://your-domain.com/api/line/webhook`}
-=======
               value={lineSettings.webhookUrl || webhookUrl}
->>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
               readOnly
               className="bg-gray-50"
             />
@@ -740,11 +729,6 @@ export default function SettingsPage() {
             </p>
           </div>
 
-<<<<<<< HEAD
-          <Button className="w-full">
-            <Save className="w-4 h-4 mr-2" />
-            บันทึกการตั้งค่า LINE
-=======
           <Button
             className="w-full"
             onClick={handleSaveLineSettings}
@@ -761,7 +745,6 @@ export default function SettingsPage() {
                 บันทึกการตั้งค่า LINE
               </>
             )}
->>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
           </Button>
         </CardContent>
       </Card>
