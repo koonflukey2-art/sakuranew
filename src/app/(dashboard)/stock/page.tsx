@@ -35,6 +35,7 @@ import {
   Loader2,
   TrendingUp,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
@@ -380,18 +381,28 @@ export default function StockPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header + Bulk actions */}
-      <div className="open flex flex-col sm:flex-row justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Stock Management
           </h1>
-          <p className="text-slate-400 mt-1 text-sm md:text-base">
+          <p className="text-gray-400 mt-1 text-sm md:text-base">
             จัดการสินค้าและสต็อก
-            {selectedIds.length > 0 &&
-              ` • เลือกแล้ว ${selectedIds.length} รายการ`}
+            {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => {
+              fetchProducts();
+              fetchOrderStats();
+            }}
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            รีเฟรช
+          </Button>
           {selectedIds.length > 0 && (
             <>
               <Button
@@ -516,19 +527,27 @@ export default function StockPage() {
                           defaultValue={field.value?.toString() || ""}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                               <SelectValue placeholder="เลือกประเภทสินค้า" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
-                            <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
-                            <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
-                            <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                          <SelectContent className="bg-gray-800 border-gray-700">
+                            <SelectItem value="1" className="text-white hover:bg-gray-700">
+                              สินค้าหมายเลข 1
+                            </SelectItem>
+                            <SelectItem value="2" className="text-white hover:bg-gray-700">
+                              สินค้าหมายเลข 2
+                            </SelectItem>
+                            <SelectItem value="3" className="text-white hover:bg-gray-700">
+                              สินค้าหมายเลข 3
+                            </SelectItem>
+                            <SelectItem value="4" className="text-white hover:bg-gray-700">
+                              สินค้าหมายเลข 4
+                            </SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-gray-500 mt-1">
-                          เมื่อมีออเดอร์จาก LINE ที่มีรหัสนี้ สต๊อกจะลดอัตโนมัติ
+                        <p className="text-xs text-gray-400 mt-1">
+                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -610,63 +629,99 @@ export default function StockPage() {
       </div>
 
       {/* Sales Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Card className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-medium text-gray-300">
               รายได้วันนี้
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-400">
               ฿{orderStats.today.revenue.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-1">
               {orderStats.today.orders} ออเดอร์
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-medium text-gray-300">
               รายได้ 7 วัน
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-blue-400">
               ฿{orderStats.week.revenue.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-1">
               {orderStats.week.orders} ออเดอร์
             </p>
           </CardContent>
         </Card>
-        <Card className="col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              ยอดขายตามประเภทสินค้า (วันนี้)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {Object.keys(orderStats.today.byType).length === 0 ? (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูล</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(orderStats.today.byType).map(([type, data]) => (
-                  <div key={type} className="p-3 border rounded-lg bg-white/50">
-                    <div className="font-semibold">{type}</div>
-                    <div className="text-sm text-gray-500">ขาย {data.count} ชิ้น</div>
-                    <div className="text-lg font-bold text-green-600">
-                      ฿{data.revenue.toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Sales by Product Type - FIXED COLORS */}
+      {Object.keys(orderStats.today.byType).length === 0 ? (
+        <Card className="mb-6 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
+          <CardContent className="text-gray-400">ยังไม่มีข้อมูลยอดขายรายประเภทวันนี้</CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {Object.entries(orderStats.today.byType).map(([type, data]) => (
+            <Card key={type} className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  {`สินค้าหมายเลข ${type}`} (วันนี้)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-green-400">
+                  ฿{data.revenue.toLocaleString()}
+                </div>
+                <p className="text-sm text-gray-400 mt-1">
+                  ขายไป <span className="text-white font-semibold">{data.count}</span> ชิ้น
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Product Type Performance (7 days) */}
+      {Object.keys(orderStats.week.byType).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {Object.entries(orderStats.week.byType).map(([type, data]) => (
+            <Card
+              key={type}
+              className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 hover:border-purple-500 transition"
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-purple-400" />
+                  {`สินค้าหมายเลข ${type}`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-300">ชนิด (7 วัน)</span>
+                    <span className="text-lg font-bold text-white">{data.count} ชิ้น</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-300">รายได้</span>
+                    <span className="text-lg font-bold text-green-400">
+                      ฿{data.revenue.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -918,19 +973,27 @@ export default function StockPage() {
                       defaultValue={field.value?.toString() || ""}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                           <SelectValue placeholder="เลือกประเภทสินค้า" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
-                        <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
-                        <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
-                        <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                      <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="1" className="text-white hover:bg-gray-700">
+                          สินค้าหมายเลข 1
+                        </SelectItem>
+                        <SelectItem value="2" className="text-white hover:bg-gray-700">
+                          สินค้าหมายเลข 2
+                        </SelectItem>
+                        <SelectItem value="3" className="text-white hover:bg-gray-700">
+                          สินค้าหมายเลข 3
+                        </SelectItem>
+                        <SelectItem value="4" className="text-white hover:bg-gray-700">
+                          สินค้าหมายเลข 4
+                        </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      เมื่อมีออเดอร์จาก LINE ที่มีรหัสนี้ สต๊อกจะลดอัตโนมัติ
+                    <p className="text-xs text-gray-400 mt-1">
+                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
                     </p>
                     <FormMessage />
                   </FormItem>
