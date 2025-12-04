@@ -101,6 +101,19 @@ export default function SettingsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const [lineSettings, setLineSettings] = useState({
+    channelAccessToken: "",
+    channelSecret: "",
+    webhookUrl: "",
+    isActive: true,
+  });
+  const [savingLine, setSavingLine] = useState(false);
+  const [loadingLine, setLoadingLine] = useState(true);
+  const webhookUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/line/webhook`
+      : "https://your-domain.com/api/line/webhook";
+
   // Platform Credentials State
   const [platformCreds, setPlatformCreds] = useState<any[]>([]);
   const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
@@ -137,6 +150,77 @@ export default function SettingsPage() {
       fetchAdAccounts();
     }
   }, [isAuthorized]);
+
+  useEffect(() => {
+    const fetchLineSettings = async () => {
+      try {
+        const res = await fetch("/api/line-settings");
+        if (!res.ok) {
+          setLoadingLine(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (data) {
+          setLineSettings({
+            channelAccessToken: data.channelAccessToken || "",
+            channelSecret: data.channelSecret || "",
+            webhookUrl: data.webhookUrl || webhookUrl,
+            isActive: data.isActive ?? true,
+          });
+        } else {
+          setLineSettings((prev) => ({ ...prev, webhookUrl }));
+        }
+      } catch (e) {
+        console.error("Failed to load LINE settings", e);
+      } finally {
+        setLoadingLine(false);
+      }
+    };
+
+    fetchLineSettings();
+  }, [webhookUrl]);
+
+  const handleSaveLineSettings = async () => {
+    try {
+      setSavingLine(true);
+      const res = await fetch("/api/line-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelAccessToken: lineSettings.channelAccessToken,
+          channelSecret: lineSettings.channelSecret,
+          webhookUrl: lineSettings.webhookUrl || webhookUrl,
+          isActive: lineSettings.isActive,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast({
+          title: "บันทึกไม่สำเร็จ",
+          description: data?.error || "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "บันทึกสำเร็จ",
+        description: "บันทึกการตั้งค่า LINE เรียบร้อยแล้ว",
+      });
+    } catch (error) {
+      console.error("Save LINE settings failed", error);
+      toast({
+        title: "บันทึกไม่สำเร็จ",
+        description: "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingLine(false);
+    }
+  };
 
   // ========== AI Provider functions ==========
 
@@ -596,6 +680,16 @@ export default function SettingsPage() {
             <Label>Channel Access Token</Label>
             <Input
               type="password"
+<<<<<<< HEAD
+=======
+              value={lineSettings.channelAccessToken}
+              onChange={(e) =>
+                setLineSettings((prev) => ({
+                  ...prev,
+                  channelAccessToken: e.target.value,
+                }))
+              }
+>>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
               placeholder="Channel Access Token จาก LINE Developers"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -613,13 +707,31 @@ export default function SettingsPage() {
 
           <div>
             <Label>Channel Secret</Label>
+<<<<<<< HEAD
             <Input type="password" placeholder="Channel Secret" />
+=======
+            <Input
+              type="password"
+              value={lineSettings.channelSecret}
+              onChange={(e) =>
+                setLineSettings((prev) => ({
+                  ...prev,
+                  channelSecret: e.target.value,
+                }))
+              }
+              placeholder="Channel Secret"
+            />
+>>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
           </div>
 
           <div>
             <Label>Webhook URL</Label>
             <Input
+<<<<<<< HEAD
               value={`https://your-domain.com/api/line/webhook`}
+=======
+              value={lineSettings.webhookUrl || webhookUrl}
+>>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
               readOnly
               className="bg-gray-50"
             />
@@ -628,9 +740,28 @@ export default function SettingsPage() {
             </p>
           </div>
 
+<<<<<<< HEAD
           <Button className="w-full">
             <Save className="w-4 h-4 mr-2" />
             บันทึกการตั้งค่า LINE
+=======
+          <Button
+            className="w-full"
+            onClick={handleSaveLineSettings}
+            disabled={savingLine || loadingLine}
+          >
+            {savingLine ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                กำลังบันทึก...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                บันทึกการตั้งค่า LINE
+              </>
+            )}
+>>>>>>> codex/implement-line-message-integration-and-dashboard-zsvm0x
           </Button>
         </CardContent>
       </Card>
