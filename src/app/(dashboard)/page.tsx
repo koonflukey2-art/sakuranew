@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Globe2,
   KeyRound,
+  // 👇 อันพวกนี้ต้องมีแน่ ๆ ตาม JSX ที่ใช้
   DollarSign,
   TrendingUp,
   Wallet,
