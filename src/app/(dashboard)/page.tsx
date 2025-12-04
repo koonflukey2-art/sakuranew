@@ -40,12 +40,14 @@ import {
   Globe2,
   KeyRound,
   DollarSign,
+  TrendingUp,
   Wallet,
   ShoppingCart,
   Activity,
   AlertTriangle,
   Bot,
 } from "lucide-react";
+
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
