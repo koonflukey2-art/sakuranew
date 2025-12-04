@@ -44,7 +44,6 @@ import {
   Info,
   Save,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 interface AIProvider {
@@ -58,9 +57,31 @@ interface AIProvider {
   hasApiKey: boolean;
 }
 
+interface PlatformCredential {
+  id: string;
+  platform: string;
+  isValid: boolean;
+  lastTested?: string | null;
+  testMessage?: string | null;
+}
+
+interface AdAccount {
+  id: string;
+  platform: string;
+  accountName: string;
+  accountId?: string | null;
+  isActive: boolean;
+  isValid: boolean;
+  isDefault: boolean;
+  lastTested?: string | null;
+  testMessage?: string | null;
+}
+
 export default function SettingsPage() {
-  // RBAC: Only ADMIN can access settings
   const router = useRouter();
+  const { toast } = useToast();
+
+  // RBAC: Only ADMIN can access settings
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -92,6 +113,17 @@ export default function SettingsPage() {
     checkAccess();
   }, [router]);
 
+  // ==== LINE webhook URL (ใช้ได้ทั้ง env + window.origin) ====
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "";
+
+  const webhookUrl = appUrl
+    ? `${appUrl}/api/line/webhook`
+    : "https://your-domain.com/api/line/webhook";
+
+  // ==== AI Provider State ====
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string>("GEMINI");
@@ -99,23 +131,19 @@ export default function SettingsPage() {
   const [modelName, setModelName] = useState("");
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const { toast } = useToast();
 
+  // ==== LINE Settings State ====
   const [lineSettings, setLineSettings] = useState({
     channelAccessToken: "",
     channelSecret: "",
-    webhookUrl: "",
+    webhookUrl,
     isActive: true,
   });
   const [savingLine, setSavingLine] = useState(false);
   const [loadingLine, setLoadingLine] = useState(true);
-  const webhookUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/line/webhook`
-      : "https://your-domain.com/api/line/webhook";
 
-  // Platform Credentials State
-  const [platformCreds, setPlatformCreds] = useState<any[]>([]);
+  // ==== Platform Credentials State ====
+  const [platformCreds, setPlatformCreds] = useState<PlatformCredential[]>([]);
   const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
   const [testingPlatformId, setTestingPlatformId] = useState<string | null>(
     null
@@ -128,8 +156,8 @@ export default function SettingsPage() {
     refreshToken: "",
   });
 
-  // Ad Accounts states
-  const [adAccounts, setAdAccounts] = useState<any[]>([]);
+  // ==== Ad Accounts State ====
+  const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
   const [loadingAdAccounts, setLoadingAdAccounts] = useState(true);
   const [testingAdAccount, setTestingAdAccount] = useState<string | null>(null);
   const [isAdAccountDialogOpen, setIsAdAccountDialogOpen] = useState(false);
@@ -143,6 +171,7 @@ export default function SettingsPage() {
     refreshToken: "",
   });
 
+  // ==== Initial fetch ====
   useEffect(() => {
     if (isAuthorized) {
       fetchProviders();
@@ -235,9 +264,6 @@ export default function SettingsPage() {
 
       const data = await response.json();
 
-      // รองรับทั้งสองรูปแบบ:
-      // 1) [ ...providers ]
-      // 2) { providers: [ ... ] }
       const providersArray: AIProvider[] = Array.isArray(data)
         ? data
         : Array.isArray(data?.providers)
@@ -369,10 +395,18 @@ export default function SettingsPage() {
       const res = await fetch("/api/platform-credentials");
       if (res.ok) {
         const data = await res.json();
-        setPlatformCreds(Array.isArray(data) ? data : data?.credentials || []);
+        const list: PlatformCredential[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.credentials)
+          ? data.credentials
+          : [];
+        setPlatformCreds(list);
+      } else {
+        setPlatformCreds([]);
       }
     } catch (error) {
       console.error("Failed to fetch platform credentials:", error);
+      setPlatformCreds([]);
     } finally {
       setLoadingPlatformCreds(false);
     }
@@ -399,13 +433,13 @@ export default function SettingsPage() {
         description: "บันทึก API Key / Token ของแพลตฟอร์มแล้ว",
       });
 
-      setPlatformForm({
-        platform: platformForm.platform,
+      setPlatformForm((prev) => ({
+        ...prev,
         apiKey: "",
         apiSecret: "",
         accessToken: "",
         refreshToken: "",
-      });
+      }));
 
       fetchPlatformCreds();
     } catch (error: any) {
@@ -486,17 +520,18 @@ export default function SettingsPage() {
       const res = await fetch("/api/ad-accounts");
       if (res.ok) {
         const data = await res.json();
-        // ✅ แก้: backend ส่งเป็น array ตรง ๆ
-        if (Array.isArray(data)) {
-          setAdAccounts(data);
-        } else if (Array.isArray(data?.accounts)) {
-          setAdAccounts(data.accounts);
-        } else {
-          setAdAccounts([]);
-        }
+        const list: AdAccount[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.accounts)
+          ? data.accounts
+          : [];
+        setAdAccounts(list);
+      } else {
+        setAdAccounts([]);
       }
     } catch (error) {
       console.error("Failed to fetch ad accounts:", error);
+      setAdAccounts([]);
     } finally {
       setLoadingAdAccounts(false);
     }
@@ -653,11 +688,11 @@ export default function SettingsPage() {
           AI Provider Settings
         </h1>
         <p className="text-gray-600 mt-1">
-          ตั้งค่า AI และ Model สำหรับใช้ในระบบ
+          ตั้งค่า AI, LINE และ Platform API สำหรับใช้ในระบบ
         </p>
       </div>
 
-      {/* LINE Notification Settings */}
+      {/* LINE Integration */}
       <Card className="border-2">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -749,7 +784,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Add New Provider */}
+      {/* Add New AI Provider */}
       <Card className="bg-white border-2 border-gray-200">
         <CardHeader>
           <CardTitle className="text-lg md:text-xl text-gray-800">
@@ -985,15 +1020,453 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Platform API Credentials */}
+      <Card className="bg-white border-2 border-gray-200">
+        <CardHeader>
+          <CardTitle className="text-lg md:text-xl text-gray-800 flex items-center gap-2">
+            <Globe2 className="w-5 h-5 text-purple-500" />
+            Platform API Settings
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            ตั้งค่า API Key / Token สำหรับเชื่อมต่อ Facebook Ads, TikTok Ads,
+            Shopee, Lazada ฯลฯ
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form
+            className="grid gap-4 md:grid-cols-2"
+            onSubmit={handleSavePlatformCred}
+          >
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-semibold">
+                Platform
+              </Label>
+              <Select
+                value={platformForm.platform}
+                onValueChange={(value) =>
+                  setPlatformForm((prev) => ({ ...prev, platform: value }))
+                }
+              >
+                <SelectTrigger className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-2 border-gray-300">
+                  <SelectItem value="FACEBOOK_ADS">Facebook Ads</SelectItem>
+                  <SelectItem value="TIKTOK_ADS">TikTok Ads</SelectItem>
+                  <SelectItem value="SHOPEE">Shopee</SelectItem>
+                  <SelectItem value="LAZADA">Lazada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-semibold">API Key</Label>
+              <Input
+                value={platformForm.apiKey}
+                onChange={(e) =>
+                  setPlatformForm((prev) => ({
+                    ...prev,
+                    apiKey: e.target.value,
+                  }))
+                }
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
+                placeholder="API Key"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-semibold">
+                API Secret (ถ้ามี)
+              </Label>
+              <Input
+                type="password"
+                value={platformForm.apiSecret}
+                onChange={(e) =>
+                  setPlatformForm((prev) => ({
+                    ...prev,
+                    apiSecret: e.target.value,
+                  }))
+                }
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
+                placeholder="API Secret"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-semibold">
+                Access Token / Refresh Token
+              </Label>
+              <Input
+                type="password"
+                value={platformForm.accessToken}
+                onChange={(e) =>
+                  setPlatformForm((prev) => ({
+                    ...prev,
+                    accessToken: e.target.value,
+                  }))
+                }
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1"
+                placeholder="Access Token"
+              />
+              <Input
+                type="password"
+                value={platformForm.refreshToken}
+                onChange={(e) =>
+                  setPlatformForm((prev) => ({
+                    ...prev,
+                    refreshToken: e.target.value,
+                  }))
+                }
+                className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-2"
+                placeholder="Refresh Token (ถ้ามี)"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <Button
+                type="submit"
+                className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+              >
+                <KeyRound className="w-4 h-4 mr-2" />
+                บันทึก Platform API
+              </Button>
+            </div>
+          </form>
+
+          <div className="pt-4">
+            <h3 className="font-semibold text-gray-800 mb-2">
+              Platform API ที่บันทึกไว้
+            </h3>
+            {loadingPlatformCreds ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+              </div>
+            ) : platformCreds.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                ยังไม่มี Platform API ที่บันทึกไว้
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {platformCreds.map((cred) => (
+                  <div
+                    key={cred.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border rounded-lg bg-gray-50"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-800">
+                        {cred.platform}
+                      </p>
+                      {cred.lastTested && (
+                        <p className="text-xs text-gray-500">
+                          ทดสอบล่าสุด{" "}
+                          {new Date(
+                            cred.lastTested
+                          ).toLocaleString("th-TH")}
+                        </p>
+                      )}
+                      {cred.testMessage && (
+                        <p className="text-xs text-gray-600">
+                          {cred.testMessage}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge
+                        className={
+                          cred.isValid
+                            ? "bg-green-500 text-white"
+                            : "bg-red-500 text-white"
+                        }
+                      >
+                        {cred.isValid ? "ใช้งานได้" : "เชื่อมต่อไม่สำเร็จ"}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTestPlatformCred(cred.id)}
+                        disabled={testingPlatformId === cred.id}
+                      >
+                        {testingPlatformId === cred.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <TestTube2 className="w-4 h-4 mr-1" />
+                        )}
+                        ทดสอบ
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeletePlatformCred(cred.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Ad Accounts Section */}
-      {/* ... ส่วน Ad Accounts และ Platform API เหมือนโค้ดเดิมด้านล่าง ไม่เปลี่ยน ... */}
-      {/* (ผมคงไว้ทั้งหมดตามที่คุณส่งมาแล้วในไฟล์นี้ด้านล่าง เพื่อไม่ให้ขยายยาวเกินในข้อความ) */}
-      {/* ใช้ portion เดิมของคุณต่อจากตรงนี้ได้เลย */}
-      {/* -------------- */}
-      {/* (จาก Card Ad Accounts เป็นต้นไป) */}
-      {/* -------------- */}
-      {/* ผมไม่ได้แก้ logic อื่น นอกจาก fetchAdAccounts ด้านบนเท่านั้น */}
-      {/* เอาโค้ดส่วนล่างของไฟล์เดิมคุณวางต่อได้เลย */}
+      <Card className="bg-white border-2 border-gray-200">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg md:text-xl text-gray-800 flex items-center gap-2">
+              <Facebook className="w-5 h-5 text-blue-600" />
+              บัญชีโฆษณา (Ad Accounts)
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              จัดการบัญชีโฆษณาสำหรับ Facebook / TikTok / Google / LINE
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsAdAccountDialogOpen(true)}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            เพิ่ม Ad Account
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loadingAdAccounts ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            </div>
+          ) : adAccounts.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              ยังไม่มีบัญชีโฆษณา เพิ่มบัญชีใหม่เพื่อเริ่มเชื่อมต่อ
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {adAccounts.map((acc) => (
+                <div
+                  key={acc.id}
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border rounded-lg bg-gray-50"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-800">
+                        {acc.accountName || acc.accountId || "Unnamed Account"}
+                      </p>
+                      <Badge variant="outline" className="text-xs">
+                        {acc.platform}
+                      </Badge>
+                      {acc.isDefault && (
+                        <Badge className="bg-blue-500 text-white text-xs">
+                          Default
+                        </Badge>
+                      )}
+                      {acc.isActive ? (
+                        <Badge className="bg-green-500 text-white text-xs">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          Inactive
+                        </Badge>
+                      )}
+                      {acc.isValid ? (
+                        <Badge className="bg-green-500 text-white text-xs">
+                          ใช้งานได้
+                        </Badge>
+                      ) : acc.lastTested ? (
+                        <Badge className="bg-red-500 text-white text-xs">
+                          ใช้งานไม่ได้
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          ยังไม่ทดสอบ
+                        </Badge>
+                      )}
+                    </div>
+                    {acc.accountId && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        Account ID: {acc.accountId}
+                      </p>
+                    )}
+                    {acc.lastTested && (
+                      <p className="text-xs text-gray-500">
+                        ทดสอบล่าสุด{" "}
+                        {new Date(acc.lastTested).toLocaleString("th-TH")}
+                      </p>
+                    )}
+                    {acc.testMessage && (
+                      <p className="text-xs text-gray-600">
+                        ผลการทดสอบ: {acc.testMessage}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestAdAccount(acc.id)}
+                      disabled={testingAdAccount === acc.id}
+                    >
+                      {testingAdAccount === acc.id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <TestTube2 className="w-4 h-4 mr-1" />
+                      )}
+                      ทดสอบ
+                    </Button>
+                    {!acc.isDefault && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          handleSetDefaultAdAccount(acc.id, acc.platform)
+                        }
+                      >
+                        ตั้งเป็น Default
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteAdAccount(acc.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dialog: Add Ad Account */}
+      <Dialog
+        open={isAdAccountDialogOpen}
+        onOpenChange={setIsAdAccountDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่ม Ad Account ใหม่</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleAddAdAccount}>
+            <div className="space-y-2">
+              <Label>Platform</Label>
+              <Select
+                value={adAccountForm.platform}
+                onValueChange={(value) =>
+                  setAdAccountForm((prev) => ({ ...prev, platform: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FACEBOOK">Facebook Ads</SelectItem>
+                  <SelectItem value="GOOGLE">Google Ads</SelectItem>
+                  <SelectItem value="TIKTOK">TikTok Ads</SelectItem>
+                  <SelectItem value="LINE">LINE Ads</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>ชื่อบัญชี</Label>
+              <Input
+                value={adAccountForm.accountName}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    accountName: e.target.value,
+                  }))
+                }
+                placeholder="เช่น Main Facebook Ads"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Account ID (ถ้ามี)</Label>
+              <Input
+                value={adAccountForm.accountId}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    accountId: e.target.value,
+                  }))
+                }
+                placeholder="เช่น act_123456789"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>API Key / Access Token</Label>
+              <Input
+                type="password"
+                value={adAccountForm.apiKey}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    apiKey: e.target.value,
+                  }))
+                }
+                placeholder="API Key (ถ้ามี)"
+              />
+              <Input
+                type="password"
+                value={adAccountForm.accessToken}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    accessToken: e.target.value,
+                  }))
+                }
+                placeholder="Access Token"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>API Secret / Refresh Token (ถ้ามี)</Label>
+              <Input
+                type="password"
+                value={adAccountForm.apiSecret}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    apiSecret: e.target.value,
+                  }))
+                }
+                placeholder="API Secret"
+              />
+              <Input
+                type="password"
+                value={adAccountForm.refreshToken}
+                onChange={(e) =>
+                  setAdAccountForm((prev) => ({
+                    ...prev,
+                    refreshToken: e.target.value,
+                  }))
+                }
+                placeholder="Refresh Token"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAdAccountDialogOpen(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+              >
+                บันทึก
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
