@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import {
   Calendar,
   ShoppingCart,
 } from "lucide-react";
+import { getProductTypeName } from "@/lib/line-parser";
 
 interface Order {
   id: string;
@@ -52,8 +53,11 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [productTypeFilter, setProductTypeFilter] = useState("");
+
+  // ใช้ "ALL" แทนค่ารวมทั้งหมด แก้ปัญหา value = ""
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [productTypeFilter, setProductTypeFilter] = useState<string>("ALL");
+
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
@@ -62,6 +66,7 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
     fetchUserRole();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter, productTypeFilter]);
 
   const fetchUserRole = async () => {
@@ -81,10 +86,16 @@ export default function OrdersPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
-      if (productTypeFilter) params.append("productType", productTypeFilter);
 
-      const res = await fetch(`/api/orders?${params}`);
+      // ถ้าเป็น "ALL" ไม่ต้องส่งขึ้น API
+      if (statusFilter && statusFilter !== "ALL") {
+        params.append("status", statusFilter);
+      }
+      if (productTypeFilter && productTypeFilter !== "ALL") {
+        params.append("productType", productTypeFilter);
+      }
+
+      const res = await fetch(`/api/orders?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
@@ -146,6 +157,12 @@ export default function OrdersPage() {
     return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
   };
 
+  const getProductBadge = (order: Order) => {
+    if (order.productName) return order.productName;
+    if (order.productType) return getProductTypeName(order.productType);
+    return "ไม่ระบุ";
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -175,12 +192,15 @@ export default function OrdersPage() {
 
             <div>
               <Label>สถานะ</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">ทั้งหมด</SelectItem>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
                   <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
                   <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
                   <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
@@ -191,12 +211,15 @@ export default function OrdersPage() {
 
             <div>
               <Label>ประเภทสินค้า</Label>
-              <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+              <Select
+                value={productTypeFilter}
+                onValueChange={setProductTypeFilter}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">ทั้งหมด</SelectItem>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
                   <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
                   <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
                   <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
@@ -239,8 +262,11 @@ export default function OrdersPage() {
                         </span>
                       </div>
                       {getStatusBadge(order.status)}
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
-                        {order.productName || `สินค้าหมายเลข ${order.productType}`}
+                      <Badge
+                        variant="outline"
+                        className="bg-blue-50 text-blue-700 border-blue-300"
+                      >
+                        {getProductBadge(order)}
                       </Badge>
                       <Badge variant="outline" className="bg-gray-100">
                         {order.quantity} ชิ้น
@@ -251,22 +277,29 @@ export default function OrdersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-purple-500" />
-                        <span className="font-medium text-white">{order.customer.name}</span>
+                        <span className="font-medium text-white">
+                          {order.customer.name}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-green-500" />
-                        <span className="text-gray-300">{order.customer.phone}</span>
+                        <span className="text-gray-300">
+                          {order.customer.phone}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-blue-500" />
                         <span className="text-gray-300">
-                          {new Date(order.orderDate).toLocaleDateString("th-TH", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {new Date(order.orderDate).toLocaleDateString(
+                            "th-TH",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                         </span>
                       </div>
                     </div>
@@ -277,7 +310,9 @@ export default function OrdersPage() {
                         <div className="flex items-start gap-2">
                           <MapPin className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                           <div>
-                            <div className="text-xs text-gray-400 mb-1">ที่อยู่จัดส่ง</div>
+                            <div className="text-xs text-gray-400 mb-1">
+                              ที่อยู่จัดส่ง
+                            </div>
                             <p className="text-sm text-white leading-relaxed">
                               {order.customer.address}
                             </p>
@@ -322,7 +357,9 @@ export default function OrdersPage() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>แก้ไขออเดอร์ #{selectedOrder?.orderNumber}</DialogTitle>
+            <DialogTitle>
+              แก้ไขออเดอร์ #{selectedOrder?.orderNumber || selectedOrder?.id.slice(0, 8)}
+            </DialogTitle>
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
@@ -351,7 +388,10 @@ export default function OrdersPage() {
                 <Textarea
                   value={selectedOrder.notes || ""}
                   onChange={(e) =>
-                    setSelectedOrder({ ...selectedOrder, notes: e.target.value })
+                    setSelectedOrder({
+                      ...selectedOrder,
+                      notes: e.target.value,
+                    })
                   }
                   placeholder="เพิ่มหมายเหตุ..."
                   rows={3}
@@ -368,4 +408,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
