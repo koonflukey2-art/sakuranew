@@ -74,10 +74,6 @@ interface AdAccount {
   testMessage?: string | null;
 }
 
-<<<<<<< HEAD
-export default function SettingsPage() {
-  // RBAC: Only ADMIN can access settings
-=======
 interface Stats {
   totalRevenue: number;
   totalProfit: number;
@@ -92,7 +88,6 @@ interface OrderStats {
 
 export default function DashboardPage() {
   const { toast } = useToast();
->>>>>>> codex/implement-line-message-integration-and-dashboard
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -127,14 +122,6 @@ export default function DashboardPage() {
 
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-  const [selectedProvider, setSelectedProvider] = useState<string>("GEMINI");
-  const [apiKey, setApiKey] = useState("");
-  const [modelName, setModelName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const { toast } = useToast();
-=======
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -142,7 +129,6 @@ export default function DashboardPage() {
     today: { revenue: 0, orders: 0 },
     week: { revenue: 0, orders: 0 },
   });
->>>>>>> codex/implement-line-message-integration-and-dashboard
 
   // Platform Credentials State
   const [platformCreds, setPlatformCreds] = useState<PlatformCredential[]>([]);
@@ -188,13 +174,6 @@ export default function DashboardPage() {
       setLoading(true);
       const response = await fetch("/api/ai-settings");
 
-<<<<<<< HEAD
-      if (!response.ok) {
-        throw new Error("Failed to load providers");
-      }
-
-      const data = await response.json();
-=======
       const [productsRes, campaignsRes, budgetsRes, ordersStatsRes] =
         await Promise.all([
           fetch("/api/products"),
@@ -231,7 +210,6 @@ export default function DashboardPage() {
       const campaignsJson = await safeJson<any>(campaignsRes);
       const budgetsJson = await safeJson<any>(budgetsRes);
       const ordersStatsJson = await safeJson<OrderStats>(ordersStatsRes);
->>>>>>> codex/implement-line-message-integration-and-dashboard
 
       // รองรับทั้งสองรูปแบบ:
       // 1) [ ...providers ]
@@ -242,9 +220,6 @@ export default function DashboardPage() {
         ? data.providers
         : [];
 
-<<<<<<< HEAD
-      setProviders(providersArray);
-=======
       const campaignsData: Campaign[] = Array.isArray(campaignsJson)
         ? campaignsJson
         : (campaignsJson?.campaigns as Campaign[]) ?? [];
@@ -279,7 +254,6 @@ export default function DashboardPage() {
           (p: Product) => p.quantity < p.minStockLevel
         ).length,
       });
->>>>>>> codex/implement-line-message-integration-and-dashboard
     } catch (error) {
       console.error("Failed to fetch providers:", error);
       toast({
@@ -287,9 +261,6 @@ export default function DashboardPage() {
         description: "ไม่สามารถโหลดการตั้งค่าได้",
         variant: "destructive",
       });
-<<<<<<< HEAD
-      setProviders([]);
-=======
       setProducts([]);
       setCampaigns([]);
       setBudgets([]);
@@ -303,7 +274,6 @@ export default function DashboardPage() {
         totalOrders: 0,
         avgROAS: 0,
       });
->>>>>>> codex/implement-line-message-integration-and-dashboard
     } finally {
       setLoading(false);
     }
@@ -720,10 +690,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-<<<<<<< HEAD
-      {/* Add New Provider */}
-      <Card className="bg-white border-2 border-gray-200">
-=======
       {/* LINE Sales Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card className="border-l-4 border-l-green-500">
@@ -1152,7 +1118,6 @@ export default function DashboardPage() {
 
       {/* Recent Activities */}
       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
->>>>>>> codex/implement-line-message-integration-and-dashboard
         <CardHeader>
           <CardTitle className="text-lg md:text-xl text-gray-800">
             เพิ่ม AI Provider
