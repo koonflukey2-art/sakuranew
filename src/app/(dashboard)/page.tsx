@@ -398,13 +398,13 @@ export default function DashboardPage() {
   // ---------- JSX ----------
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-          Dashboard ภาพรวมธุรกิจ
+    <div className="space-y-6">
+      <div className="mb-2">
+        <h1 className="text-4xl font-bold text-gradient-purple mb-2">
+          Dashboard
         </h1>
-        <p className="text-gray-600 mt-1">
-          สรุปยอดขาย กำไร ROAS และสถานะสต็อกสินค้า
+        <p className="text-gray-400 text-lg">
+          ภาพรวมธุรกิจของคุณ
         </p>
       </div>
 
