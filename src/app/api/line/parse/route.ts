@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     // Parse message
     const parsed = parseLineMessage(message);
 
-    if (!parsed || !parsed.amount) {
+    if (!parsed || !parsed.amount || !parsed.productType) {
       return NextResponse.json(
         { error: "ไม่สามารถแปลงข้อความได้ กรุณาตรวจสอบรูปแบบ" },
         { status: 400 }
@@ -64,10 +64,10 @@ export async function POST(request: Request) {
     // Create order
     const order = await prisma.order.create({
       data: {
-        orderNumber: parsed.orderNumber,
         customerId: customer.id,
         amount: parsed.amount,
         quantity: parsed.quantity || 1,
+        productType: parsed.productType,
         productName: parsed.productName,
         rawMessage: message,
         organizationId: orgId,

@@ -204,10 +204,10 @@ export default function OrdersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">ทั้งหมด</SelectItem>
-                  <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
-                  <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
-                  <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
-                  <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                  <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
+                  <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
+                  <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
+                  <SelectItem value="4">สินค้าหมายเลข 4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -231,54 +231,74 @@ export default function OrdersPage() {
       ) : (
         <div className="grid gap-4">
           {orders.map((order) => (
-            <Card key={order.id} className="border-2 hover:border-purple-500 transition">
+            <Card
+              key={order.id}
+              className="border-2 border-gray-800 bg-gray-900 hover:border-purple-500 transition"
+            >
               <CardContent className="pt-6">
-                <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
+                <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
                     {/* Order Number & Status */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="bg-purple-100 rounded-lg px-3 py-1">
                         <span className="text-sm font-bold text-purple-600">
-                          #{order.orderNumber || order.id.slice(0, 8)}
+                          #{order.id.slice(0, 8).toUpperCase()}
                         </span>
                       </div>
                       {getStatusBadge(order.status)}
-                      <Badge variant="outline">{getProductBadge(order)}</Badge>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                        {order.productName || `สินค้าหมายเลข ${order.productType}`}
+                      </Badge>
+                      <Badge variant="outline" className="bg-gray-100">
+                        {order.quantity} ชิ้น
+                      </Badge>
                     </div>
 
-                    {/* Customer Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    {/* Customer Info Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span>{order.customer.name}</span>
+                        <User className="w-4 h-4 text-purple-500" />
+                        <span className="font-medium text-white">{order.customer.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span>{order.customer.phone}</span>
+                        <Phone className="w-4 h-4 text-green-500" />
+                        <span className="text-gray-300">{order.customer.phone}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>{new Date(order.orderDate).toLocaleDateString("th-TH")}</span>
+                        <Calendar className="w-4 h-4 text-blue-500" />
+                        <span className="text-gray-300">
+                          {new Date(order.orderDate).toLocaleDateString("th-TH", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
                     </div>
 
                     {/* Address */}
                     {order.customer.address && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                        <span className="text-gray-600">{order.customer.address}</span>
+                      <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="text-xs text-gray-400 mb-1">ที่อยู่จัดส่ง</div>
+                            <p className="text-sm text-white leading-relaxed">
+                              {order.customer.address}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
-                    {/* Amount & Quantity */}
-                    <div className="flex items-center gap-4">
+                    {/* Amount */}
+                    <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-2xl font-bold text-green-600">
+                        <span className="text-2xl font-bold text-green-400">
                           ฿{order.amount.toLocaleString()}
                         </span>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        จำนวน: {order.quantity} ชิ้น
                       </div>
                     </div>
                   </div>
@@ -292,6 +312,7 @@ export default function OrdersPage() {
                         setSelectedOrder(order);
                         setEditDialogOpen(true);
                       }}
+                      className="ml-4"
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       แก้ไข
