@@ -30,7 +30,6 @@ import {
   Calendar,
   ShoppingCart,
 } from "lucide-react";
-import { getProductTypeName } from "@/lib/line-parser";
 
 interface Order {
   id: string;
@@ -145,12 +144,6 @@ export default function OrdersPage() {
       CANCELLED: "ยกเลิก",
     };
     return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
-  };
-
-  const getProductBadge = (order: Order) => {
-    if (order.productName) return order.productName;
-    if (order.productType) return getProductTypeName(order.productType);
-    return "ไม่ระบุ";
   };
 
   return (
