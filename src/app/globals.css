@@ -2,52 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Base theme variables ---------- */
 @layer base {
   :root {
-    --background: 0 0% 0%; /* Pure black */
-    --foreground: 0 0% 100%; /* Pure white */
-    --card: 0 0% 6.7%; /* #111 */
+    --background: 0 0% 0%;          /* #000 – พื้นหลังหลัก */
+    --foreground: 0 0% 100%;        /* #fff – สีตัวอักษรหลัก (ใช้ผ่าน text-foreground) */
+
+    --card: 0 0% 6.7%;              /* #111 */
     --card-foreground: 0 0% 100%;
     --popover: 0 0% 6.7%;
     --popover-foreground: 0 0% 100%;
-    --primary: 280 100% 70%; /* Purple */
+
+    --primary: 280 100% 70%;        /* ม่วง */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 13.3%; /* #222 */
+
+    --secondary: 0 0% 13.3%;        /* #222 */
     --secondary-foreground: 0 0% 100%;
+
     --muted: 0 0% 13.3%;
     --muted-foreground: 0 0% 60%;
+
     --accent: 280 100% 70%;
     --accent-foreground: 0 0% 100%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
+
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 280 100% 70%;
+
     --radius: 0.75rem;
   }
 
-  /* ให้ body เป็นธีมดำ-ตัวอักษรขาว */
   body {
+    /* ไม่ใส่ color ที่นี่แล้ว เพื่อไม่ให้ไปบังคับทั้งเว็บ */
     background: #000000;
-    color: #ffffff;
     font-family: "Inter", sans-serif;
-  }
-
-  /* 👇 บังคับให้ input / textarea ตัวหนังสือเป็นสีขาวเสมอ */
-  input,
-  textarea {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff;
-  }
-
-  /* สี placeholder ให้เป็นเทาอ่อน */
-  input::placeholder,
-  textarea::placeholder {
-    color: #9ca3af; /* tailwind slate-400 */
-    opacity: 1;
   }
 }
 
+/* ---------- Custom utilities ---------- */
 @layer utilities {
   /* Glass morphism */
   .glass {
@@ -116,7 +111,7 @@
   }
 }
 
-/* Scrollbar styling */
+/* ---------- Scrollbar styling ---------- */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

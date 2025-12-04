@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -154,7 +155,9 @@ export function AIChatDialog() {
           {/* Input Area */}
           <div className="flex gap-2 pt-4 border-t border-slate-700 bg-slate-950/95 p-2">
             <div className="flex-1">
-              <input
+              <Input
+                // ใช้ variant ปกติ (พื้นหลังขาว) แล้วเน้นให้ชัดด้วยคลาสเพิ่ม
+                variant="default"
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -166,11 +169,7 @@ export function AIChatDialog() {
                 }}
                 placeholder="พิมพ์ข้อความ..."
                 disabled={loading}
-                className="flex h-10 w-full flex-1 rounded-md border-2 border-pink-500/70 bg-slate-900/90 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  color: "#ffffff",
-                  WebkitTextFillColor: "#ffffff",
-                }}
+                className="flex-1 bg-white text-slate-900 placeholder:text-slate-500 border-2 border-pink-400/70 shadow-[0_0_16px_rgba(236,72,153,0.5)]"
               />
             </div>
 

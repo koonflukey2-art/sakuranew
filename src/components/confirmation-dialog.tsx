@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -35,26 +35,31 @@ export function ConfirmationDialog({
 }: ConfirmationDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="bg-slate-950/95 border border-slate-700 text-slate-100 shadow-2xl">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
             {destructive ? (
               <div className="rounded-full bg-red-500/10 p-2">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
             ) : (
               <div className="rounded-full bg-blue-500/10 p-2">
-                <AlertTriangle className="w-5 h-5 text-blue-500" />
+                <AlertTriangle className="w-5 h-5 text-blue-400" />
               </div>
             )}
-            <AlertDialogTitle>{title}</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-100">
+              {title}
+            </AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="pt-2">
+          <AlertDialogDescription className="pt-2 text-slate-300">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>
+          <AlertDialogCancel
+            disabled={loading}
+            className="bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
+          >
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
@@ -62,8 +67,8 @@ export function ConfirmationDialog({
             disabled={loading}
             className={
               destructive
-                ? "bg-red-500 hover:bg-red-600"
-                : "bg-blue-500 hover:bg-blue-600"
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
             }
           >
             {loading ? "กำลังดำเนินการ..." : confirmLabel}

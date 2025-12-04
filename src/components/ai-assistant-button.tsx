@@ -39,13 +39,14 @@ export function AIAssistantButton() {
         <DialogContent
           className="
             max-w-md
-            bg-slate-900 text-slate-100
-            border border-slate-700 shadow-2xl
+            bg-slate-950/95 text-slate-100
+            border border-purple-500/70 shadow-[0_0_30px_rgba(168,85,247,0.7)]
             backdrop-blur-md
+            rounded-xl
             [&>button]:hidden
           "
         >
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 border-b border-slate-700 pb-3">
             <DialogTitle className="flex items-center gap-2 text-slate-100">
               <Bot className="w-5 h-5 text-cyan-400" />
               AI Assistant
@@ -74,28 +75,28 @@ export function AIAssistantButton() {
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
-                className="text-sm h-auto py-3 px-4 bg-slate-800 border border-slate-600 text-slate-100 hover:bg-slate-700 hover:border-cyan-400 transition rounded-xl"
+                className="text-sm h-auto py-3 px-4 bg-slate-900 border border-slate-600 text-slate-100 hover:bg-slate-800 hover:border-cyan-400 transition rounded-xl"
                 onClick={handleOpenFullPage}
               >
                 สินค้าใกล้หมด?
               </Button>
               <Button
                 variant="outline"
-                className="text-sm h-auto py-3 px-4 bg-slate-800 border border-slate-600 text-slate-100 hover:bg-slate-700 hover:border-cyan-400 transition rounded-xl"
+                className="text-sm h-auto py-3 px-4 bg-slate-900 border border-slate-600 text-slate-100 hover:bg-slate-800 hover:border-cyan-400 transition rounded-xl"
                 onClick={handleOpenFullPage}
               >
                 แคมเปญไหนดี?
               </Button>
               <Button
                 variant="outline"
-                className="text-sm h-auto py-3 px-4 bg-slate-800 border border-slate-600 text-slate-100 hover:bg-slate-700 hover:border-cyan-400 transition rounded-xl"
+                className="text-sm h-auto py-3 px-4 bg-slate-900 border border-slate-600 text-slate-100 hover:bg-slate-800 hover:border-cyan-400 transition rounded-xl"
                 onClick={handleOpenFullPage}
               >
                 งบเหลือเท่าไหร่?
               </Button>
               <Button
                 variant="outline"
-                className="text-sm h-auto py-3 px-4 bg-slate-800 border border-slate-600 text-slate-100 hover:bg-slate-700 hover:border-cyan-400 transition rounded-xl"
+                className="text-sm h-auto py-3 px-4 bg-slate-900 border border-slate-600 text-slate-100 hover:bg-slate-800 hover:border-cyan-400 transition rounded-xl"
                 onClick={handleOpenFullPage}
               >
                 วิเคราะห์ธุรกิจ
