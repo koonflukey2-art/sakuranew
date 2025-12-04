@@ -113,7 +113,7 @@ export default function SettingsPage() {
     checkAccess();
   }, [router]);
 
-  // ==== LINE webhook URL (ใช้ได้ทั้ง env + window.origin) ====
+  // ==== LINE webhook URL (ใช้ domain จริง ไม่ใช้ค่าจาก DB) ====
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -132,11 +132,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  // ==== LINE Settings State ====
+  // ==== LINE Settings State ==== (ไม่มี webhookUrl ใน state แล้ว)
   const [lineSettings, setLineSettings] = useState({
     channelAccessToken: "",
     channelSecret: "",
-    webhookUrl,
     isActive: true,
   });
   const [savingLine, setSavingLine] = useState(false);
@@ -180,6 +179,7 @@ export default function SettingsPage() {
     }
   }, [isAuthorized]);
 
+  // โหลด LINE settings (แต่จะไม่ใช้ webhook จาก DB)
   useEffect(() => {
     const fetchLineSettings = async () => {
       try {
@@ -194,11 +194,14 @@ export default function SettingsPage() {
           setLineSettings({
             channelAccessToken: data.channelAccessToken || "",
             channelSecret: data.channelSecret || "",
-            webhookUrl: data.webhookUrl || webhookUrl,
             isActive: data.isActive ?? true,
           });
         } else {
-          setLineSettings((prev) => ({ ...prev, webhookUrl }));
+          setLineSettings({
+            channelAccessToken: "",
+            channelSecret: "",
+            isActive: true,
+          });
         }
       } catch (e) {
         console.error("Failed to load LINE settings", e);
@@ -219,7 +222,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           channelAccessToken: lineSettings.channelAccessToken,
           channelSecret: lineSettings.channelSecret,
-          webhookUrl: lineSettings.webhookUrl || webhookUrl,
+          // ใช้ webhookUrl ที่คำนวณจาก domain ปัจจุบันเสมอ
+          webhookUrl,
           isActive: lineSettings.isActive,
         }),
       });
@@ -243,7 +247,7 @@ export default function SettingsPage() {
       console.error("Save LINE settings failed", error);
       toast({
         title: "บันทึกไม่สำเร็จ",
-        description: "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
+          description: "ไม่สามารถบันทึกการตั้งค่า LINE ได้",
         variant: "destructive",
       });
     } finally {
@@ -754,11 +758,7 @@ export default function SettingsPage() {
 
           <div>
             <Label>Webhook URL</Label>
-            <Input
-              value={lineSettings.webhookUrl || webhookUrl}
-              readOnly
-              className="bg-gray-50"
-            />
+            <Input value={webhookUrl} readOnly className="bg-gray-50" />
             <p className="text-xs text-gray-500 mt-1">
               ใช้ URL นี้ใน LINE Developers Console
             </p>
