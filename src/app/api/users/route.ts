@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
-  // Only ADMIN can view all users
+  // Only ADMIN can view users
   try {
     await requireRole(["ADMIN"]);
   } catch (error: any) {
@@ -13,7 +13,15 @@ export async function GET() {
     );
   }
   try {
+    // Get current user to find their organization
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !currentUser.organizationId) {
+      return NextResponse.json([]);
+    }
+
+    // Only show users in same organization
     const users = await prisma.user.findMany({
+      where: { organizationId: currentUser.organizationId },
       select: {
         id: true,
         email: true,

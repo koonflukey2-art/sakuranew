@@ -15,34 +15,39 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const whereClause = user.role === "ADMIN" ? {} : { userId: user.id };
+    if (!user.organizationId) {
+      return NextResponse.json([]);
+    }
+
+    // Filter by organization, optionally by requester for non-admins
+    const whereClause =
+      user.role === "ADMIN"
+        ? { organizationId: user.organizationId }
+        : { organizationId: user.organizationId, requesterId: user.id };
+
     const requests = await prisma.budgetRequest.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
     });
 
+    // Fetch requester and reviewer information
+    const requesterIds = requests.map((req) => req.requesterId);
     const reviewerIds = requests
       .map((req) => req.reviewedBy)
       .filter((id): id is string => Boolean(id));
 
-    const reviewers = await prisma.user.findMany({
-      where: { id: { in: reviewerIds } },
+    const allUserIds = [...new Set([...requesterIds, ...reviewerIds])];
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: allUserIds } },
       select: { id: true, name: true, email: true },
     });
 
-    const reviewerMap = reviewers.reduce<Record<string, { name: string; email: string }>>(
-      (acc, reviewer) => {
-        acc[reviewer.id] = {
-          name: reviewer.name || "ผู้ตรวจสอบ",
-          email: reviewer.email,
+    const userMap = users.reduce<Record<string, { name: string; email: string }>>(
+      (acc, user) => {
+        acc[user.id] = {
+          name: user.name || "User",
+          email: user.email,
         };
         return acc;
       },
@@ -55,14 +60,11 @@ export async function GET() {
       amount: request.amount,
       reason: request.reason,
       status: request.status,
-      requestedBy: {
-        name: request.user?.name || "User",
-        email: request.user?.email || "",
-      },
+      requestedBy: userMap[request.requesterId] || { name: "User", email: "" },
       createdAt: request.createdAt,
       reviewedAt: request.reviewedAt,
       reviewedBy: request.reviewedBy
-        ? reviewerMap[request.reviewedBy]
+        ? userMap[request.reviewedBy]
         : undefined,
     }));
 
@@ -83,6 +85,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     const body: BudgetRequestPayload = await request.json();
 
     if (!body.purpose || !body.reason || typeof body.amount !== "number") {
@@ -97,7 +106,8 @@ export async function POST(request: Request) {
         purpose: body.purpose,
         amount: body.amount,
         reason: body.reason,
-        userId: user.id,
+        requesterId: user.id,
+        organizationId: user.organizationId,
       },
     });
 

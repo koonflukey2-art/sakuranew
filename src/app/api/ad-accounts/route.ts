@@ -31,8 +31,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json([]);
+    }
+
     const accounts = await prisma.adAccount.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -53,6 +57,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
+    }
+
     const body: AdAccountPayload = await request.json();
 
     const platform = normalizePlatform(body.platform);
@@ -67,7 +78,7 @@ export async function POST(request: Request) {
 
     const created = await prisma.adAccount.create({
       data: {
-        userId: user.id,
+        organizationId: user.organizationId,
         platform,
         name,
         apiKey: body.apiKey?.trim() || null,

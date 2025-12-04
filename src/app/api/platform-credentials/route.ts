@@ -14,12 +14,12 @@ export async function GET() {
       where: { clerkId: clerkUser.id },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.organizationId) {
+      return NextResponse.json([]);
     }
 
     const creds = await prisma.platformCredential.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
       select: {
         id: true,
         platform: true,
@@ -53,8 +53,11 @@ export async function POST(request: Request) {
       where: { clerkId: clerkUser.id },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -78,16 +81,16 @@ export async function POST(request: Request) {
     const encryptedAccessToken = accessToken ? encrypt(accessToken) : null;
     const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : null;
 
-    // upsert (1 platform ต่อ user)
+    // upsert (1 platform per organization)
     const credential = await prisma.platformCredential.upsert({
       where: {
-        userId_platform: {
-          userId: user.id,
+        organizationId_platform: {
+          organizationId: user.organizationId,
           platform,
         },
       },
       create: {
-        userId: user.id,
+        organizationId: user.organizationId,
         platform,
         apiKey: encryptedApiKey,
         apiSecret: encryptedApiSecret,
@@ -126,8 +129,11 @@ export async function DELETE(request: Request) {
       where: { clerkId: clerkUser.id },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.organizationId) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -140,8 +146,20 @@ export async function DELETE(request: Request) {
       );
     }
 
+    // Verify ownership before deleting
+    const credential = await prisma.platformCredential.findUnique({
+      where: { id },
+    });
+
+    if (!credential || credential.organizationId !== user.organizationId) {
+      return NextResponse.json(
+        { error: "Credential not found or access denied" },
+        { status: 404 }
+      );
+    }
+
     await prisma.platformCredential.delete({
-      where: { id, userId: user.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
