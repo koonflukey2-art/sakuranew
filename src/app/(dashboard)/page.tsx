@@ -403,13 +403,12 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold text-gradient-purple mb-2">
           Dashboard
         </h1>
-        <p className="text-gray-400 text-lg">
-          ภาพรวมธุรกิจของคุณ
-        </p>
+        <p className="text-gray-400 text-lg">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
-      {/* Sales Stats (LINE / รวมออเดอร์) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Top stats + sales by type (today) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* ยอดขายวันนี้ */}
         <Card className="border-l-4 border-l-green-500">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-gray-500">
@@ -426,6 +425,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* ยอดขาย 7 วัน */}
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-gray-500">
@@ -441,32 +441,39 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Product Type Sales Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card className="col-span-1 border border-gray-200 shadow-sm">
+        {/* ยอดขายแยกตามประเภท (วันนี้) – ย้ายขึ้นมาฝั่งขวา */}
+        <Card className="border border-gray-200 shadow-sm">
           <CardHeader>
             <CardTitle>ยอดขายแยกตามประเภท (วันนี้)</CardTitle>
           </CardHeader>
           <CardContent>
             {Object.entries(orderStats.today.byType || {}).length === 0 ? (
-              <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลออเดอร์วันนี้</p>
+              <p className="text-sm text-muted-foreground">
+                ยังไม่มีข้อมูลออเดอร์วันนี้
+              </p>
             ) : (
               <div className="space-y-3">
-                {Object.entries(orderStats.today.byType || {}).map(([type, data]) => (
-                  <div key={type} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                    <div>
-                      <div className="font-medium text-gray-800">{type}</div>
-                      <div className="text-sm text-gray-500">{data.count} ชิ้น</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-green-600">
-                        ฿{data.revenue.toLocaleString()}
+                {Object.entries(orderStats.today.byType || {}).map(
+                  ([type, data]) => (
+                    <div
+                      key={type}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-800">{type}</div>
+                        <div className="text-sm text-gray-500">
+                          {data.count} ชิ้น
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">
+                          ฿{data.revenue.toLocaleString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </CardContent>
@@ -520,7 +527,7 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className="text-xs text-white/80 mt-2">จากแคมเปญทั้งหมด</p>
+            <p className="text-xs text-white/80">จากแคมเปญทั้งหมด</p>
           </CardContent>
         </Card>
 
@@ -587,7 +594,10 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="date"
                     className="text-muted-foreground"
@@ -657,7 +667,10 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="platform"
                     className="text-muted-foreground"

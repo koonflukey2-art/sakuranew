@@ -100,32 +100,32 @@ export default function AIDashboardPage() {
     if (selectedAccount) {
       fetchCampaigns();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount]);
 
   const fetchAdAccounts = async () => {
     setLoadingAccounts(true);
     try {
       const response = await fetch("/api/ad-accounts");
-      if (response.ok) {
-        const data = await response.json();
-        const facebookAccounts = data.filter(
-          (acc: AdAccount) => acc.platform === "FACEBOOK"
-        );
-        setAdAccounts(facebookAccounts);
-        if (facebookAccounts.length > 0) {
-          setSelectedAccount(facebookAccounts[0].id);
-        }
-      } else {
-        toast({
-          title: "ผิดพลาด",
-          description: "Failed to load ad accounts",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error("Failed to load ad accounts");
+      }
+
+      const data = await response.json();
+      const facebookAccounts: AdAccount[] = (data || []).filter(
+        (acc: AdAccount) => acc.platform === "FACEBOOK"
+      );
+
+      setAdAccounts(facebookAccounts);
+
+      if (facebookAccounts.length > 0) {
+        setSelectedAccount(facebookAccounts[0].id);
       }
     } catch (error) {
+      console.error(error);
       toast({
         title: "ผิดพลาด",
-        description: "Failed to load ad accounts",
+        description: "ไม่สามารถโหลดบัญชีโฆษณาได้",
         variant: "destructive",
       });
     } finally {
@@ -140,20 +140,17 @@ export default function AIDashboardPage() {
       const response = await fetch(
         `/api/facebook-ads/campaigns?adAccountId=${selectedAccount}`
       );
-      if (response.ok) {
-        const data = await response.json();
-        setCampaigns(data.data || []);
-      } else {
-        toast({
-          title: "ผิดพลาด",
-          description: "Failed to fetch campaigns",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error("Failed to fetch campaigns");
       }
+
+      const data = await response.json();
+      setCampaigns(data?.data || []);
     } catch (error) {
+      console.error(error);
       toast({
         title: "ผิดพลาด",
-        description: "Failed to fetch campaigns",
+        description: "ไม่สามารถโหลดแคมเปญได้",
         variant: "destructive",
       });
     } finally {
@@ -167,7 +164,7 @@ export default function AIDashboardPage() {
     setAnalysis(null);
 
     try {
-      // First fetch insights
+      // ดึง insight จาก Facebook ก่อน
       const insightsResponse = await fetch(
         `/api/facebook-ads/insights?adAccountId=${selectedAccount}&campaignId=${
           campaign.id
@@ -183,7 +180,7 @@ export default function AIDashboardPage() {
       if (!insightsData.data || insightsData.data.length === 0) {
         toast({
           title: "ผิดพลาด",
-          description: "No insights data available for this campaign",
+          description: "ยังไม่มีข้อมูล insights สำหรับแคมเปญนี้",
           variant: "destructive",
         });
         return;
@@ -191,7 +188,7 @@ export default function AIDashboardPage() {
 
       const insights = insightsData.data[0];
 
-      // Then analyze with AI
+      // ส่งให้ AI วิเคราะห์
       const analyzeResponse = await fetch("/api/ai/analyze-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -207,14 +204,16 @@ export default function AIDashboardPage() {
 
       const analysisData: CampaignAnalysis = await analyzeResponse.json();
       setAnalysis(analysisData);
+
       toast({
         title: "สำเร็จ!",
-        description: "Campaign analyzed successfully!",
+        description: "วิเคราะห์แคมเปญเรียบร้อยแล้ว",
       });
     } catch (error: any) {
+      console.error(error);
       toast({
         title: "ผิดพลาด",
-        description: error?.message || "Failed to analyze campaign",
+        description: error?.message || "ไม่สามารถวิเคราะห์แคมเปญได้",
         variant: "destructive",
       });
     } finally {
@@ -240,15 +239,18 @@ export default function AIDashboardPage() {
       }
 
       const suggestions: ProductSuggestion[] = await response.json();
-      setProductSuggestions(suggestions);
+      setProductSuggestions(suggestions || []);
+
       toast({
         title: "สำเร็จ!",
-        description: `Generated ${suggestions.length} product suggestions!`,
+        description: `AI แนะนำสินค้าให้ ${suggestions.length} รายการ`,
       });
     } catch (error: any) {
+      console.error(error);
       toast({
         title: "ผิดพลาด",
-        description: error?.message || "Failed to generate suggestions",
+        description:
+          error?.message || "ไม่สามารถให้คำแนะนำสินค้าได้ กรุณาลองใหม่อีกครั้ง",
         variant: "destructive",
       });
     } finally {
@@ -257,19 +259,19 @@ export default function AIDashboardPage() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
-    return "text-red-500";
+    if (score >= 80) return "text-green-400";
+    if (score >= 60) return "text-yellow-400";
+    return "text-red-400";
   };
 
   const getCompetitionColor = (level: string) => {
-    if (level === "LOW") return "bg-green-500";
-    if (level === "MEDIUM") return "bg-yellow-500";
-    return "bg-red-500";
+    if (level === "LOW") return "bg-green-500/80 text-white";
+    if (level === "MEDIUM") return "bg-yellow-500/80 text-black";
+    return "bg-red-500/80 text-white";
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -277,18 +279,18 @@ export default function AIDashboardPage() {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-gradient-purple mb-1">
             AI Dashboard
           </h1>
-          <p className="text-muted-foreground mt-2">
-            AI-powered insights for your campaigns and products
+          <p className="text-gray-400">
+            ให้ AI ช่วยวิเคราะห์แคมเปญโฆษณาและแนะนำสินค้าให้อัตโนมัติ
           </p>
         </div>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <Sparkles className="w-8 h-8 text-purple-500" />
+          <Sparkles className="w-8 h-8 text-purple-400" />
         </motion.div>
       </motion.div>
 
@@ -298,27 +300,29 @@ export default function AIDashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <Card>
+        <Card className="premium-card hover-glow">
           <CardHeader>
-            <CardTitle>Select Facebook Ad Account</CardTitle>
-            <CardDescription>
-              Choose an account to analyze campaigns
+            <CardTitle className="text-white">
+              เลือก Facebook Ad Account
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              เลือกบัญชีโฆษณาที่ต้องการให้ AI วิเคราะห์
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Select
               value={selectedAccount}
               onValueChange={setSelectedAccount}
-              disabled={loadingAccounts}
+              disabled={loadingAccounts || adAccounts.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger className="bg-white/5 border-white/20 text-white">
                 <SelectValue
                   placeholder={
-                    loadingAccounts ? "Loading accounts..." : "Select ad account"
+                    loadingAccounts ? "กำลังโหลดบัญชี..." : "เลือกบัญชีโฆษณา"
                   }
                 />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-black border-white/10 text-white">
                 {adAccounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.accountName} ({account.accountId})
@@ -326,6 +330,11 @@ export default function AIDashboardPage() {
                 ))}
               </SelectContent>
             </Select>
+            {adAccounts.length === 0 && !loadingAccounts && (
+              <p className="text-sm text-red-400 mt-2">
+                ไม่พบบัญชีโฆษณา Facebook ที่เชื่อมต่อไว้
+              </p>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -337,12 +346,18 @@ export default function AIDashboardPage() {
         transition={{ delay: 0.2 }}
       >
         <Tabs defaultValue="campaigns" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="campaigns" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10">
+            <TabsTrigger
+              value="campaigns"
+              className="flex items-center gap-2 text-gray-200 data-[state=active]:bg-gradient-purple data-[state=active]:text-white"
+            >
               <Target className="w-4 h-4" />
               Campaign Analysis
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
+            <TabsTrigger
+              value="products"
+              className="flex items-center gap-2 text-gray-200 data-[state=active]:bg-gradient-pink data-[state=active]:text-white"
+            >
               <ShoppingBag className="w-4 h-4" />
               Product Suggestions
             </TabsTrigger>
@@ -352,19 +367,21 @@ export default function AIDashboardPage() {
           <TabsContent value="campaigns" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Campaigns List */}
-              <Card>
+              <Card className="premium-card hover-glow">
                 <CardHeader>
-                  <CardTitle>Campaigns</CardTitle>
-                  <CardDescription>Select a campaign to analyze</CardDescription>
+                  <CardTitle className="text-white">แคมเปญ</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    เลือกแคมเปญที่ต้องการให้ AI วิเคราะห์
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {loadingCampaigns ? (
                     <div className="flex justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
                     </div>
                   ) : campaigns.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No campaigns found
+                    <p className="text-center text-gray-400 py-8">
+                      ยังไม่มีแคมเปญในบัญชีนี้
                     </p>
                   ) : (
                     campaigns.map((campaign) => (
@@ -373,22 +390,29 @@ export default function AIDashboardPage() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         whileHover={{ scale: 1.02 }}
-                        className="p-4 border rounded-lg space-y-2"
+                        className="p-4 rounded-xl border border-white/10 bg-white/5 space-y-3"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
-                            <h3 className="font-semibold">{campaign.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
+                            <h3 className="font-semibold text-white">
+                              {campaign.name}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <Badge
                                 variant={
                                   campaign.status === "ACTIVE"
                                     ? "default"
                                     : "secondary"
                                 }
+                                className={
+                                  campaign.status === "ACTIVE"
+                                    ? "bg-green-500/80 text-white"
+                                    : "bg-gray-500/60 text-white"
+                                }
                               >
                                 {campaign.status}
                               </Badge>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-xs text-gray-400">
                                 {campaign.objective}
                               </span>
                             </div>
@@ -401,13 +425,13 @@ export default function AIDashboardPage() {
                               selectedCampaign?.id === campaign.id) ||
                             !selectedAccount
                           }
-                          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                          className="w-full bg-gradient-purple hover:opacity-90 text-white"
                         >
                           {analyzingCampaign &&
                           selectedCampaign?.id === campaign.id ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Analyzing...
+                              กำลังวิเคราะห์...
                             </>
                           ) : (
                             <>
@@ -423,13 +447,13 @@ export default function AIDashboardPage() {
               </Card>
 
               {/* Analysis Results */}
-              <Card>
+              <Card className="premium-card hover-glow">
                 <CardHeader>
-                  <CardTitle>AI Analysis</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-white">ผลการวิเคราะห์ AI</CardTitle>
+                  <CardDescription className="text-gray-400">
                     {selectedCampaign
                       ? selectedCampaign.name
-                      : "Select a campaign to see analysis"}
+                      : "เลือกแคมเปญจากด้านซ้ายเพื่อดูผลวิเคราะห์"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -451,24 +475,26 @@ export default function AIDashboardPage() {
                           >
                             {analysis.score}
                           </div>
-                          <p className="text-sm text-muted-foreground mt-2">
+                          <p className="text-sm text-gray-400 mt-2">
                             Optimization Score
                           </p>
                         </div>
 
                         {/* Analysis */}
                         <div>
-                          <h4 className="font-semibold mb-2">Analysis</h4>
-                          <p className="text-sm text-muted-foreground">
+                          <h4 className="font-semibold mb-2 text-white">
+                            ภาพรวมการวิเคราะห์
+                          </h4>
+                          <p className="text-sm text-gray-300">
                             {analysis.analysis}
                           </p>
                         </div>
 
                         {/* Strengths */}
                         <div>
-                          <h4 className="font-semibold mb-2 flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-green-500" />
-                            Strengths
+                          <h4 className="font-semibold mb-2 flex items-center gap-2 text-white">
+                            <TrendingUp className="w-4 h-4 text-green-400" />
+                            จุดเด่นของแคมเปญ
                           </h4>
                           <ul className="space-y-1">
                             {analysis.strengths.map((strength, idx) => (
@@ -476,8 +502,8 @@ export default function AIDashboardPage() {
                                 key={idx}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="text-sm text-green-600 flex items-start gap-2"
+                                transition={{ delay: idx * 0.05 }}
+                                className="text-sm text-green-300 flex items-start gap-2"
                               >
                                 <span>•</span>
                                 <span>{strength}</span>
@@ -488,9 +514,9 @@ export default function AIDashboardPage() {
 
                         {/* Weaknesses */}
                         <div>
-                          <h4 className="font-semibold mb-2 flex items-center gap-2">
-                            <Target className="w-4 h-4 text-red-500" />
-                            Areas to Improve
+                          <h4 className="font-semibold mb-2 flex items-center gap-2 text-white">
+                            <Target className="w-4 h-4 text-red-400" />
+                            จุดที่ควรปรับปรุง
                           </h4>
                           <ul className="space-y-1">
                             {analysis.weaknesses.map((weakness, idx) => (
@@ -498,8 +524,8 @@ export default function AIDashboardPage() {
                                 key={idx}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="text-sm text-red-600 flex items-start gap-2"
+                                transition={{ delay: idx * 0.05 }}
+                                className="text-sm text-red-300 flex items-start gap-2"
                               >
                                 <span>•</span>
                                 <span>{weakness}</span>
@@ -510,9 +536,9 @@ export default function AIDashboardPage() {
 
                         {/* Recommendations */}
                         <div>
-                          <h4 className="font-semibold mb-2 flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-500" />
-                            AI Recommendations
+                          <h4 className="font-semibold mb-2 flex items-center gap-2 text-white">
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                            คำแนะนำจาก AI
                           </h4>
                           <ul className="space-y-2">
                             {analysis.recommendations.map((rec, idx) => (
@@ -520,8 +546,8 @@ export default function AIDashboardPage() {
                                 key={idx}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="text-sm bg-gradient-to-r from-purple-50 to-pink-50 p-3 rounded-lg"
+                                transition={{ delay: idx * 0.05 }}
+                                className="text-sm bg-purple-500/10 border border-purple-500/30 p-3 rounded-lg text-gray-100"
                               >
                                 {rec}
                               </motion.li>
@@ -535,12 +561,12 @@ export default function AIDashboardPage() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex flex-col items-center justify-center py-12 text-muted-foreground"
+                        className="flex flex-col items-center justify-center py-12 text-gray-400"
                       >
-                        <Sparkles className="w-16 h-16 mb-4 opacity-20" />
-                        <p>No analysis yet</p>
+                        <Sparkles className="w-16 h-16 mb-4 opacity-30 text-purple-400" />
+                        <p>ยังไม่มีผลการวิเคราะห์</p>
                         <p className="text-sm mt-1">
-                          Select a campaign and click &quot;Analyze with AI&quot;
+                          เลือกแคมเปญด้านซ้ายแล้วกด &quot;Analyze with AI&quot;
                         </p>
                       </motion.div>
                     )}
@@ -553,53 +579,64 @@ export default function AIDashboardPage() {
           {/* Product Suggestions Tab */}
           <TabsContent value="products" className="space-y-6">
             {/* Input Form */}
-            <Card>
+            <Card className="premium-card hover-glow">
               <CardHeader>
-                <CardTitle>Product Suggestion Parameters</CardTitle>
-                <CardDescription>
-                  Enter your criteria and let AI suggest profitable products
+                <CardTitle className="text-white">
+                  พารามิเตอร์สำหรับแนะนำสินค้า
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  ใส่เงื่อนไขที่ต้องการ แล้วให้ AI แนะนำสินค้าที่มีโอกาสทำกำไร
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category" className="text-gray-200">
+                      หมวดหมู่สินค้า
+                    </Label>
                     <Input
                       id="category"
-                      placeholder="e.g., Electronics, Fashion"
+                      placeholder="เช่น Supplement, Skincare"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="trend">Trend</Label>
+                    <Label htmlFor="trend" className="text-gray-200">
+                      เทรนด์ / แนวโน้ม
+                    </Label>
                     <Input
                       id="trend"
-                      placeholder="e.g., Sustainable, Minimalist"
+                      placeholder="เช่น Healthy, Minimalist"
                       value={trend}
                       onChange={(e) => setTrend(e.target.value)}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="budget">Budget (THB)</Label>
+                    <Label htmlFor="budget" className="text-gray-200">
+                      งบประมาณโดยประมาณ (฿)
+                    </Label>
                     <Input
                       id="budget"
                       type="number"
-                      placeholder="e.g., 50000"
+                      placeholder="เช่น 50000"
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
                 </div>
                 <Button
                   onClick={generateProductSuggestions}
                   disabled={generatingProducts}
-                  className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  className="w-full mt-4 bg-gradient-pink hover:opacity-90 text-white"
                 >
                   {generatingProducts ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Suggestions...
+                      กำลังให้ AI แนะนำสินค้า...
                     </>
                   ) : (
                     <>
@@ -625,17 +662,17 @@ export default function AIDashboardPage() {
                       key={idx}
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: idx * 0.1 }}
-                      whileHover={{ scale: 1.05 }}
+                      transition={{ delay: idx * 0.05 }}
+                      whileHover={{ scale: 1.03 }}
                     >
-                      <Card className="h-full hover:shadow-lg transition-shadow">
+                      <Card className="premium-card h-full">
                         <CardHeader>
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
-                              <CardTitle className="text-lg">
+                              <CardTitle className="text-lg text-white">
                                 {product.name}
                               </CardTitle>
-                              <CardDescription>
+                              <CardDescription className="text-gray-400">
                                 {product.category}
                               </CardDescription>
                             </div>
@@ -649,35 +686,31 @@ export default function AIDashboardPage() {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-gray-300">
                             {product.description}
                           </p>
 
-                          <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
-                              <p className="text-muted-foreground">Cost</p>
-                              <p className="font-semibold">
+                              <p className="text-gray-400">ต้นทุนโดยประมาณ</p>
+                              <p className="font-semibold text-white">
                                 ฿{product.estimatedCost.toLocaleString()}
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Price</p>
-                              <p className="font-semibold">
+                              <p className="text-gray-400">ราคาขายแนะนำ</p>
+                              <p className="font-semibold text-white">
                                 ฿{product.estimatedPrice.toLocaleString()}
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">
-                                Profit Margin
-                              </p>
-                              <p className="font-semibold text-green-600">
+                              <p className="text-gray-400">กำไรต่อชิ้น</p>
+                              <p className="font-semibold text-green-400">
                                 {product.profitMargin}%
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">
-                                Demand Score
-                              </p>
+                              <p className="text-gray-400">Demand Score</p>
                               <p
                                 className={`font-semibold ${getScoreColor(
                                   product.demandScore
@@ -688,11 +721,11 @@ export default function AIDashboardPage() {
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t">
-                            <p className="text-xs text-muted-foreground mb-1">
-                              Why this product?
+                          <div className="pt-2 border-t border-white/10">
+                            <p className="text-xs text-gray-400 mb-1">
+                              ทำไม AI ถึงแนะนำสินค้าให้นี้
                             </p>
-                            <p className="text-sm bg-gradient-to-r from-purple-50 to-pink-50 p-2 rounded">
+                            <p className="text-sm bg-purple-500/10 border border-purple-500/30 p-2 rounded text-gray-100">
                               {product.reason}
                             </p>
                           </div>
