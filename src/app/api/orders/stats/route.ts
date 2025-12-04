@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
+import { getProductTypeName } from "@/lib/line-parser";
 
 export async function GET() {
   try {
@@ -13,9 +14,8 @@ export async function GET() {
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({
-        today: { revenue: 0, orders: 0 },
-        week: { revenue: 0, orders: 0 },
-        byQuantity: {},
+        today: { revenue: 0, orders: 0, byType: {} },
+        week: { revenue: 0, orders: 0, byType: {} },
       });
     }
 
@@ -49,23 +49,45 @@ export async function GET() {
     const todayRevenue = todayOrders.reduce((sum, o) => sum + o.amount, 0);
     const weekRevenue = weekOrders.reduce((sum, o) => sum + o.amount, 0);
 
-    // Orders by quantity
-    const byQuantity: Record<number, number> = {};
+    // Group by product type
+    const todayByType: Record<string, { count: number; revenue: number }> = {};
+    const weekByType: Record<string, { count: number; revenue: number }> = {};
+
+    todayOrders.forEach((order) => {
+      const typeName = order.productType
+        ? getProductTypeName(order.productType)
+        : "ไม่ระบุ";
+
+      if (!todayByType[typeName]) {
+        todayByType[typeName] = { count: 0, revenue: 0 };
+      }
+      todayByType[typeName].count += order.quantity;
+      todayByType[typeName].revenue += order.amount;
+    });
+
     weekOrders.forEach((order) => {
-      const qty = order.quantity;
-      byQuantity[qty] = (byQuantity[qty] || 0) + 1;
+      const typeName = order.productType
+        ? getProductTypeName(order.productType)
+        : "ไม่ระบุ";
+
+      if (!weekByType[typeName]) {
+        weekByType[typeName] = { count: 0, revenue: 0 };
+      }
+      weekByType[typeName].count += order.quantity;
+      weekByType[typeName].revenue += order.amount;
     });
 
     return NextResponse.json({
       today: {
         revenue: todayRevenue,
         orders: todayOrders.length,
+        byType: todayByType,
       },
       week: {
         revenue: weekRevenue,
         orders: weekOrders.length,
+        byType: weekByType,
       },
-      byQuantity,
     });
   } catch (error: any) {
     console.error("GET /api/orders/stats error:", error);

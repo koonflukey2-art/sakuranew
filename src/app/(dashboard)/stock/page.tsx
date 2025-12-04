@@ -35,8 +35,6 @@ import {
   Loader2,
   TrendingUp,
   Download,
-  MessageSquare,
-  RefreshCw,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
@@ -56,7 +54,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { productSchema, ProductFormData } from "@/lib/validations";
 import {
   ProductsPageSkeleton,
@@ -74,6 +71,7 @@ interface Product {
   id: string;
   name: string;
   category: string;
+  productType?: number | null;
   quantity: number;
   minStockLevel: number;
   costPrice: number;
@@ -94,12 +92,9 @@ export default function StockPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [orderStats, setOrderStats] = useState({
-    today: { revenue: 0, orders: 0 },
-    week: { revenue: 0, orders: 0 },
-    byQuantity: {} as Record<number, number>,
+    today: { revenue: 0, orders: 0, byType: {} as Record<string, { count: number; revenue: number }> },
+    week: { revenue: 0, orders: 0, byType: {} as Record<string, { count: number; revenue: number }> },
   });
-  const [lineMessage, setLineMessage] = useState("");
-  const [parsing, setParsing] = useState(false);
 
   // Add Product Form
   const addForm = useForm<ProductFormData>({
@@ -107,6 +102,7 @@ export default function StockPage() {
     defaultValues: {
       name: "",
       category: "Skincare",
+      productType: undefined,
       quantity: 0,
       minStockLevel: 10,
       costPrice: 0,
@@ -121,6 +117,7 @@ export default function StockPage() {
     defaultValues: {
       name: "",
       category: "Skincare",
+      productType: undefined,
       quantity: 0,
       minStockLevel: 10,
       costPrice: 0,
@@ -147,51 +144,6 @@ export default function StockPage() {
       handleAPIError(error, "ไม่สามารถโหลดข้อมูลสินค้าได้");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleParseLine = async () => {
-    if (!lineMessage.trim()) {
-      toast({
-        title: "❌ ข้อผิดพลาด",
-        description: "กรุณาใส่ข้อความจาก LINE",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setParsing(true);
-    try {
-      const res = await fetch("/api/line/parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: lineMessage }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        toast({
-          title: "✅ บันทึกสำเร็จ!",
-          description: `เพิ่มยอดขาย ${data.order.amount} บาท`,
-        });
-        setLineMessage("");
-        fetchOrderStats();
-      } else {
-        const error = await res.json();
-        toast({
-          title: "❌ ไม่สามารถแปลงข้อความได้",
-          description: error.error,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "❌ เกิดข้อผิดพลาด",
-        description: "ไม่สามารถบันทึกข้อมูลได้",
-        variant: "destructive",
-      });
-    } finally {
-      setParsing(false);
     }
   };
 
@@ -386,6 +338,7 @@ export default function StockPage() {
         | "Supplement"
         | "Fashion"
         | "Other",
+      productType: product.productType ?? undefined,
       quantity: product.quantity,
       minStockLevel: product.minStockLevel,
       costPrice: product.costPrice,
@@ -552,6 +505,35 @@ export default function StockPage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={addForm.control}
+                    name="productType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value?.toString() || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="เลือกประเภทสินค้า" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
+                            <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
+                            <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
+                            <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          เมื่อมีออเดอร์จาก LINE ที่มีรหัสนี้ สต๊อกจะลดอัตโนมัติ
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={addForm.control}
@@ -660,60 +642,31 @@ export default function StockPage() {
             </p>
           </CardContent>
         </Card>
-
         <Card className="col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-500">
-              ยอดขายตามจำนวน (7 วัน)
+              ยอดขายตามประเภทสินค้า (วันนี้)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-4">
-              {Object.entries(orderStats.byQuantity).map(([qty, count]) => (
-                <div key={qty} className="text-center">
-                  <div className="text-lg font-bold">{count}</div>
-                  <div className="text-xs text-gray-500">{qty} กระปุก</div>
-                </div>
-              ))}
-            </div>
+            {Object.keys(orderStats.today.byType).length === 0 ? (
+              <p className="text-sm text-gray-500">ยังไม่มีข้อมูล</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(orderStats.today.byType).map(([type, data]) => (
+                  <div key={type} className="p-3 border rounded-lg bg-white/50">
+                    <div className="font-semibold">{type}</div>
+                    <div className="text-sm text-gray-500">ขาย {data.count} ชิ้น</div>
+                    <div className="text-lg font-bold text-green-600">
+                      ฿{data.revenue.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* LINE Message Parser */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-green-500" />
-            นำเข้ายอดจาก LINE
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>วางข้อความจาก LINE</Label>
-            <Textarea
-              value={lineMessage}
-              onChange={(e) => setLineMessage(e.target.value)}
-              placeholder={`ตัวอย่าง:\n12\nยอดเก็บ 199\nพรชิตา ทานเเยร\n28.ม.3.ต.สำโรงทาบ อ.เมือง จ.ชลบุรี\n20000\n0984958177\n1`}
-              rows={8}
-              className="font-mono text-sm"
-            />
-          </div>
-          <Button onClick={handleParseLine} disabled={parsing} className="w-full">
-            {parsing ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                กำลังประมวลผล...
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4 mr-2" />
-                บันทึกยอดขาย
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -950,6 +903,35 @@ export default function StockPage() {
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="productType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value?.toString() || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="เลือกประเภทสินค้า" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
+                        <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
+                        <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
+                        <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      เมื่อมีออเดอร์จาก LINE ที่มีรหัสนี้ สต๊อกจะลดอัตโนมัติ
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

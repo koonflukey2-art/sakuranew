@@ -1,0 +1,357 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Search,
+  Edit,
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  ShoppingCart,
+} from "lucide-react";
+import { getProductTypeName } from "@/lib/line-parser";
+
+interface Order {
+  id: string;
+  orderNumber?: string;
+  customer: {
+    name: string;
+    phone: string;
+    address?: string;
+  };
+  productType?: number;
+  productName?: string;
+  amount: number;
+  quantity: number;
+  status: string;
+  orderDate: string;
+  notes?: string;
+}
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [productTypeFilter, setProductTypeFilter] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchOrders();
+    fetchUserRole();
+  }, [search, statusFilter, productTypeFilter]);
+
+  const fetchUserRole = async () => {
+    try {
+      const res = await fetch("/api/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUserRole(data.role);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user role:", error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (statusFilter) params.append("status", statusFilter);
+      if (productTypeFilter) params.append("productType", productTypeFilter);
+
+      const res = await fetch(`/api/orders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedOrder),
+      });
+
+      if (res.ok) {
+        toast({
+          title: "✅ บันทึกสำเร็จ",
+          description: "อัพเดทข้อมูลออเดอร์แล้ว",
+        });
+        setEditDialogOpen(false);
+        fetchOrders();
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถบันทึกได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถอัพเดทข้อมูลได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      PENDING: "bg-yellow-500",
+      CONFIRMED: "bg-blue-500",
+      COMPLETED: "bg-green-500",
+      CANCELLED: "bg-red-500",
+    };
+    const labels: Record<string, string> = {
+      PENDING: "รอดำเนินการ",
+      CONFIRMED: "ยืนยันแล้ว",
+      COMPLETED: "สำเร็จ",
+      CANCELLED: "ยกเลิก",
+    };
+    return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
+  };
+
+  const getProductBadge = (order: Order) => {
+    if (order.productName) return order.productName;
+    if (order.productType) return getProductTypeName(order.productType);
+    return "ไม่ระบุ";
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          รายการออเดอร์
+        </h1>
+        <p className="text-gray-500 mt-2">รายการออเดอร์จาก LINE Webhook</p>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>ค้นหา</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="เลขออเดอร์, ชื่อ, เบอร์โทร"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>สถานะ</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ทั้งหมด" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">ทั้งหมด</SelectItem>
+                  <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
+                  <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
+                  <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
+                  <SelectItem value="CANCELLED">ยกเลิก</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>ประเภทสินค้า</Label>
+              <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ทั้งหมด" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">ทั้งหมด</SelectItem>
+                  <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
+                  <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
+                  <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
+                  <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Orders List */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="text-gray-500 mt-4">กำลังโหลด...</p>
+        </div>
+      ) : orders.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">ไม่พบรายการออเดอร์</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {orders.map((order) => (
+            <Card key={order.id} className="border-2 hover:border-purple-500 transition">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
+                  <div className="space-y-3 flex-1">
+                    {/* Order Number & Status */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="bg-purple-100 rounded-lg px-3 py-1">
+                        <span className="text-sm font-bold text-purple-600">
+                          #{order.orderNumber || order.id.slice(0, 8)}
+                        </span>
+                      </div>
+                      {getStatusBadge(order.status)}
+                      <Badge variant="outline">{getProductBadge(order)}</Badge>
+                    </div>
+
+                    {/* Customer Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span>{order.customer.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span>{order.customer.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span>{new Date(order.orderDate).toLocaleDateString("th-TH")}</span>
+                      </div>
+                    </div>
+
+                    {/* Address */}
+                    {order.customer.address && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <span className="text-gray-600">{order.customer.address}</span>
+                      </div>
+                    )}
+
+                    {/* Amount & Quantity */}
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <span className="text-2xl font-bold text-green-600">
+                          ฿{order.amount.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        จำนวน: {order.quantity} ชิ้น
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {userRole === "ADMIN" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      แก้ไข
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Dialog (ADMIN Only) */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขออเดอร์ #{selectedOrder?.orderNumber}</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div>
+                <Label>สถานะ</Label>
+                <Select
+                  value={selectedOrder.status}
+                  onValueChange={(value) =>
+                    setSelectedOrder({ ...selectedOrder, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
+                    <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
+                    <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
+                    <SelectItem value="CANCELLED">ยกเลิก</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>หมายเหตุ</Label>
+                <Textarea
+                  value={selectedOrder.notes || ""}
+                  onChange={(e) =>
+                    setSelectedOrder({ ...selectedOrder, notes: e.target.value })
+                  }
+                  placeholder="เพิ่มหมายเหตุ..."
+                  rows={3}
+                />
+              </div>
+
+              <Button onClick={handleUpdateOrder} className="w-full">
+                บันทึก
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+

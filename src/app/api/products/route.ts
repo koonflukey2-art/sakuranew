@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       data: {
         name: body.name,
         category: body.category,
+        productType: body.productType ?? null,
         quantity: body.quantity ?? 0,
         minStockLevel: body.minStockLevel ?? 10,
         costPrice: body.costPrice,
@@ -111,6 +112,7 @@ export async function PUT(request: Request) {
       data: {
         name: body.name,
         category: body.category,
+        productType: body.productType ?? null,
         quantity: body.quantity,
         minStockLevel: body.minStockLevel,
         costPrice: body.costPrice,

@@ -27,6 +27,7 @@ import {
   Menu,
   X,
   FileText,
+  ShoppingCart,
   Sparkles,
 } from "lucide-react";
 
@@ -36,6 +37,14 @@ type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-cyan-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/stock", label: "จัดการสินค้า", icon: Package, color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+  {
+    href: "/orders",
+    label: "รายการออเดอร์",
+    icon: ShoppingCart,
+    badge: "New",
+    color: "text-emerald-500",
+    roles: ["ADMIN", "STOCK", "EMPLOYEE"],
+  },
   { href: "/budget-requests", label: "Budget Requests", icon: FileText, color: "text-amber-500", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/analytics", label: "การวิเคราะห์", icon: BarChart3, badge: "New", color: "text-violet-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
   { href: "/ai-chat", label: "AI Chat", icon: Bot, badge: "New", color: "text-emerald-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },

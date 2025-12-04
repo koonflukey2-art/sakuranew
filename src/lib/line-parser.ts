@@ -5,6 +5,7 @@ export interface ParsedOrder {
   address?: string;
   amount?: number;
   quantity?: number;
+  productType?: number; // 1-4
   productName?: string;
 }
 
@@ -12,10 +13,31 @@ export function parseLineMessage(message: string): ParsedOrder | null {
   try {
     const result: ParsedOrder = {};
 
+    // Split message into lines
+    const lines = message
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l);
+
     // Extract order number (first line, just a number)
-    const orderMatch = message.match(/^(\d+)\s*$/m);
-    if (orderMatch) {
-      result.orderNumber = orderMatch[1];
+    const firstLine = lines[0];
+    if (/^\d+$/.test(firstLine)) {
+      result.orderNumber = firstLine;
+    }
+
+    // Extract product type (LAST line, single digit 1-4)
+    const lastLine = lines[lines.length - 1];
+    if (/^[1-4]$/.test(lastLine)) {
+      result.productType = parseInt(lastLine);
+
+      // Map product type to name
+      const productNames: Record<number, string> = {
+        1: "ครีมอาบน้ำ",
+        2: "ยาสีฟัน",
+        3: "สินค้าประเภท 3",
+        4: "สินค้าประเภท 4",
+      };
+      result.productName = productNames[result.productType];
     }
 
     // Extract amount (ยอดเก็บ or เก็บยอด)
@@ -24,48 +46,51 @@ export function parseLineMessage(message: string): ParsedOrder | null {
       result.amount = parseFloat(amountMatch[1].replace(/,/g, ""));
     }
 
-    // Extract customer name (line after order number or before address)
-    const lines = message
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l);
+    // Extract customer name
+    // Name is typically line 3 (after order number and amount)
     for (let i = 0; i < lines.length; i++) {
-      // Name is typically after order number and before address
-      if (lines[i].match(/^[ก-๙\s]+$/) && !lines[i].match(/ยอด|เก็บ|กระปุก|บาท/)) {
+      if (
+        lines[i].match(/^[ก-๙\s]+$/) &&
+        !lines[i].match(/ยอด|เก็บ|กระปุก|บาท/) &&
+        lines[i].length > 3
+      ) {
         result.customerName = lines[i];
         break;
       }
     }
 
     // Extract phone (10-digit number)
-    const phoneMatch = message.match(/(\d{10})/);
+    const phoneMatch = message.match(/0\d{9}/);
     if (phoneMatch) {
-      result.phone = phoneMatch[1];
+      result.phone = phoneMatch[0];
     }
 
-    // Extract address (text containing ต., อ., จ., or postal code)
-    const addressMatch = message.match(/[\d\s]*[ม\.][\s\d]+[ต\.][\S\s]+?(?=\d{5}|\d{10}|$)/);
+    // Extract address
+    const addressMatch = message.match(/[\d\s]*[ม\.][\s\d]+.*?(?=\d{5})/s);
     if (addressMatch) {
-      result.address = addressMatch[0].trim();
+      result.address =
+        addressMatch[0].trim() + " " + (message.match(/\d{5}/)?.[0] || "");
     }
 
-    // Extract quantity (number at end or in brackets)
-    const quantityMatch = message.match(/\n\s*(\d+)\s*$/);
-    if (quantityMatch) {
-      result.quantity = parseInt(quantityMatch[1]);
-    }
-
-    // Extract product name if specified
-    const productMatch = message.match(/สินค้า[:\s]*([\S\s]+?)(?=\n|$)/);
-    if (productMatch) {
-      result.productName = productMatch[1].trim();
-    }
+    // Default quantity
+    result.quantity = 1;
 
     return result;
   } catch (error) {
     console.error("Error parsing LINE message:", error);
     return null;
   }
+}
+
+// Map product type to name
+export function getProductTypeName(type: number): string {
+  const names: Record<number, string> = {
+    1: "ครีมอาบน้ำ",
+    2: "ยาสีฟัน",
+    3: "สินค้าประเภท 3",
+    4: "สินค้าประเภท 4",
+  };
+  return names[type] || "ไม่ระบุ";
 }
 
 export interface ParsedSummary {

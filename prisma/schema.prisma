@@ -157,6 +157,9 @@ model Product {
   minStockLevel Int      @default(10)
   costPrice     Float
   sellPrice     Float
+
+  // NEW: Product type code for LINE integration
+  productType   Int?     // 1=ครีมอาบน้ำ, 2=ยาสีฟัน, 3=..., 4=...
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -168,6 +171,7 @@ model Product {
   aiSuggestions AIProductSuggestion[]
 
   @@index([organizationId])
+  @@index([productType])
 }
 
 model StockHistory {
@@ -529,16 +533,23 @@ model Customer {
 
 model Order {
   id             String      @id @default(cuid())
-  orderNumber    String?
+  orderNumber    String?     // From LINE message (12, 13, etc)
   customerId     String
   customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  amount         Float
-  quantity       Int
+  
+  // Product info
+  productType    Int?        // 1-4 from LINE message
   productName    String?
+  quantity       Int         @default(1)
+
+  // Pricing
+  amount         Float       // ยอดเก็บ
+
+  // Order details
   orderDate      DateTime    @default(now())
   status         OrderStatus @default(PENDING)
   notes          String?
-  rawMessage     String?
+  rawMessage     String?     // Original LINE message
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime    @default(now())
@@ -547,6 +558,8 @@ model Order {
   @@index([organizationId])
   @@index([orderDate])
   @@index([customerId])
+  @@index([productType])
+  @@index([status])
 }
 
 enum OrderStatus {

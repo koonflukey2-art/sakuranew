@@ -6,6 +6,16 @@ export const productSchema = z.object({
   category: z.enum(["Skincare", "Makeup", "Haircare", "Supplement", "Fashion", "Other"], {
     required_error: "กรุณาเลือกหมวดหมู่",
   }),
+  productType: z.preprocess(
+    (val) => (val === "" || val === undefined ? undefined : val),
+    z
+      .coerce
+      .number({ invalid_type_error: "กรุณาเลือกประเภทสินค้า" })
+      .int("ต้องเป็นตัวเลข")
+      .min(1, "ต้องอยู่ระหว่าง 1-4")
+      .max(4, "ต้องอยู่ระหว่าง 1-4")
+      .optional()
+  ),
   quantity: z.coerce
     .number({ required_error: "กรุณากรอกจำนวน" })
     .int("ต้องเป็นจำนวนเต็ม")

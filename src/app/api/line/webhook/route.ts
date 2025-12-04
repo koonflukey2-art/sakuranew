@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // ต้องมียอดเก็บและประเภทสินค้า (1-4)
+      if (!parsed.amount || !parsed.productType) {
+        console.log("🚫 Missing amount or productType, skip");
+        continue;
+      }
+
       // ----- จัดการ Customer -----
       const phone = parsed.phone?.trim() || "";
       const name = parsed.customerName?.trim() || "ลูกค้าไม่ระบุชื่อ";
@@ -106,13 +112,35 @@ export async function POST(req: NextRequest) {
           orderNumber: parsed.orderNumber ?? null,
           amount,
           quantity,
+          productType: parsed.productType,
           productName: parsed.productName ?? null,
           rawMessage: text,
-          status: "PENDING",
+          status: "CONFIRMED",
           customerId: customer.id,
           organizationId,
         },
       });
+
+      // ลด stock อัตโนมัติถ้าสินค้า match productType
+      const product = await prisma.product.findFirst({
+        where: {
+          organizationId,
+          productType: parsed.productType,
+        },
+      });
+
+      if (product) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            quantity: {
+              decrement: quantity,
+            },
+          },
+        });
+
+        console.log("📉 Stock updated for product", product.id, "-", quantity);
+      }
 
       console.log(
         `✅ Saved order for org=${organizationId}, customer=${customer.id}`

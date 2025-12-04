@@ -63,8 +63,16 @@ interface Stats {
 }
 
 interface OrderStats {
-  today: { revenue: number; orders: number };
-  week: { revenue: number; orders: number };
+  today: {
+    revenue: number;
+    orders: number;
+    byType?: Record<string, { count: number; revenue: number }>;
+  };
+  week: {
+    revenue: number;
+    orders: number;
+    byType?: Record<string, { count: number; revenue: number }>;
+  };
 }
 
 const DEFAULT_STATS: Stats = {
@@ -75,8 +83,8 @@ const DEFAULT_STATS: Stats = {
 };
 
 const DEFAULT_ORDER_STATS: OrderStats = {
-  today: { revenue: 0, orders: 0 },
-  week: { revenue: 0, orders: 0 },
+  today: { revenue: 0, orders: 0, byType: {} },
+  week: { revenue: 0, orders: 0, byType: {} },
 };
 
 const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f97316", "#22c55e", "#3b82f6"];
@@ -287,8 +295,8 @@ export default function DashboardPage() {
 
       setOrderStats(
         ordersStatsJson ?? {
-          today: { revenue: 0, orders: 0 },
-          week: { revenue: 0, orders: 0 },
+          today: { revenue: 0, orders: 0, byType: {} },
+          week: { revenue: 0, orders: 0, byType: {} },
         }
       );
 
@@ -431,6 +439,36 @@ export default function DashboardPage() {
             <p className="text-xs text-gray-500 mt-1">
               {orderStats.week.orders} ออเดอร์
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Product Type Sales Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="col-span-1 border border-gray-200 shadow-sm">
+          <CardHeader>
+            <CardTitle>ยอดขายแยกตามประเภท (วันนี้)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Object.entries(orderStats.today.byType || {}).length === 0 ? (
+              <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลออเดอร์วันนี้</p>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(orderStats.today.byType || {}).map(([type, data]) => (
+                  <div key={type} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                    <div>
+                      <div className="font-medium text-gray-800">{type}</div>
+                      <div className="text-sm text-gray-500">{data.count} ชิ้น</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-green-600">
+                        ฿{data.revenue.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
