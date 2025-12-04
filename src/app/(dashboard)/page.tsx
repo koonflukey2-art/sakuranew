@@ -97,7 +97,14 @@ const DEFAULT_DASHBOARD_STATS = {
   profitMargin: 0,
 };
 
-const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f97316", "#22c55e", "#3b82f6"];
+const COLORS = [
+  "#ec4899",
+  "#a855f7",
+  "#06b6d4",
+  "#f97316",
+  "#22c55e",
+  "#3b82f6",
+];
 
 // ---------- helper ----------
 
@@ -151,6 +158,7 @@ async function safeJson<T>(res: Response): Promise<T | null> {
 export default function DashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoaded } = useUser(); // <-- เพิ่มดึง user + isLoaded
 
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -186,9 +194,13 @@ export default function DashboardPage() {
     checkAccess();
   }, [router]);
 
+  // toast ต้อนรับหลังล็อกอิน (safe version)
   useEffect(() => {
-    if (isLoaded && user) {
-      const hasShownWelcome = sessionStorage.getItem("hasShownWelcome");
+    if (!isLoaded || !user) return;
+    if (typeof window === "undefined") return;
+
+    try {
+      const hasShownWelcome = window.sessionStorage.getItem("hasShownWelcome");
       if (!hasShownWelcome) {
         toast({
           title: "🎉 เข้าสู่ระบบสำเร็จ",
@@ -196,8 +208,10 @@ export default function DashboardPage() {
           className: "premium-card border-green-500/50 glow-green",
           duration: 3000,
         });
-        sessionStorage.setItem("hasShownWelcome", "true");
+        window.sessionStorage.setItem("hasShownWelcome", "true");
       }
+    } catch (err) {
+      console.error("welcome toast error:", err);
     }
   }, [isLoaded, user, toast]);
 
@@ -206,8 +220,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
-  const [orderStats, setOrderStats] = useState<OrderStats>(DEFAULT_ORDER_STATS);
-  const [dashboardStats, setDashboardStats] = useState(DEFAULT_DASHBOARD_STATS);
+  const [orderStats, setOrderStats] =
+    useState<OrderStats>(DEFAULT_ORDER_STATS);
+  const [dashboardStats, setDashboardStats] =
+    useState(DEFAULT_DASHBOARD_STATS);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -360,8 +376,10 @@ export default function DashboardPage() {
       );
 
       // ROI by platform
-      const roiByPlatform: Record<string, { spent: number; revenue: number }> =
-        {};
+      const roiByPlatform: Record<
+        string,
+        { spent: number; revenue: number }
+      > = {};
       (campaignsData || []).forEach((c: any) => {
         const platform = c.platform || c.channel || "Unknown";
         const spent = c.spend ?? c.cost ?? 0;
@@ -449,9 +467,7 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold text-gradient-purple mb-2">
           Dashboard
         </h1>
-        <p className="text-gray-400 text-lg">
-          ภาพรวมธุรกิจของคุณ
-        </p>
+        <p className="text-gray-400 text-lg">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Sales Stats (LINE / รวมออเดอร์) */}
@@ -497,22 +513,33 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {Object.entries(orderStats.today.byType || {}).length === 0 ? (
-              <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลออเดอร์วันนี้</p>
+              <p className="text-sm text-muted-foreground">
+                ยังไม่มีข้อมูลออเดอร์วันนี้
+              </p>
             ) : (
               <div className="space-y-3">
-                {Object.entries(orderStats.today.byType || {}).map(([type, data]) => (
-                  <div key={type} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                    <div>
-                      <div className="font-medium text-gray-800">{type}</div>
-                      <div className="text-sm text-gray-500">{data.count} ชิ้น</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-green-600">
-                        ฿{data.revenue.toLocaleString()}
+                {Object.entries(orderStats.today.byType || {}).map(
+                  ([type, data]) => (
+                    <div
+                      key={type}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {type}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {data.count} ชิ้น
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">
+                          ฿{data.revenue.toLocaleString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </CardContent>
@@ -564,7 +591,9 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-white">
               {formatCurrency(dashboardStats.revenue)}
             </div>
-            <p className="text-xs text-white/80 mt-2">รายได้จากออเดอร์ทั้งหมด</p>
+            <p className="text-xs text-white/80">
+              รายได้จากออเดอร์ทั้งหมด
+            </p>
           </CardContent>
         </Card>
 
@@ -633,7 +662,10 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="date"
                     className="text-muted-foreground"
@@ -651,7 +683,10 @@ export default function DashboardPage() {
                       color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
+                  <Legend
+                    wrapperStyle={{ paddingTop: "20px" }}
+                    iconType="line"
+                  />
                   <Line
                     type="monotone"
                     dataKey="revenue"
@@ -703,7 +738,10 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
                   <XAxis
                     dataKey="platform"
                     className="text-muted-foreground"
@@ -847,15 +885,15 @@ export default function DashboardPage() {
 
       {/* AI Insights */}
       {!loading && (
-        <Card className="bg-gradient-to-br from-white to-pink-50 border border-pink-200 shadow-md rounded-2xl">
+        <Card className="bg-gradient-to-br from-slate-900 via-slate-950 to-black border border-pink-500/40 shadow-md rounded-2xl">
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-md">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-lg md:text-xl font-bold text-gray-800">
-                  AI Insights & Recommendations
+                <span className="text-lg md:text-xl font-bold text-white">
+                  AI Insights &amp; Recommendations
                 </span>
               </CardTitle>
               <Button
@@ -867,7 +905,7 @@ export default function DashboardPage() {
                 ดูทั้งหมด
               </Button>
             </div>
-            <CardDescription className="text-sm md:text-base text-gray-600 mt-2">
+            <CardDescription className="text-sm md:text-base text-slate-300 mt-2">
               คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
             </CardDescription>
           </CardHeader>
@@ -881,19 +919,20 @@ export default function DashboardPage() {
                 {aiInsights.map((insight, idx) => (
                   <li
                     key={idx}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all"
+                    className="flex items-start gap-3 p-3 rounded-xl bg-slate-900/70 border border-slate-700 hover:border-pink-400/60 hover:shadow-sm transition-all"
                   >
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                       {idx + 1}
                     </span>
-                    <span className="text-gray-700 flex-1">{insight}</span>
+                    <span className="text-slate-100 flex-1">{insight}</span>
                   </li>
                 ))}
               </ul>
             ) : aiError ? (
-              <p className="text-gray-600">{aiError}</p>
+              <p className="text-slate-200">{aiError}</p>
             ) : (
-              <p className="text-gray-600">
+              // เปลี่ยนข้อความ fallback ให้เป็นสีขาวตามที่ขอ
+              <p className="text-white">
                 เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
               </p>
             )}
