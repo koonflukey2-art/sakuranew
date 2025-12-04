@@ -193,14 +193,14 @@ export default function BudgetRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Budget Requests</h1>
-          <p className="text-slate-400 mt-1">คำของบประมาณ</p>
+          <h1 className="text-4xl font-bold text-gradient-purple">Budget Requests</h1>
+          <p className="text-gray-400 mt-1">คำของบประมาณ</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => setIsDialogOpen(true)} className="bg-gradient-purple">
           <Plus className="w-4 h-4 mr-2" />
           ขอเพิ่มงบประมาณ
         </Button>
@@ -216,33 +216,33 @@ export default function BudgetRequestsPage() {
 
       {/* Requests Table */}
       {!loading && !error && (
-        <Card className="bg-slate-800 border-slate-700">
+        <Card>
           <CardHeader>
             <CardTitle className="text-white">คำขอทั้งหมด</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-gray-400">
               รายการคำของบประมาณทั้งหมด
             </CardDescription>
           </CardHeader>
           <CardContent>
             {requests.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-gray-400">
                 <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>ยังไม่มีคำของบประมาณ</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-slate-300">
-                      วัตถุประสงค์
-                    </TableHead>
-                    <TableHead className="text-slate-300">จำนวน</TableHead>
-                    <TableHead className="text-slate-300">ผู้ขอ</TableHead>
-                    <TableHead className="text-slate-300">สถานะ</TableHead>
-                    <TableHead className="text-slate-300">วันที่</TableHead>
-                    <TableHead className="text-right text-slate-300">
-                      จัดการ
-                    </TableHead>
+                    <TableRow>
+                      <TableHead className="text-gray-300">
+                        วัตถุประสงค์
+                      </TableHead>
+                      <TableHead className="text-gray-300">จำนวน</TableHead>
+                      <TableHead className="text-gray-300">ผู้ขอ</TableHead>
+                      <TableHead className="text-gray-300">สถานะ</TableHead>
+                      <TableHead className="text-gray-300">วันที่</TableHead>
+                      <TableHead className="text-right text-gray-300">
+                        จัดการ
+                      </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,7 +251,7 @@ export default function BudgetRequestsPage() {
                       <TableCell className="text-white">
                         <div>
                           <div className="font-medium">{request.purpose}</div>
-                          <div className="text-sm text-slate-400">
+                          <div className="text-sm text-gray-400">
                             {request.reason}
                           </div>
                         </div>
@@ -262,7 +262,7 @@ export default function BudgetRequestsPage() {
                       <TableCell className="text-slate-300">
                         <div>
                           <div>{request.requestedBy.name}</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-gray-400">
                             {request.requestedBy.email}
                           </div>
                         </div>

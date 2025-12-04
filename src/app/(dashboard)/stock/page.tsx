@@ -381,12 +381,12 @@ export default function StockPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header + Bulk actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-gradient-pink mb-1">
             Stock Management
           </h1>
-          <p className="text-gray-400 mt-1 text-sm md:text-base">
+          <p className="text-gray-400 text-sm md:text-base">
             จัดการสินค้าและสต็อก
             {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
           </p>
@@ -398,7 +398,7 @@ export default function StockPage() {
               fetchProducts();
               fetchOrderStats();
             }}
-            className="gap-2"
+            className="gap-2 bg-white/5 border-white/20 text-white hover:bg-white/10"
           >
             <RefreshCw className="w-4 h-4" />
             รีเฟรช
@@ -454,16 +454,16 @@ export default function StockPage() {
             />
           )}
 
-          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => addForm.reset()}
-                className="w-full sm:w-auto"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                เพิ่มสินค้า
-              </Button>
-            </DialogTrigger>
+            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => addForm.reset()}
+                  className="w-full sm:w-auto bg-gradient-purple hover:opacity-90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  เพิ่มสินค้า
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>

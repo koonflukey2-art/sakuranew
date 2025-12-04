@@ -30,7 +30,6 @@ import {
   Calendar,
   ShoppingCart,
 } from "lucide-react";
-import { getProductTypeName } from "@/lib/line-parser";
 
 interface Order {
   id: string;
@@ -157,20 +156,12 @@ export default function OrdersPage() {
     return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
   };
 
-  const getProductBadge = (order: Order) => {
-    if (order.productName) return order.productName;
-    if (order.productType) return getProductTypeName(order.productType);
-    return "ไม่ระบุ";
-  };
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-          รายการออเดอร์
-        </h1>
-        <p className="text-gray-500 mt-2">รายการออเดอร์จาก LINE Webhook</p>
+        <h1 className="text-4xl font-bold text-gradient-pink mb-2">รายการออเดอร์</h1>
+        <p className="text-gray-400 text-lg">รายการออเดอร์จาก LINE Webhook</p>
       </div>
 
       {/* Filters */}
@@ -219,7 +210,7 @@ export default function OrdersPage() {
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
+                  <SelectItem value="">ทั้งหมด</SelectItem>
                   <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
                   <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
                   <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
@@ -262,11 +253,8 @@ export default function OrdersPage() {
                         </span>
                       </div>
                       {getStatusBadge(order.status)}
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700 border-blue-300"
-                      >
-                        {getProductBadge(order)}
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                        {order.productName || `สินค้าหมายเลข ${order.productType}`}
                       </Badge>
                       <Badge variant="outline" className="bg-gray-100">
                         {order.quantity} ชิ้น
@@ -277,29 +265,22 @@ export default function OrdersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-purple-500" />
-                        <span className="font-medium text-white">
-                          {order.customer.name}
-                        </span>
+                        <span className="font-medium text-white">{order.customer.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-green-500" />
-                        <span className="text-gray-300">
-                          {order.customer.phone}
-                        </span>
+                        <span className="text-gray-300">{order.customer.phone}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-blue-500" />
                         <span className="text-gray-300">
-                          {new Date(order.orderDate).toLocaleDateString(
-                            "th-TH",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
+                          {new Date(order.orderDate).toLocaleDateString("th-TH", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
                     </div>
@@ -310,9 +291,7 @@ export default function OrdersPage() {
                         <div className="flex items-start gap-2">
                           <MapPin className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                           <div>
-                            <div className="text-xs text-gray-400 mb-1">
-                              ที่อยู่จัดส่ง
-                            </div>
+                            <div className="text-xs text-gray-400 mb-1">ที่อยู่จัดส่ง</div>
                             <p className="text-sm text-white leading-relaxed">
                               {order.customer.address}
                             </p>

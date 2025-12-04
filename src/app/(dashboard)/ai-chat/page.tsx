@@ -310,7 +310,7 @@ export default function AIChatPage() {
         <ScrollArea className="h-[calc(100vh-12rem)]">
           <CardContent className="p-4 space-y-2">
             {sessions.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
+              <div className="text-center py-8 text-gray-400">
                 <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">ยังไม่มีประวัติการแชท</p>
               </div>
@@ -331,11 +331,11 @@ export default function AIChatPage() {
                         {session.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-gray-400">
                           {session._count?.messages ?? 0} messages
                         </p>
-                        <span className="text-xs text-slate-500">•</span>
-                        <p className="text-xs text-slate-400">
+                        <span className="text-xs text-gray-400">•</span>
+                        <p className="text-xs text-gray-400">
                           {formatTime(session.updatedAt)}
                         </p>
                       </div>
@@ -349,7 +349,7 @@ export default function AIChatPage() {
                         handleDeleteSession(session.id);
                       }}
                     >
-                      <Trash2 className="w-3 h-3 text-slate-400 hover:text-red-400" />
+                      <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-400" />
                     </Button>
                   </div>
                 </div>
@@ -415,7 +415,7 @@ export default function AIChatPage() {
           <ScrollArea className="h-full p-6">
             <div className="space-y-4">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <Bot className="w-16 h-16 mb-4" />
                   <p className="text-lg font-semibold mb-2">
                     เริ่มแชทกับ AI Assistant
