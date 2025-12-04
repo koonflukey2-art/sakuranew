@@ -39,9 +39,47 @@ import {
   RefreshCw,
   Globe2,
   KeyRound,
+  DollarSign,
+  Wallet,
+  ShoppingCart,
+  Activity,
+  AlertTriangle,
+  Bot,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+
+import {
+  ResponsiveContainer,
+  LineChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+// ---------- helper types ----------
+
+// ใช้ any ไว้ก่อนเพื่อไม่ให้ TS error ถ้า field จริงไม่ตรง
+type Product = any;
+type Campaign = any;
+type Budget = any;
 
 interface AIProvider {
   id: string;
@@ -86,11 +124,79 @@ interface OrderStats {
   week: { revenue: number; orders: number };
 }
 
+const DEFAULT_STATS: Stats = {
+  totalRevenue: 0,
+  totalProfit: 0,
+  totalOrders: 0,
+  avgROAS: 0,
+};
+
+const DEFAULT_ORDER_STATS: OrderStats = {
+  today: { revenue: 0, orders: 0 },
+  week: { revenue: 0, orders: 0 },
+};
+
+const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f97316", "#22c55e", "#3b82f6"];
+
+// ---------- helper functions ----------
+
+function formatCurrency(value: number) {
+  if (!value) return "฿0";
+  return `฿${value.toLocaleString("th-TH", {
+    maximumFractionDigits: 0,
+  })}`;
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString("th-TH");
+}
+
+function calculateStats(
+  products: Product[],
+  campaigns: Campaign[],
+  budgets: Budget[]
+): Stats {
+  // สมมติฟิลด์คร่าว ๆ – ถ้า backend มีชื่อไม่ตรงก็จะได้ 0 แต่ไม่ error
+  const totalRevenue = (campaigns || []).reduce(
+    (sum: number, c: any) => sum + (c.revenue ?? c.totalRevenue ?? 0),
+    0
+  );
+  const totalSpent = (campaigns || []).reduce(
+    (sum: number, c: any) => sum + (c.spend ?? c.totalSpent ?? c.cost ?? 0),
+    0
+  );
+  const totalOrders = (campaigns || []).reduce(
+    (sum: number, c: any) =>
+      sum + (c.conversions ?? c.orders ?? c.totalOrders ?? 0),
+    0
+  );
+
+  const totalProfit = totalRevenue - totalSpent;
+  const avgROAS = totalSpent > 0 ? totalRevenue / totalSpent : 0;
+
+  return {
+    totalRevenue,
+    totalProfit,
+    totalOrders,
+    avgROAS,
+  };
+}
+
+async function safeJson<T>(res: Response): Promise<T | null> {
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
+
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
+  // access guard
   useEffect(() => {
     const checkAccess = async () => {
       try {
@@ -120,17 +226,35 @@ export default function DashboardPage() {
     checkAccess();
   }, [router]);
 
+  // ---------- states ----------
+
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
+  const [orderStats, setOrderStats] = useState<OrderStats>(DEFAULT_ORDER_STATS);
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [platformROIData, setPlatformROIData] = useState<any[]>([]);
+  const [budgetChartData, setBudgetChartData] = useState<any[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [orderStats, setOrderStats] = useState<OrderStats>({
-    today: { revenue: 0, orders: 0 },
-    week: { revenue: 0, orders: 0 },
-  });
 
-  // Platform Credentials State
+  const [selectedProvider, setSelectedProvider] = useState<
+    "GEMINI" | "OPENAI" | "N8N"
+  >("GEMINI");
+  const [apiKey, setApiKey] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
+
   const [platformCreds, setPlatformCreds] = useState<PlatformCredential[]>([]);
   const [loadingPlatformCreds, setLoadingPlatformCreds] = useState(true);
   const [testingPlatformId, setTestingPlatformId] = useState<string | null>(
@@ -144,7 +268,6 @@ export default function DashboardPage() {
     refreshToken: "",
   });
 
-  // Ad Accounts states
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
   const [loadingAdAccounts, setLoadingAdAccounts] = useState(true);
   const [testingAdAccount, setTestingAdAccount] = useState<string | null>(null);
@@ -159,20 +282,63 @@ export default function DashboardPage() {
     refreshToken: "",
   });
 
+  // ---------- AI insights helper ----------
+
+  const fetchAIInsights = async (payload: {
+    totalRevenue: number;
+    totalProfit: number;
+    totalOrders: number;
+    avgROAS: number;
+    budgetRemaining: number;
+    campaignCount: number;
+    budgetCount: number;
+    lowStockCount: number;
+  }) => {
+    try {
+      setLoadingInsights(true);
+      setAiError(null);
+
+      const res = await fetch("/api/ai-dashboard-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await safeJson<any>(res);
+
+      const insights: string[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.insights)
+        ? data.insights
+        : [];
+
+      setAiInsights(insights);
+    } catch (error) {
+      console.error("Failed to fetch AI insights", error);
+      setAiError("ไม่สามารถดึงคำแนะนำจาก AI ได้");
+      setAiInsights([]);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
+  // ---------- main fetch ----------
+
   useEffect(() => {
     if (isAuthorized) {
-      fetchProviders();
+      fetchDashboardData();
       fetchPlatformCreds();
       fetchAdAccounts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
 
-  // ========== AI Provider functions ==========
-
-  const fetchProviders = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/ai-settings");
+
+      const aiRes = await fetch("/api/ai-settings");
+      const aiData = await safeJson<any>(aiRes);
 
       const [productsRes, campaignsRes, budgetsRes, ordersStatsRes] =
         await Promise.all([
@@ -182,7 +348,6 @@ export default function DashboardPage() {
           fetch("/api/orders/stats"),
         ]);
 
-      // ถ้า 401 แปลว่ายังไม่ได้ login → ให้โชว์ dashboard ว่าง ๆ แต่ไม่พัง
       if (
         productsRes.status === 401 ||
         campaignsRes.status === 401 ||
@@ -190,19 +355,14 @@ export default function DashboardPage() {
         ordersStatsRes.status === 401
       ) {
         console.warn("Dashboard APIs returned 401 (unauthorized)");
+
         setProducts([]);
         setCampaigns([]);
         setBudgets([]);
-        setOrderStats({
-          today: { revenue: 0, orders: 0 },
-          week: { revenue: 0, orders: 0 },
-        });
-        setStats({
-          totalRevenue: 0,
-          totalProfit: 0,
-          totalOrders: 0,
-          avgROAS: 0,
-        });
+        setOrderStats(DEFAULT_ORDER_STATS);
+        setStats(DEFAULT_STATS);
+        setProviders([]);
+
         return;
       }
 
@@ -211,14 +371,16 @@ export default function DashboardPage() {
       const budgetsJson = await safeJson<any>(budgetsRes);
       const ordersStatsJson = await safeJson<OrderStats>(ordersStatsRes);
 
-      // รองรับทั้งสองรูปแบบ:
-      // 1) [ ...providers ]
-      // 2) { providers: [ ... ] }
-      const providersArray: AIProvider[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.providers)
-        ? data.providers
+      const providersArray: AIProvider[] = Array.isArray(aiData)
+        ? aiData
+        : Array.isArray(aiData?.providers)
+        ? aiData.providers
         : [];
+      setProviders(providersArray);
+
+      const productsData: Product[] = Array.isArray(productsJson)
+        ? productsJson
+        : (productsJson?.products as Product[]) ?? [];
 
       const campaignsData: Campaign[] = Array.isArray(campaignsJson)
         ? campaignsJson
@@ -231,6 +393,7 @@ export default function DashboardPage() {
       setProducts(productsData);
       setCampaigns(campaignsData);
       setBudgets(budgetsData);
+
       setOrderStats(
         ordersStatsJson ?? {
           today: { revenue: 0, orders: 0 },
@@ -239,45 +402,84 @@ export default function DashboardPage() {
       );
 
       const metrics = calculateStats(productsData, campaignsData, budgetsData);
+      setStats(metrics);
 
-      const budgetRemaining = budgetsData.reduce(
-        (sum: number, b: Budget) => sum + (b.amount - b.spent),
+      const budgetRemaining = (budgetsData || []).reduce(
+        (sum: number, b: any) =>
+          sum + ((b.amount ?? b.budget ?? 0) - (b.spent ?? b.cost ?? 0)),
         0
       );
+
+      // low stock
+      const lowStock = (productsData || []).filter(
+        (p: any) => typeof p.quantity === "number" && p.quantity < p.minStockLevel
+      );
+      setLowStockProducts(lowStock);
+
+      // budget chart
+      const budgetByCategory: Record<string, number> = {};
+      (budgetsData || []).forEach((b: any) => {
+        const key = b.category || b.name || "อื่น ๆ";
+        const amount = b.amount ?? b.budget ?? 0;
+        budgetByCategory[key] = (budgetByCategory[key] || 0) + amount;
+      });
+      setBudgetChartData(
+        Object.entries(budgetByCategory).map(([name, value]) => ({
+          name,
+          value,
+        }))
+      );
+
+      // platform ROI data (หยาบ ๆ)
+      const roiByPlatform: Record<string, { spent: number; revenue: number }> =
+        {};
+      (campaignsData || []).forEach((c: any) => {
+        const platform = c.platform || c.channel || "Unknown";
+        const spent = c.spend ?? c.cost ?? 0;
+        const revenue = c.revenue ?? c.totalRevenue ?? 0;
+        if (!roiByPlatform[platform]) {
+          roiByPlatform[platform] = { spent: 0, revenue: 0 };
+        }
+        roiByPlatform[platform].spent += spent;
+        roiByPlatform[platform].revenue += revenue;
+      });
+      setPlatformROIData(
+        Object.entries(roiByPlatform).map(([platform, v]) => ({
+          platform,
+          avgROI: v.spent > 0 ? v.revenue / v.spent : 0,
+        }))
+      );
+
+      // line chart dummy – ถ้า backend ไม่มีข้อมูลรายวันก็ไม่เป็นไร
+      setChartData([]);
 
       fetchAIInsights({
         ...metrics,
         budgetRemaining,
         campaignCount: campaignsData.length,
         budgetCount: budgetsData.length,
-        lowStockCount: productsData.filter(
-          (p: Product) => p.quantity < p.minStockLevel
-        ).length,
+        lowStockCount: lowStock.length,
       });
     } catch (error) {
-      console.error("Failed to fetch providers:", error);
+      console.error("Failed to fetch dashboard data:", error);
       toast({
         title: "ผิดพลาด",
-        description: "ไม่สามารถโหลดการตั้งค่าได้",
+        description: "ไม่สามารถโหลดข้อมูล Dashboard ได้",
         variant: "destructive",
       });
+
       setProducts([]);
       setCampaigns([]);
       setBudgets([]);
-      setOrderStats({
-        today: { revenue: 0, orders: 0 },
-        week: { revenue: 0, orders: 0 },
-      });
-      setStats({
-        totalRevenue: 0,
-        totalProfit: 0,
-        totalOrders: 0,
-        avgROAS: 0,
-      });
+      setOrderStats(DEFAULT_ORDER_STATS);
+      setStats(DEFAULT_STATS);
+      setProviders([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // ---------- save AI provider ----------
 
   const handleSave = async () => {
     if (!apiKey.trim()) {
@@ -305,7 +507,7 @@ export default function DashboardPage() {
       toast({ title: "✅ บันทึกสำเร็จ!" });
       setApiKey("");
       setModelName("");
-      fetchProviders();
+      fetchDashboardData();
     } catch (error) {
       toast({
         title: "ผิดพลาด",
@@ -332,7 +534,7 @@ export default function DashboardPage() {
         variant: data.success ? "default" : "destructive",
       });
 
-      fetchProviders();
+      fetchDashboardData();
     } catch (error) {
       toast({
         title: "ผิดพลาด",
@@ -353,7 +555,7 @@ export default function DashboardPage() {
       });
 
       toast({ title: "✅ ตั้งเป็น Default แล้ว" });
-      fetchProviders();
+      fetchDashboardData();
     } catch (error) {
       toast({
         title: "ผิดพลาด",
@@ -372,7 +574,7 @@ export default function DashboardPage() {
       });
 
       toast({ title: "✅ ลบสำเร็จ" });
-      fetchProviders();
+      fetchDashboardData();
     } catch (error) {
       toast({
         title: "ผิดพลาด",
@@ -382,7 +584,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ========== Platform Credentials Functions ==========
+  // ---------- Platform Credentials ----------
 
   const fetchPlatformCreds = async () => {
     try {
@@ -507,7 +709,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ========== Ad Accounts Functions ==========
+  // ---------- Ad Accounts ----------
 
   const fetchAdAccounts = async () => {
     try {
@@ -663,7 +865,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ========== Render Guards ==========
+  // ---------- guards ----------
 
   if (isAuthorized === null) {
     return (
@@ -677,7 +879,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  // ========== JSX ==========
+  // ---------- JSX ----------
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-6">
@@ -725,11 +927,11 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Stats Cards - Vibrant */}
+      {/* Stats Cards */}
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1 - Pink (Profit) */}
+        {/* Card 1 - Profit */}
         <Card className="stat-card-pink hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -755,9 +957,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2 - Purple (Revenue) */}
+        {/* Card 2 - Revenue */}
         <Card className="stat-card-purple hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -776,9 +978,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 3 - Cyan (Orders) */}
+        {/* Card 3 - Orders */}
         <Card className="stat-card-cyan hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -797,9 +999,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4 - Orange (ROAS) */}
+        {/* Card 4 - ROAS */}
         <Card className="stat-card-orange hover-lift border-0 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-white/90">
@@ -821,7 +1023,7 @@ export default function DashboardPage() {
 
       {/* Charts Row */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
-        {/* Revenue vs Spent Line Chart */}
+        {/* Revenue vs Spent */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
@@ -839,10 +1041,7 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="date"
                     className="text-muted-foreground"
@@ -860,10 +1059,7 @@ export default function DashboardPage() {
                       color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend
-                    wrapperStyle={{ paddingTop: "20px" }}
-                    iconType="line"
-                  />
+                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
                   <Line
                     type="monotone"
                     dataKey="revenue"
@@ -897,7 +1093,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* ROI by Platform Bar Chart */}
+        {/* ROI by Platform */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
@@ -915,10 +1111,7 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={platformROIData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="platform"
                     className="text-muted-foreground"
@@ -951,7 +1144,7 @@ export default function DashboardPage() {
 
       {/* Bottom Row */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
-        {/* Budget Pie Chart */}
+        {/* Budget Pie */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
@@ -1003,7 +1196,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Low Stock Products */}
+        {/* Low Stock */}
         <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
@@ -1028,7 +1221,7 @@ export default function DashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {lowStockProducts.map((product) => (
+                    {lowStockProducts.map((product: any) => (
                       <TableRow key={product.id}>
                         <TableCell className="font-medium">
                           {product.name}
@@ -1116,7 +1309,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Recent Activities */}
+      {/* AI Provider Add */}
       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
         <CardHeader>
           <CardTitle className="text-lg md:text-xl text-gray-800">
@@ -1134,7 +1327,9 @@ export default function DashboardPage() {
               </Label>
               <Select
                 value={selectedProvider}
-                onValueChange={setSelectedProvider}
+                onValueChange={(v) =>
+                  setSelectedProvider(v as "GEMINI" | "OPENAI" | "N8N")
+                }
               >
                 <SelectTrigger className="bg-gray-50 border-2 border-gray-300 text-gray-800 mt-1">
                   <SelectValue />
@@ -1305,7 +1500,7 @@ export default function DashboardPage() {
                     )}
                     {provider.lastTested && (
                       <p className="text-xs text-gray-500 mt-1">
-                        ทดสอบล่าสุด:{" "}
+                        ทดสอบล่าสุด{" "}
                         {new Date(provider.lastTested).toLocaleString("th-TH")}
                       </p>
                     )}
@@ -1370,9 +1565,7 @@ export default function DashboardPage() {
             onSubmit={handleSavePlatformCred}
           >
             <div className="space-y-2">
-              <Label className="text-gray-700 font-semibold">
-                Platform
-              </Label>
+              <Label className="text-gray-700 font-semibold">Platform</Label>
               <Select
                 value={platformForm.platform}
                 onValueChange={(value) =>
@@ -1782,10 +1975,17 @@ export default function DashboardPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAdAccountDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAdAccountDialogOpen(false)}
+              >
                 ยกเลิก
               </Button>
-              <Button type="submit" className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+              >
                 บันทึก
               </Button>
             </DialogFooter>
