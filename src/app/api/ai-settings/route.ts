@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { getOrganizationId } from "@/lib/organization";
 
 // GET - ดึง AI providers ทั้งหมด
 export async function GET() {
@@ -11,16 +12,19 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-      include: { aiProviders: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Get organization ID
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json([]);
     }
 
-    const providers = user.aiProviders.map((p) => ({
+    // Fetch AI providers for organization
+    const aiProviders = await prisma.aIProvider.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const providers = aiProviders.map((p) => ({
       id: p.id,
       provider: p.provider,
       modelName: p.modelName,
@@ -46,23 +50,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Get organization ID
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "No organization found. Please contact support." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
-    const { provider, apiKey, modelName } = body;
+    let { provider, apiKey, modelName } = body;
+
+    // Auto-correct Gemini model names
+    if (provider === "GEMINI") {
+      if (!modelName) {
+        modelName = "gemini-2.0-flash-exp"; // Default to newest
+      } else if (modelName === "gemini-1.5-flash") {
+        modelName = "gemini-1.5-flash-latest"; // Add -latest suffix
+      } else if (modelName === "gemini-1.5-pro") {
+        modelName = "gemini-1.5-pro-latest"; // Add -latest suffix
+      } else if (modelName === "gemini-pro") {
+        modelName = "gemini-2.0-flash-exp"; // Update old model
+      }
+    }
 
     const encryptedKey = encrypt(apiKey);
 
+    // Use correct unique constraint: organizationId + provider
     const aiProvider = await prisma.aIProvider.upsert({
       where: {
-        userId_provider: {
-          userId: user.id,
+        organizationId_provider: {
+          organizationId: orgId,
           provider,
         },
       },
@@ -73,7 +92,7 @@ export async function POST(request: Request) {
         lastTested: null,
       },
       create: {
-        userId: user.id,
+        organizationId: orgId,
         provider,
         apiKey: encryptedKey,
         modelName,
@@ -83,6 +102,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       id: aiProvider.id,
       provider: aiProvider.provider,
+      modelName: aiProvider.modelName,
       message: "บันทึกสำเร็จ",
     });
   } catch (error) {
@@ -180,13 +200,14 @@ export async function DELETE(request: Request) {
 // Helper functions
 async function testGemini(apiKey: string) {
   try {
+    // Use latest Gemini model for testing
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "Hello" }] }],
+          contents: [{ parts: [{ text: "Hello, respond with OK if you can read this." }] }],
         }),
       }
     );

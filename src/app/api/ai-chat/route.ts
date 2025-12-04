@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     let response = "";
 
     if (aiProvider.provider === "GEMINI") {
-      response = await callGemini(apiKey, message, context);
+      response = await callGemini(apiKey, message, context, aiProvider.modelName || undefined);
     } else if (aiProvider.provider === "OPENAI") {
       response = await callOpenAI(
         apiKey,
@@ -327,12 +327,24 @@ ${JSON.stringify(businessData, null, 2)}`;
 }
 
 // Gemini API
-async function callGemini(apiKey: string, message: string, context: any) {
+async function callGemini(apiKey: string, message: string, context: any, modelName?: string) {
   const systemPrompt = buildSystemPrompt(context);
+
+  // Use provided model name or default to latest flash model
+  let finalModel = modelName || "gemini-1.5-flash-latest";
+
+  // Auto-correct common model name issues
+  if (finalModel === "gemini-1.5-flash") {
+    finalModel = "gemini-1.5-flash-latest";
+  } else if (finalModel === "gemini-1.5-pro") {
+    finalModel = "gemini-1.5-pro-latest";
+  } else if (finalModel === "gemini-pro") {
+    finalModel = "gemini-1.5-flash-latest"; // Update old model
+  }
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${finalModel}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
