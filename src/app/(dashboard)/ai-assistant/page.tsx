@@ -126,7 +126,7 @@ export default function AIAssistantPage() {
   if (checkingProvider) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
       </div>
     );
   }
@@ -136,18 +136,18 @@ export default function AIAssistantPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-white">AI Assistant</h1>
-          <p className="text-slate-400 mt-1">ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ</p>
+          <p className="text-gray-400 mt-1">ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ</p>
         </div>
 
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="rounded-full bg-slate-700 p-4 mb-4">
-              <Bot className="w-12 h-12 text-slate-400" />
+              <Bot className="w-12 h-12 text-gray-400" />
             </div>
             <h3 className="text-xl font-semibold text-white mb-2">
               ยังไม่ได้ตั้งค่า AI Provider
             </h3>
-            <p className="text-slate-400 text-center max-w-md mb-6">
+            <p className="text-gray-400 text-center max-w-md mb-6">
               กรุณาไปที่หน้า Settings เพื่อเพิ่ม AI Provider และทดสอบการเชื่อมต่อ
               <br />
               จากนั้นตั้งเป็น Default Provider เพื่อเริ่มใช้งาน AI Assistant
@@ -171,7 +171,7 @@ export default function AIAssistantPage() {
             <Sparkles className="w-8 h-8 text-blue-500" />
             AI Assistant
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-gray-400 mt-1">
             ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ
           </p>
         </div>
@@ -219,7 +219,7 @@ export default function AIAssistantPage() {
         <CardContent className="p-6">
           <div className="h-[500px] overflow-y-auto space-y-4 mb-4">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <Bot className="w-16 h-16 mb-4" />
                 <p className="text-lg font-semibold mb-2">
                   เริ่มต้นการสนทนากับ AI
@@ -302,7 +302,7 @@ export default function AIAssistantPage() {
             <Bot className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-slate-300">
               <p className="font-semibold mb-1">AI Assistant สามารถ:</p>
-              <ul className="list-disc list-inside space-y-1 text-slate-400">
+              <ul className="list-disc list-inside space-y-1 text-gray-400">
                 <li>ตอบคำถามเกี่ยวกับข้อมูลในระบบ (สินค้า, โฆษณา, งบประมาณ)</li>
                 <li>วิเคราะห์และแนะนำกลยุทธ์ธุรกิจ</li>
                 <li>คำนวณและสรุปข้อมูลต่างๆ</li>

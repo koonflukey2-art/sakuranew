@@ -196,7 +196,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-50">
+    <div className="space-y-6 text-white text-white">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

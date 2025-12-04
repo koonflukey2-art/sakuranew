@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
 import {
   Loader2,
@@ -85,6 +86,15 @@ const DEFAULT_STATS: Stats = {
 const DEFAULT_ORDER_STATS: OrderStats = {
   today: { revenue: 0, orders: 0, byType: {} },
   week: { revenue: 0, orders: 0, byType: {} },
+};
+
+const DEFAULT_DASHBOARD_STATS = {
+  profit: 0,
+  revenue: 0,
+  cost: 0,
+  orders: 0,
+  conversions: 0,
+  profitMargin: 0,
 };
 
 const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f97316", "#22c55e", "#3b82f6"];
@@ -176,12 +186,28 @@ export default function DashboardPage() {
     checkAccess();
   }, [router]);
 
+  useEffect(() => {
+    if (isLoaded && user) {
+      const hasShownWelcome = sessionStorage.getItem("hasShownWelcome");
+      if (!hasShownWelcome) {
+        toast({
+          title: "🎉 เข้าสู่ระบบสำเร็จ",
+          description: `ยินดีต้อนรับ ${user.firstName || user.fullName || ""}!`,
+          className: "premium-card border-green-500/50 glow-green",
+          duration: 3000,
+        });
+        sessionStorage.setItem("hasShownWelcome", "true");
+      }
+    }
+  }, [isLoaded, user, toast]);
+
   // ---------- states ----------
 
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
   const [orderStats, setOrderStats] = useState<OrderStats>(DEFAULT_ORDER_STATS);
+  const [dashboardStats, setDashboardStats] = useState(DEFAULT_DASHBOARD_STATS);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -241,6 +267,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (isAuthorized) {
       fetchDashboardData();
+      fetchDashboardStats();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
@@ -381,6 +408,25 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await fetch("/api/dashboard/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardStats({
+          profit: data.profit ?? 0,
+          revenue: data.revenue ?? 0,
+          cost: data.cost ?? 0,
+          orders: data.orders ?? 0,
+          conversions: data.conversions ?? 0,
+          profitMargin: data.profitMargin ?? 0,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard stats:", error);
+    }
+  };
+
   // ---------- guards ----------
 
   if (isAuthorized === null) {
@@ -398,13 +444,13 @@ export default function DashboardPage() {
   // ---------- JSX ----------
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-          Dashboard ภาพรวมธุรกิจ
+    <div className="space-y-6">
+      <div className="mb-2">
+        <h1 className="text-4xl font-bold text-gradient-purple mb-2">
+          Dashboard
         </h1>
-        <p className="text-gray-600 mt-1">
-          สรุปยอดขาย กำไร ROAS และสถานะสต็อกสินค้า
+        <p className="text-gray-400 text-lg">
+          ภาพรวมธุรกิจของคุณ
         </p>
       </div>
 
@@ -490,14 +536,12 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0 relative">
             <div className="text-3xl font-bold text-white">
-              {formatCurrency(stats.totalProfit)}
+              {formatCurrency(dashboardStats.profit)}
             </div>
             <p className="text-xs text-white/80 mt-2 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
-              {stats.totalProfit > 0 ? "+" : ""}
-              {stats.totalRevenue > 0
-                ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1)
-                : 0}
+              {dashboardStats.profit > 0 ? "+" : ""}
+              {dashboardStats.profitMargin.toFixed(1)}
               % margin
             </p>
           </CardContent>
@@ -518,9 +562,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0 relative">
             <div className="text-3xl font-bold text-white">
-              {formatCurrency(stats.totalRevenue)}
+              {formatCurrency(dashboardStats.revenue)}
             </div>
-            <p className="text-xs text-white/80 mt-2">จากแคมเปญทั้งหมด</p>
+            <p className="text-xs text-white/80 mt-2">รายได้จากออเดอร์ทั้งหมด</p>
           </CardContent>
         </Card>
 
@@ -539,9 +583,11 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0 relative">
             <div className="text-3xl font-bold text-white">
-              {formatNumber(stats.totalOrders)}
+              {formatNumber(dashboardStats.orders)}
             </div>
-            <p className="text-xs text-white/80">Conversions ทั้งหมด</p>
+            <p className="text-xs text-white/80">
+              Conversions: {formatNumber(dashboardStats.conversions)}
+            </p>
           </CardContent>
         </Card>
 
