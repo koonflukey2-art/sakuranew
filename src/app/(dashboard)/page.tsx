@@ -87,7 +87,14 @@ const DEFAULT_ORDER_STATS: OrderStats = {
   week: { revenue: 0, orders: 0, byType: {} },
 };
 
-const COLORS = ["#ec4899", "#a855f7", "#06b6d4", "#f97316", "#22c55e", "#3b82f6"];
+const COLORS = [
+  "#ec4899",
+  "#a855f7",
+  "#06b6d4",
+  "#f97316",
+  "#22c55e",
+  "#3b82f6",
+];
 
 // ---------- helper ----------
 
@@ -181,7 +188,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
-  const [orderStats, setOrderStats] = useState<OrderStats>(DEFAULT_ORDER_STATS);
+  const [orderStats, setOrderStats] =
+    useState<OrderStats>(DEFAULT_ORDER_STATS);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -403,53 +411,55 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold text-gradient-purple mb-2">
           Dashboard
         </h1>
-        <p className="text-gray-400 text-lg">ภาพรวมธุรกิจของคุณ</p>
+        <p className="text-gray-200 text-lg">ภาพรวมธุรกิจของคุณ</p>
       </div>
 
       {/* Top stats + sales by type (today) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* ยอดขายวันนี้ */}
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-slate-900 to-slate-950">
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-semibold text-gray-100">
               ยอดขายวันนี้
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-emerald-400">
               ฿{orderStats.today.revenue.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-300 mt-1">
               {orderStats.today.orders} ออเดอร์
             </p>
           </CardContent>
         </Card>
 
         {/* ยอดขาย 7 วัน */}
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-slate-900 to-slate-950">
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-semibold text-gray-100">
               ยอดขาย 7 วัน
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-sky-400">
               ฿{orderStats.week.revenue.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-300 mt-1">
               {orderStats.week.orders} ออเดอร์
             </p>
           </CardContent>
         </Card>
 
-        {/* ยอดขายแยกตามประเภท (วันนี้) – ย้ายขึ้นมาฝั่งขวา */}
-        <Card className="border border-gray-200 shadow-sm">
+        {/* ยอดขายแยกตามประเภท (วันนี้) */}
+        <Card className="border border-purple-500/40 bg-gradient-to-br from-slate-900 to-slate-950">
           <CardHeader>
-            <CardTitle>ยอดขายแยกตามประเภท (วันนี้)</CardTitle>
+            <CardTitle className="text-base font-semibold text-gray-50">
+              ยอดขายแยกตามประเภท (วันนี้)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {Object.entries(orderStats.today.byType || {}).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-400">
                 ยังไม่มีข้อมูลออเดอร์วันนี้
               </p>
             ) : (
@@ -458,16 +468,18 @@ export default function DashboardPage() {
                   ([type, data]) => (
                     <div
                       key={type}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
+                      className="flex items-center justify-between rounded-lg border border-purple-500/40 bg-slate-900/80 px-3 py-2"
                     >
                       <div>
-                        <div className="font-medium text-gray-800">{type}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="font-semibold text-gray-50">
+                          {type}
+                        </div>
+                        <div className="text-xs text-gray-300">
                           {data.count} ชิ้น
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-green-600">
+                        <div className="text-lg font-bold text-emerald-400">
                           ฿{data.revenue.toLocaleString()}
                         </div>
                       </div>
@@ -577,18 +589,18 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {/* Revenue vs Spent */}
-        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+        <Card className="bg-slate-950 border border-slate-800 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-semibold text-gray-50">
               รายได้ vs ค่าใช้จ่าย (7 วัน)
             </CardTitle>
-            <CardDescription className="text-sm md:text-base text-gray-600">
+            <CardDescription className="text-sm md:text-base text-gray-300">
               แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
             </CardDescription>
           </CardHeader>
           <CardContent>
             {chartData.length === 0 ? (
-              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[350px] flex items-center justify-center text-gray-500">
                 ไม่มีข้อมูล
               </div>
             ) : (
@@ -600,11 +612,11 @@ export default function DashboardPage() {
                   />
                   <XAxis
                     dataKey="date"
-                    className="text-muted-foreground"
+                    className="text-gray-300"
                     style={{ fontSize: "12px" }}
                   />
                   <YAxis
-                    className="text-muted-foreground"
+                    className="text-gray-300"
                     style={{ fontSize: "12px" }}
                   />
                   <Tooltip
@@ -615,7 +627,10 @@ export default function DashboardPage() {
                       color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
+                  <Legend
+                    wrapperStyle={{ paddingTop: "20px", color: "#e5e7eb" }}
+                    iconType="line"
+                  />
                   <Line
                     type="monotone"
                     dataKey="revenue"
@@ -650,18 +665,18 @@ export default function DashboardPage() {
         </Card>
 
         {/* ROI by Platform */}
-        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+        <Card className="bg-slate-950 border border-slate-800 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-semibold text-gray-50">
               ROI แต่ละ Platform
             </CardTitle>
-            <CardDescription className="text-sm md:text-base text-gray-600">
+            <CardDescription className="text-sm md:text-base text-gray-300">
               เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
             </CardDescription>
           </CardHeader>
           <CardContent>
             {platformROIData.length === 0 ? (
-              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[350px] flex items-center justify-center text-gray-500">
                 ไม่มีข้อมูล
               </div>
             ) : (
@@ -673,11 +688,11 @@ export default function DashboardPage() {
                   />
                   <XAxis
                     dataKey="platform"
-                    className="text-muted-foreground"
+                    className="text-gray-300"
                     style={{ fontSize: "12px" }}
                   />
                   <YAxis
-                    className="text-muted-foreground"
+                    className="text-gray-300"
                     style={{ fontSize: "12px" }}
                   />
                   <Tooltip
@@ -704,15 +719,15 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {/* Budget Pie */}
-        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+        <Card className="bg-slate-950 border border-slate-800 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+            <CardTitle className="text-lg md:text-xl font-semibold text-gray-50">
               สัดส่วนงบประมาณ
             </CardTitle>
           </CardHeader>
           <CardContent>
             {budgetChartData.length === 0 ? (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
                 ไม่มีข้อมูล
               </div>
             ) : (
@@ -756,47 +771,54 @@ export default function DashboardPage() {
         </Card>
 
         {/* Low Stock */}
-        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+        <Card className="bg-slate-950 border border-slate-800 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
-              <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-semibold text-gray-50">
+              <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-400" />
               สินค้าใกล้หมดสต็อก
             </CardTitle>
           </CardHeader>
           <CardContent>
             {lowStockProducts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-gray-400">
                 ไม่มีสินค้าใกล้หมด
               </div>
             ) : (
               <div className="overflow-x-auto -mx-2 sm:mx-0">
                 <Table className="min-w-full">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>สินค้า</TableHead>
-                      <TableHead className="text-right">คงเหลือ</TableHead>
-                      <TableHead className="text-right">ขั้นต่ำ</TableHead>
-                      <TableHead>สถานะ</TableHead>
+                    <TableRow className="border-slate-800">
+                      <TableHead className="text-gray-200">สินค้า</TableHead>
+                      <TableHead className="text-right text-gray-200">
+                        คงเหลือ
+                      </TableHead>
+                      <TableHead className="text-right text-gray-200">
+                        ขั้นต่ำ
+                      </TableHead>
+                      <TableHead className="text-gray-200">สถานะ</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {lowStockProducts.map((product: any) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">
+                      <TableRow
+                        key={product.id}
+                        className="border-slate-800 hover:bg-slate-900/80"
+                      >
+                        <TableCell className="font-medium text-gray-50">
                           {product.name}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-gray-100">
                           {product.quantity}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-gray-100">
                           {product.minStockLevel}
                         </TableCell>
                         <TableCell>
                           <span
                             className={`inline-flex px-2 py-1 text-xs rounded-full ${
                               product.quantity === 0
-                                ? "bg-red-100 text-red-700"
-                                : "bg-yellow-100 text-yellow-700"
+                                ? "bg-red-200 text-red-900"
+                                : "bg-yellow-200 text-yellow-900"
                             }`}
                           >
                             {product.quantity === 0 ? "หมด" : "ใกล้หมด"}

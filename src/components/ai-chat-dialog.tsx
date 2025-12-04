@@ -74,22 +74,22 @@ export function AIChatDialog() {
 
       {/* Dialog หลัก */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl border-2 border-slate-200 bg-white">
-          <DialogHeader className="border-b-2 border-slate-200 pb-4 bg-gradient-to-r from-pink-50 to-purple-50 -mx-6 -mt-6 px-6 pt-6 mb-4">
-            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-slate-900">
+        <DialogContent className="sm:max-w-2xl border border-purple-500/70 bg-slate-950/95 text-slate-100 shadow-[0_0_40px_rgba(168,85,247,0.7)]">
+          <DialogHeader className="border-b border-slate-700 pb-4 -mx-6 -mt-6 px-6 pt-6 mb-4 bg-gradient-to-r from-purple-900/70 to-slate-950/0">
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-slate-100">
               <div className="p-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500">
                 <Bot className="h-6 w-6 text-white" />
               </div>
               AI Assistant
-              <Sparkles className="h-5 w-5 text-purple-600" />
+              <Sparkles className="h-5 w-5 text-purple-300" />
             </DialogTitle>
           </DialogHeader>
 
           {/* Chat Messages */}
-          <div className="h-96 overflow-y-auto space-y-4 px-2 bg-gradient-to-br from-pink-50/30 via-white to-purple-50/30 rounded-xl p-4">
+          <div className="h-96 overflow-y-auto space-y-4 px-2 bg-slate-900/80 rounded-xl p-4">
             {messages.length === 1 && (
               <div className="mb-4">
-                <p className="text-sm text-gray-600 font-medium mb-3">
+                <p className="text-sm text-slate-300 font-medium mb-3">
                   คำถามแนะนำ:
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -99,7 +99,7 @@ export function AIChatDialog() {
                       variant="outline"
                       size="sm"
                       onClick={() => sendMessage(question)}
-                      className="bg-white border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 font-medium text-xs h-auto py-2"
+                      className="bg-slate-900 border border-slate-600 text-slate-100 hover:bg-slate-800 hover:border-pink-400 font-medium text-xs h-auto py-2 rounded-xl"
                     >
                       {question}
                     </Button>
@@ -126,7 +126,7 @@ export function AIChatDialog() {
                     "max-w-[75%] rounded-xl px-4 py-3 text-sm font-medium",
                     msg.role === "user"
                       ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white"
-                      : "bg-white border-2 border-slate-200 text-slate-900"
+                      : "bg-slate-800 border border-slate-600 text-slate-100"
                   )}
                 >
                   {msg.content}
@@ -144,15 +144,15 @@ export function AIChatDialog() {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center flex-shrink-0">
                   <Bot className="h-5 w-5 text-white" />
                 </div>
-                <div className="bg-white border-2 border-slate-200 rounded-xl px-4 py-3">
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                <div className="bg-slate-800 border border-slate-600 rounded-xl px-4 py-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-purple-300" />
                 </div>
               </div>
             )}
           </div>
 
           {/* Input Area */}
-          <div className="flex gap-2 pt-4 border-t-2 border-slate-200 bg-white p-2">
+          <div className="flex gap-2 pt-4 border-t border-slate-700 bg-slate-950/95 p-2">
             <div className="flex-1">
               <input
                 type="text"
@@ -160,12 +160,13 @@ export function AIChatDialog() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !loading && input.trim()) {
+                    e.preventDefault();
                     sendMessage();
                   }
                 }}
                 placeholder="พิมพ์ข้อความ..."
                 disabled={loading}
-                className="ai-chat-input flex h-10 w-full rounded-md border-2 border-slate-700 bg-slate-900 px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full flex-1 rounded-md border-2 border-pink-500/70 bg-slate-900/90 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   color: "#ffffff",
                   WebkitTextFillColor: "#ffffff",
@@ -176,10 +177,14 @@ export function AIChatDialog() {
             <Button
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md flex-shrink-0"
+              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md flex-shrink-0 rounded-xl"
               size="icon"
             >
-              <Send className="h-4 w-4" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </DialogContent>

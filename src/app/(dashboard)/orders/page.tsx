@@ -29,6 +29,7 @@ import {
   MapPin,
   Calendar,
   ShoppingCart,
+  RefreshCw,
 } from "lucide-react";
 
 interface Order {
@@ -48,6 +49,8 @@ interface Order {
   notes?: string;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,8 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,12 +99,17 @@ export default function OrdersPage() {
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
+        setCurrentPage(1); // รีเซ็ตหน้าเมื่อมีการค้นหา/เปลี่ยน filter
       }
     } catch (error) {
       console.error("Failed to fetch orders:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchOrders();
   };
 
   const handleUpdateOrder = async () => {
@@ -152,16 +162,35 @@ export default function OrdersPage() {
     return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
   };
 
+  const totalPages =
+    orders.length === 0 ? 1 : Math.ceil(orders.length / ITEMS_PER_PAGE);
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedOrders = orders.slice(startIndex, endIndex);
+
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-gradient-pink mb-2">
-          รายการออเดอร์
-        </h1>
-        <p className="text-gray-400 text-lg">
-          รายการออเดอร์จาก LINE Webhook
-        </p>
+      {/* Header + Refresh */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-4xl font-bold text-gradient-pink mb-2">
+            รายการออเดอร์
+          </h1>
+          <p className="text-gray-200 text-lg">
+            รายการออเดอร์จาก LINE Webhook
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading}
+          className="border-purple-400 text-purple-200 hover:bg-purple-500/10"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          รีเฟรช
+        </Button>
       </div>
 
       {/* Filters */}
@@ -207,7 +236,6 @@ export default function OrdersPage() {
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* แก้จาก value="" เป็น "ALL" */}
                   <SelectItem value="ALL">ทั้งหมด</SelectItem>
                   <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
                   <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
@@ -224,123 +252,163 @@ export default function OrdersPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
-          <p className="text-gray-500 mt-4">กำลังโหลด...</p>
+          <p className="text-gray-400 mt-4">กำลังโหลด...</p>
         </div>
       ) : orders.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">ไม่พบรายการออเดอร์</p>
+            <ShoppingCart className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-300">ไม่พบรายการออเดอร์</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {orders.map((order) => (
-            <Card
-              key={order.id}
-              className="border-2 border-gray-800 bg-gray-900 hover:border-purple-500 transition"
-            >
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-3 flex-1">
-                    {/* Order Number & Status */}
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="bg-purple-100 rounded-lg px-3 py-1">
-                        <span className="text-sm font-bold text-purple-600">
-                          #{order.id.slice(0, 8).toUpperCase()}
-                        </span>
+        <>
+          <div className="grid gap-4">
+            {paginatedOrders.map((order) => (
+              <Card
+                key={order.id}
+                className="border-2 border-purple-500/40 bg-gradient-to-br from-slate-950 to-slate-900 hover:border-purple-400 transition"
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-3 flex-1">
+                      {/* Order Number & Status */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="bg-purple-500/10 border border-purple-400/60 rounded-lg px-3 py-1">
+                          <span className="text-sm font-bold text-purple-100">
+                            #{order.id.slice(0, 8).toUpperCase()}
+                          </span>
+                        </div>
+                        {getStatusBadge(order.status)}
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-500/15 text-blue-200 border-blue-400/60"
+                        >
+                          {order.productName ||
+                            `สินค้าหมายเลข ${order.productType}`}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-700 text-slate-100 border-slate-500"
+                        >
+                          {order.quantity} ชิ้น
+                        </Badge>
                       </div>
-                      {getStatusBadge(order.status)}
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700 border-blue-300"
-                      >
-                        {order.productName ||
-                          `สินค้าหมายเลข ${order.productType}`}
-                      </Badge>
-                      <Badge variant="outline" className="bg-gray-100">
-                        {order.quantity} ชิ้น
-                      </Badge>
-                    </div>
 
-                    {/* Customer Info Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-purple-500" />
-                        <span className="font-medium text-white">
-                          {order.customer.name}
-                        </span>
+                      {/* Customer Info Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-purple-400" />
+                          <span className="font-medium text-slate-50">
+                            {order.customer.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-emerald-400" />
+                          <span className="text-slate-200">
+                            {order.customer.phone}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-sky-400" />
+                          <span className="text-slate-200">
+                            {new Date(order.orderDate).toLocaleDateString(
+                              "th-TH",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-green-500" />
-                        <span className="text-gray-300">
-                          {order.customer.phone}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-blue-500" />
-                        <span className="text-gray-300">
-                          {new Date(order.orderDate).toLocaleDateString(
-                            "th-TH",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Address */}
-                    {order.customer.address && (
-                      <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <div className="text-xs text-gray-400 mb-1">
-                              ที่อยู่จัดส่ง
+                      {/* Address */}
+                      {order.customer.address && (
+                        <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <div className="text-xs text-slate-400 mb-1">
+                                ที่อยู่จัดส่ง
+                              </div>
+                              <p className="text-sm text-slate-100 leading-relaxed">
+                                {order.customer.address}
+                              </p>
                             </div>
-                            <p className="text-sm text-white leading-relaxed">
-                              {order.customer.address}
-                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Amount */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="inline-flex items-baseline px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/10">
+                            <span className="text-lg font-semibold text-emerald-300">
+                              ฿{order.amount.toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {/* Amount */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-2xl font-bold text-green-400">
-                          ฿{order.amount.toLocaleString()}
-                        </span>
-                      </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  {userRole === "ADMIN" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setEditDialogOpen(true);
-                      }}
-                      className="ml-4"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      แก้ไข
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    {/* Actions */}
+                    {userRole === "ADMIN" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setEditDialogOpen(true);
+                        }}
+                        className="border-purple-400 text-purple-100 hover:bg-purple-500/10"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        แก้ไข
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+            <p className="text-sm text-gray-300">
+              แสดง {startIndex + 1} -{" "}
+              {Math.min(endIndex, orders.length)} จาก {orders.length} รายการ
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-500 text-slate-100"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                ก่อนหน้า
+              </Button>
+              <span className="text-sm text-gray-200">
+                หน้า {currentPage} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-500 text-slate-100"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+              >
+                ถัดไป
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Edit Dialog (ADMIN Only) */}

@@ -25,6 +25,27 @@
     --ring: 280 100% 70%;
     --radius: 0.75rem;
   }
+
+  /* ให้ body เป็นธีมดำ-ตัวอักษรขาว */
+  body {
+    background: #000000;
+    color: #ffffff;
+    font-family: "Inter", sans-serif;
+  }
+
+  /* 👇 บังคับให้ input / textarea ตัวหนังสือเป็นสีขาวเสมอ */
+  input,
+  textarea {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff;
+  }
+
+  /* สี placeholder ให้เป็นเทาอ่อน */
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af; /* tailwind slate-400 */
+    opacity: 1;
+  }
 }
 
 @layer utilities {
@@ -93,12 +114,6 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-}
-
-body {
-  background: #000000;
-  color: #ffffff;
-  font-family: 'Inter', sans-serif;
 }
 
 /* Scrollbar styling */

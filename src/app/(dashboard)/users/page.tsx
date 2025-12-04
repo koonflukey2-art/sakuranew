@@ -50,18 +50,20 @@ interface User {
 export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
+
   // Authorization state
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  
+
   // Users state
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Dialog state
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newRole, setNewRole] = useState<"ADMIN" | "STOCK" | "EMPLOYEE">("EMPLOYEE");
+  const [newRole, setNewRole] = useState<"ADMIN" | "STOCK" | "EMPLOYEE">(
+    "EMPLOYEE"
+  );
   const [updating, setUpdating] = useState(false);
 
   // Check authorization
@@ -79,7 +81,7 @@ export default function UsersPage() {
   const checkAccess = async () => {
     try {
       const response = await fetch("/api/rbac/check-access");
-      
+
       if (!response.ok) {
         console.error("Failed to check permissions");
         router.push("/");
@@ -110,7 +112,7 @@ export default function UsersPage() {
     try {
       setLoading(true);
       const response = await fetch("/api/users");
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
@@ -140,7 +142,7 @@ export default function UsersPage() {
 
     try {
       setUpdating(true);
-      
+
       const response = await fetch("/api/users/role", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -229,19 +231,19 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 text-white">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 text-white">
             <Users className="w-8 h-8" />
             User Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-400 mt-1">
             จัดการผู้ใช้งานและสิทธิ์การเข้าถึงระบบ
           </p>
         </div>
-        <Button onClick={fetchUsers} variant="outline" size="sm">
+        <Button onClick={fetchUsers} variant="outline" size="sm" className="border border-white/20 text-gray-100">
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </Button>
@@ -293,41 +295,41 @@ export default function UsersPage() {
       </div>
 
       {/* Users Table */}
-      <Card className="bg-white border-2 border-gray-200">
+      <Card className="bg-white/5 border border-white/10 backdrop-blur">
         <CardHeader>
-          <CardTitle className="text-xl text-gray-800">All Users</CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardTitle className="text-xl text-white">All Users</CardTitle>
+          <CardDescription className="text-gray-400">
             จำนวนผู้ใช้งานทั้งหมด: {users.length} คน
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-gray-600">
-              <Users className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+            <div className="text-center py-8 text-gray-400">
+              <Users className="w-12 h-12 mx-auto mb-2 text-gray-500" />
               <p>ไม่พบข้อมูลผู้ใช้งาน</p>
             </div>
           ) : (
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="min-w-full">
                 <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                  <tr className="border-b border-white/10">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-200">
                       Email
                     </th>
-                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-200">
                       Name
                     </th>
-                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-200">
                       Role
                     </th>
-                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-200">
                       Created
                     </th>
-                    <th className="p-4 text-left text-sm font-semibold text-gray-700">
+                    <th className="p-4 text-left text-sm font-semibold text-gray-200">
                       Actions
                     </th>
                   </tr>
@@ -339,23 +341,25 @@ export default function UsersPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="border-b border-gray-100 hover:bg-gray-50"
+                      className="border-b border-white/5 hover:bg-white/5"
                     >
-                      <td className="p-4 text-gray-800 font-medium">
+                      <td className="p-4 text-white font-medium">
                         {user.email}
                       </td>
-                      <td className="p-4 text-gray-700">
+                      <td className="p-4 text-gray-200">
                         {user.name || "-"}
                       </td>
                       <td className="p-4">
                         <Badge
-                          className={`${getRoleBadgeColor(user.role)} text-white flex items-center gap-1 w-fit`}
+                          className={`${getRoleBadgeColor(
+                            user.role
+                          )} text-white flex items-center gap-1 w-fit`}
                         >
                           {getRoleIcon(user.role)}
                           {getRoleLabel(user.role)}
                         </Badge>
                       </td>
-                      <td className="p-4 text-sm text-gray-600">
+                      <td className="p-4 text-sm text-gray-300">
                         {new Date(user.createdAt).toLocaleDateString("th-TH")}
                       </td>
                       <td className="p-4">
@@ -363,7 +367,7 @@ export default function UsersPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleOpenDialog(user)}
-                          className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                          className="border border-purple-300 text-purple-200 hover:bg-purple-950/40"
                         >
                           <Shield className="w-4 h-4 mr-2" />
                           Change Role
@@ -380,61 +384,75 @@ export default function UsersPage() {
 
       {/* Change Role Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-white border-2 border-gray-300">
+        <DialogContent className="bg-slate-950 border border-white/15 text-white">
           <DialogHeader>
-            <DialogTitle className="text-gray-800">Change User Role</DialogTitle>
-            <DialogDescription className="text-gray-600">
+            <DialogTitle className="text-white">Change User Role</DialogTitle>
+            <DialogDescription className="text-gray-400">
               เปลี่ยนสิทธิ์การเข้าถึงระบบของผู้ใช้งาน
             </DialogDescription>
           </DialogHeader>
 
           {selectedUser && (
             <div className="space-y-4 py-4">
-              <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="font-semibold text-gray-800">
+              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                <p className="text-sm text-gray-300">Email</p>
+                <p className="font-semibold text-white">
                   {selectedUser.email}
                 </p>
                 {selectedUser.name && (
                   <>
-                    <p className="text-sm text-gray-600 mt-2">Name</p>
-                    <p className="font-semibold text-gray-800">
+                    <p className="text-sm text-gray-300 mt-2">Name</p>
+                    <p className="font-semibold text-white">
                       {selectedUser.name}
                     </p>
                   </>
                 )}
-                <p className="text-sm text-gray-600 mt-2">Current Role</p>
+                <p className="text-sm text-gray-300 mt-2">Current Role</p>
                 <Badge
-                  className={`${getRoleBadgeColor(selectedUser.role)} text-white mt-1`}
+                  className={`${getRoleBadgeColor(
+                    selectedUser.role
+                  )} text-white mt-1`}
                 >
                   {getRoleLabel(selectedUser.role)}
                 </Badge>
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                <label className="text-sm font-semibold text-gray-200 mb-2 block">
                   New Role
                 </label>
-                <Select value={newRole} onValueChange={(value: any) => setNewRole(value)}>
-                  <SelectTrigger className="bg-gray-50 border-2 border-gray-300 text-gray-800">
+                <Select
+                  value={newRole}
+                  onValueChange={(value: any) => setNewRole(value)}
+                >
+                  <SelectTrigger className="bg-white/5 border border-white/15 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border-2 border-gray-300">
-                    <SelectItem value="ADMIN" className="font-semibold text-gray-800">
+                  <SelectContent className="bg-slate-950 border border-white/15">
+                    <SelectItem
+                      value="ADMIN"
+                      className="font-semibold text-gray-100"
+                    >
                       <div className="flex items-center gap-2">
-                        <Crown className="w-4 h-4 text-yellow-600" />
+                        <Crown className="w-4 h-4 text-yellow-400" />
                         ผู้ดูแลระบบ (ADMIN)
                       </div>
                     </SelectItem>
-                    <SelectItem value="STOCK" className="font-semibold text-gray-800">
+                    <SelectItem
+                      value="STOCK"
+                      className="font-semibold text-gray-100"
+                    >
                       <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-blue-600" />
+                        <Package className="w-4 h-4 text-blue-400" />
                         พนักงานสต๊อก (STOCK)
                       </div>
                     </SelectItem>
-                    <SelectItem value="EMPLOYEE" className="font-semibold text-gray-800">
+                    <SelectItem
+                      value="EMPLOYEE"
+                      className="font-semibold text-gray-100"
+                    >
                       <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-gray-600" />
+                        <Briefcase className="w-4 h-4 text-gray-300" />
                         พนักงาน (EMPLOYEE)
                       </div>
                     </SelectItem>
@@ -442,8 +460,8 @@ export default function UsersPage() {
                 </Select>
               </div>
 
-              <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="bg-blue-950/40 border border-blue-500/50 p-3 rounded-lg">
+                <p className="text-sm text-blue-100">
                   <strong>หมายเหตุ:</strong> การเปลี่ยนสิทธิ์จะมีผลทันที
                   ผู้ใช้งานอาจต้อง refresh หน้าเว็บ
                 </p>
@@ -456,7 +474,7 @@ export default function UsersPage() {
               variant="outline"
               onClick={() => setIsDialogOpen(false)}
               disabled={updating}
-              className="border-2 border-gray-300"
+              className="border border-white/20 text-gray-100"
             >
               Cancel
             </Button>
@@ -465,7 +483,9 @@ export default function UsersPage() {
               disabled={updating || newRole === selectedUser?.role}
               className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
             >
-              {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {updating && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
               Update Role
             </Button>
           </DialogFooter>

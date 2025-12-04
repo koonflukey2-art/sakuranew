@@ -4,9 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Send, Settings as SettingsIcon, Loader2, Sparkles } from "lucide-react";
+import {
+  Bot,
+  Send,
+  Settings as SettingsIcon,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Message {
@@ -66,7 +71,7 @@ export default function AIAssistantPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
+          message: userMessage.content,
           sessionId: sessionId || undefined,
         }),
       });
@@ -105,7 +110,7 @@ export default function AIAssistantPage() {
           role: "assistant",
           content:
             description ||
-            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง", 
+            "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง",
           timestamp: new Date(),
         },
       ]);
@@ -136,7 +141,9 @@ export default function AIAssistantPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-white">AI Assistant</h1>
-          <p className="text-gray-400 mt-1">ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ</p>
+          <p className="text-gray-400 mt-1">
+            ผู้ช่วยอัจฉริยะสำหรับธุรกิจของคุณ
+          </p>
         </div>
 
         <Card className="bg-slate-800 border-slate-700">
@@ -171,9 +178,7 @@ export default function AIAssistantPage() {
             <Sparkles className="w-8 h-8 text-blue-500" />
             AI Assistant
           </h1>
-          <p className="text-gray-400 mt-1">
-            ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ
-          </p>
+          <p className="text-gray-400 mt-1">ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ</p>
         </div>
         <Button variant="outline" onClick={() => router.push("/settings")}>
           <SettingsIcon className="w-4 h-4 mr-2" />
@@ -196,7 +201,7 @@ export default function AIAssistantPage() {
                   className="justify-start h-auto py-3 px-4 text-left"
                   onClick={() => {
                     setInput(prompt);
-                    // Auto send
+                    // ส่งอัตโนมัติ
                     setTimeout(() => {
                       const event = new Event("submit", {
                         bubbles: true,
@@ -248,7 +253,9 @@ export default function AIAssistantPage() {
                     {msg.role === "assistant" && (
                       <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-600">
                         <Bot className="w-4 h-4" />
-                        <span className="text-xs font-semibold">AI Assistant</span>
+                        <span className="text-xs font-semibold">
+                          AI Assistant
+                        </span>
                       </div>
                     )}
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -278,6 +285,7 @@ export default function AIAssistantPage() {
           {/* Input */}
           <form onSubmit={handleSend} className="flex gap-2">
             <Input
+              variant="ai"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="ถามอะไรก็ได้เกี่ยวกับธุรกิจของคุณ..."
