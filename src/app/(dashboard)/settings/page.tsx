@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -39,6 +40,9 @@ import {
   RefreshCw,
   Globe2,
   KeyRound,
+  MessageSquare,
+  Info,
+  Save,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -568,6 +572,68 @@ export default function SettingsPage() {
           ตั้งค่า AI และ Model สำหรับใช้ในระบบ
         </p>
       </div>
+
+      {/* LINE Notification Settings */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-green-500" />
+            LINE Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <Info className="w-4 h-4" />
+            <AlertDescription>
+              เชื่อมต่อกับ LINE Messaging API เพื่อ:
+              • อ่านข้อความยอดขายอัตโนมัติ
+              • ส่งการแจ้งเตือนสินค้าใกล้หมด
+              • บันทึกข้อมูลลูกค้าและออเดอร์
+            </AlertDescription>
+          </Alert>
+
+          <div>
+            <Label>Channel Access Token</Label>
+            <Input
+              type="password"
+              placeholder="Channel Access Token จาก LINE Developers"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              สร้างได้จาก{" "}
+              <a
+                href="https://developers.line.biz/"
+                target="_blank"
+                className="text-blue-500 underline"
+                rel="noreferrer"
+              >
+                LINE Developers Console
+              </a>
+            </p>
+          </div>
+
+          <div>
+            <Label>Channel Secret</Label>
+            <Input type="password" placeholder="Channel Secret" />
+          </div>
+
+          <div>
+            <Label>Webhook URL</Label>
+            <Input
+              value={`https://your-domain.com/api/line/webhook`}
+              readOnly
+              className="bg-gray-50"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              ใช้ URL นี้ใน LINE Developers Console
+            </p>
+          </div>
+
+          <Button className="w-full">
+            <Save className="w-4 h-4 mr-2" />
+            บันทึกการตั้งค่า LINE
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Add New Provider */}
       <Card className="bg-white border-2 border-gray-200">

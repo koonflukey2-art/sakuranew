@@ -74,8 +74,25 @@ interface AdAccount {
   testMessage?: string | null;
 }
 
+<<<<<<< HEAD
 export default function SettingsPage() {
   // RBAC: Only ADMIN can access settings
+=======
+interface Stats {
+  totalRevenue: number;
+  totalProfit: number;
+  totalOrders: number;
+  avgROAS: number;
+}
+
+interface OrderStats {
+  today: { revenue: number; orders: number };
+  week: { revenue: number; orders: number };
+}
+
+export default function DashboardPage() {
+  const { toast } = useToast();
+>>>>>>> codex/implement-line-message-integration-and-dashboard
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -110,12 +127,22 @@ export default function SettingsPage() {
 
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const [selectedProvider, setSelectedProvider] = useState<string>("GEMINI");
   const [apiKey, setApiKey] = useState("");
   const [modelName, setModelName] = useState("");
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const { toast } = useToast();
+=======
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [orderStats, setOrderStats] = useState<OrderStats>({
+    today: { revenue: 0, orders: 0 },
+    week: { revenue: 0, orders: 0 },
+  });
+>>>>>>> codex/implement-line-message-integration-and-dashboard
 
   // Platform Credentials State
   const [platformCreds, setPlatformCreds] = useState<PlatformCredential[]>([]);
@@ -161,11 +188,50 @@ export default function SettingsPage() {
       setLoading(true);
       const response = await fetch("/api/ai-settings");
 
+<<<<<<< HEAD
       if (!response.ok) {
         throw new Error("Failed to load providers");
       }
 
       const data = await response.json();
+=======
+      const [productsRes, campaignsRes, budgetsRes, ordersStatsRes] =
+        await Promise.all([
+          fetch("/api/products"),
+          fetch("/api/campaigns"),
+          fetch("/api/budgets"),
+          fetch("/api/orders/stats"),
+        ]);
+
+      // ถ้า 401 แปลว่ายังไม่ได้ login → ให้โชว์ dashboard ว่าง ๆ แต่ไม่พัง
+      if (
+        productsRes.status === 401 ||
+        campaignsRes.status === 401 ||
+        budgetsRes.status === 401 ||
+        ordersStatsRes.status === 401
+      ) {
+        console.warn("Dashboard APIs returned 401 (unauthorized)");
+        setProducts([]);
+        setCampaigns([]);
+        setBudgets([]);
+        setOrderStats({
+          today: { revenue: 0, orders: 0 },
+          week: { revenue: 0, orders: 0 },
+        });
+        setStats({
+          totalRevenue: 0,
+          totalProfit: 0,
+          totalOrders: 0,
+          avgROAS: 0,
+        });
+        return;
+      }
+
+      const productsJson = await safeJson<any>(productsRes);
+      const campaignsJson = await safeJson<any>(campaignsRes);
+      const budgetsJson = await safeJson<any>(budgetsRes);
+      const ordersStatsJson = await safeJson<OrderStats>(ordersStatsRes);
+>>>>>>> codex/implement-line-message-integration-and-dashboard
 
       // รองรับทั้งสองรูปแบบ:
       // 1) [ ...providers ]
@@ -176,7 +242,44 @@ export default function SettingsPage() {
         ? data.providers
         : [];
 
+<<<<<<< HEAD
       setProviders(providersArray);
+=======
+      const campaignsData: Campaign[] = Array.isArray(campaignsJson)
+        ? campaignsJson
+        : (campaignsJson?.campaigns as Campaign[]) ?? [];
+
+      const budgetsData: Budget[] = Array.isArray(budgetsJson)
+        ? budgetsJson
+        : (budgetsJson?.budgets as Budget[]) ?? [];
+
+      setProducts(productsData);
+      setCampaigns(campaignsData);
+      setBudgets(budgetsData);
+      setOrderStats(
+        ordersStatsJson ?? {
+          today: { revenue: 0, orders: 0 },
+          week: { revenue: 0, orders: 0 },
+        }
+      );
+
+      const metrics = calculateStats(productsData, campaignsData, budgetsData);
+
+      const budgetRemaining = budgetsData.reduce(
+        (sum: number, b: Budget) => sum + (b.amount - b.spent),
+        0
+      );
+
+      fetchAIInsights({
+        ...metrics,
+        budgetRemaining,
+        campaignCount: campaignsData.length,
+        budgetCount: budgetsData.length,
+        lowStockCount: productsData.filter(
+          (p: Product) => p.quantity < p.minStockLevel
+        ).length,
+      });
+>>>>>>> codex/implement-line-message-integration-and-dashboard
     } catch (error) {
       console.error("Failed to fetch providers:", error);
       toast({
@@ -184,7 +287,23 @@ export default function SettingsPage() {
         description: "ไม่สามารถโหลดการตั้งค่าได้",
         variant: "destructive",
       });
+<<<<<<< HEAD
       setProviders([]);
+=======
+      setProducts([]);
+      setCampaigns([]);
+      setBudgets([]);
+      setOrderStats({
+        today: { revenue: 0, orders: 0 },
+        week: { revenue: 0, orders: 0 },
+      });
+      setStats({
+        totalRevenue: 0,
+        totalProfit: 0,
+        totalOrders: 0,
+        avgROAS: 0,
+      });
+>>>>>>> codex/implement-line-message-integration-and-dashboard
     } finally {
       setLoading(false);
     }
@@ -601,8 +720,439 @@ export default function SettingsPage() {
         </p>
       </div>
 
+<<<<<<< HEAD
       {/* Add New Provider */}
       <Card className="bg-white border-2 border-gray-200">
+=======
+      {/* LINE Sales Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              ยอดขายวันนี้
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              ฿{orderStats.today.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.today.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              ยอดขาย 7 วัน
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ฿{orderStats.week.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.week.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stats Cards - Vibrant */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1 - Pink (Profit) */}
+        <Card className="stat-card-pink hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                กำไรรวม
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
+              {formatCurrency(stats.totalProfit)}
+            </div>
+            <p className="text-xs text-white/80 mt-2 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
+              {stats.totalProfit > 0 ? "+" : ""}
+              {stats.totalRevenue > 0
+                ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1)
+                : 0}
+              % margin
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Card 2 - Purple (Revenue) */}
+        <Card className="stat-card-purple hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                รายได้
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
+              {formatCurrency(stats.totalRevenue)}
+            </div>
+            <p className="text-xs text-white/80 mt-2">จากแคมเปญทั้งหมด</p>
+          </CardContent>
+        </Card>
+
+        {/* Card 3 - Cyan (Orders) */}
+        <Card className="stat-card-cyan hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                ออเดอร์
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
+              {formatNumber(stats.totalOrders)}
+            </div>
+            <p className="text-xs text-white/80">Conversions ทั้งหมด</p>
+          </CardContent>
+        </Card>
+
+        {/* Card 4 - Orange (ROAS) */}
+        <Card className="stat-card-orange hover-lift border-0 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">
+                ROAS เฉลี่ย
+              </CardTitle>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 relative">
+            <div className="text-3xl font-bold text-white">
+              {stats.avgROAS.toFixed(2)}x
+            </div>
+            <p className="text-xs text-white/80">Return on Ad Spend</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Revenue vs Spent Line Chart */}
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              รายได้ vs ค่าใช้จ่าย (7 วัน)
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base text-gray-600">
+              แนวโน้มรายได้และค่าใช้จ่ายย้อนหลัง 7 วัน
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {chartData.length === 0 ? (
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+                ไม่มีข้อมูล
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={chartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    className="text-muted-foreground"
+                    style={{ fontSize: "12px" }}
+                  />
+                  <YAxis
+                    className="text-muted-foreground"
+                    style={{ fontSize: "12px" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ paddingTop: "20px" }}
+                    iconType="line"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#ec4899"
+                    strokeWidth={3}
+                    name="รายได้"
+                    dot={{ fill: "#ec4899", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="spent"
+                    stroke="#a855f7"
+                    strokeWidth={3}
+                    name="ค่าใช้จ่าย"
+                    dot={{ fill: "#a855f7", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="profit"
+                    stroke="#06b6d4"
+                    strokeWidth={3}
+                    name="กำไร"
+                    dot={{ fill: "#06b6d4", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ROI by Platform Bar Chart */}
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              ROI แต่ละ Platform
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base text-gray-600">
+              เปรียบเทียบประสิทธิภาพแต่ละแพลตฟอร์ม
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {platformROIData.length === 0 ? (
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+                ไม่มีข้อมูล
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={platformROIData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
+                  <XAxis
+                    dataKey="platform"
+                    className="text-muted-foreground"
+                    style={{ fontSize: "12px" }}
+                  />
+                  <YAxis
+                    className="text-muted-foreground"
+                    style={{ fontSize: "12px" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                  />
+                  <Bar
+                    dataKey="avgROI"
+                    fill="#06b6d4"
+                    name="Average ROI"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Budget Pie Chart */}
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="text-lg md:text-xl font-bold text-gray-800">
+              สัดส่วนงบประมาณ
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {budgetChartData.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                ไม่มีข้อมูล
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={budgetChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                    outerRadius={80}
+                    fill="#ec4899"
+                    dataKey="value"
+                  >
+                    {budgetChartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                    formatter={(value: number) => [
+                      `฿${value.toLocaleString()}`,
+                      "",
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Low Stock Products */}
+        <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-bold text-gray-800">
+              <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
+              สินค้าใกล้หมดสต็อก
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {lowStockProducts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                ไม่มีสินค้าใกล้หมด
+              </div>
+            ) : (
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+                <Table className="min-w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>สินค้า</TableHead>
+                      <TableHead className="text-right">คงเหลือ</TableHead>
+                      <TableHead className="text-right">ขั้นต่ำ</TableHead>
+                      <TableHead>สถานะ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lowStockProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">
+                          {product.name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {product.quantity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {product.minStockLevel}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              product.quantity === 0
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {product.quantity === 0 ? "หมด" : "ใกล้หมด"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Insights */}
+      {!loading && (
+        <Card className="bg-gradient-to-br from-white to-pink-50 border border-pink-200 shadow-md rounded-2xl">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-md">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-lg md:text-xl font-bold text-gray-800">
+                  AI Insights & Recommendations
+                </span>
+              </CardTitle>
+              <Button
+                size="sm"
+                className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white border-0 shadow-md"
+                onClick={() => router.push("/ai-chat")}
+              >
+                <Bot className="w-4 h-4 mr-2" />
+                ดูทั้งหมด
+              </Button>
+            </div>
+            <CardDescription className="text-sm md:text-base text-gray-600 mt-2">
+              คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingInsights ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
+              </div>
+            ) : aiInsights.length > 0 ? (
+              <ul className="space-y-3">
+                {aiInsights.map((insight, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all"
+                  >
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                      {idx + 1}
+                    </span>
+                    <span className="text-gray-700 flex-1">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : aiError ? (
+              <p className="text-gray-600">{aiError}</p>
+            ) : (
+              <p className="text-gray-600">
+                เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent Activities */}
+      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl hover:shadow-lg transition-shadow">
+>>>>>>> codex/implement-line-message-integration-and-dashboard
         <CardHeader>
           <CardTitle className="text-lg md:text-xl text-gray-800">
             เพิ่ม AI Provider

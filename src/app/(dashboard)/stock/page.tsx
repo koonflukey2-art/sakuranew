@@ -35,19 +35,11 @@ import {
   Loader2,
   TrendingUp,
   Download,
+  MessageSquare,
+  RefreshCw,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -64,6 +56,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { productSchema, ProductFormData } from "@/lib/validations";
 import {
   ProductsPageSkeleton,
@@ -100,6 +93,13 @@ export default function StockPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [orderStats, setOrderStats] = useState({
+    today: { revenue: 0, orders: 0 },
+    week: { revenue: 0, orders: 0 },
+    byQuantity: {} as Record<number, number>,
+  });
+  const [lineMessage, setLineMessage] = useState("");
+  const [parsing, setParsing] = useState(false);
 
   // Add Product Form
   const addForm = useForm<ProductFormData>({
@@ -129,9 +129,10 @@ export default function StockPage() {
     },
   });
 
-  // Fetch products
+  // Fetch products & order stats
   useEffect(() => {
     fetchProducts();
+    fetchOrderStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -146,6 +147,63 @@ export default function StockPage() {
       handleAPIError(error, "ไม่สามารถโหลดข้อมูลสินค้าได้");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleParseLine = async () => {
+    if (!lineMessage.trim()) {
+      toast({
+        title: "❌ ข้อผิดพลาด",
+        description: "กรุณาใส่ข้อความจาก LINE",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setParsing(true);
+    try {
+      const res = await fetch("/api/line/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: lineMessage }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          title: "✅ บันทึกสำเร็จ!",
+          description: `เพิ่มยอดขาย ${data.order.amount} บาท`,
+        });
+        setLineMessage("");
+        fetchOrderStats();
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถแปลงข้อความได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถบันทึกข้อมูลได้",
+        variant: "destructive",
+      });
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const fetchOrderStats = async () => {
+    try {
+      const res = await fetch("/api/orders/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setOrderStats(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch order stats:", error);
     }
   };
 
@@ -358,22 +416,6 @@ export default function StockPage() {
     0
   );
 
-  // Prepare chart data (group by category)
-  const chartData = products.reduce((acc: any[], product) => {
-    const existing = acc.find((item) => item.category === product.category);
-    if (existing) {
-      existing.quantity += product.quantity;
-      existing.value += product.costPrice * product.quantity;
-    } else {
-      acc.push({
-        category: product.category,
-        quantity: product.quantity,
-        value: product.costPrice * product.quantity,
-      });
-    }
-    return acc;
-  }, []);
-
   if (loading) {
     return <ProductsPageSkeleton />;
   }
@@ -585,6 +627,94 @@ export default function StockPage() {
         </div>
       </div>
 
+      {/* Sales Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              รายได้วันนี้
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              ฿{orderStats.today.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.today.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              รายได้ 7 วัน
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ฿{orderStats.week.revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orderStats.week.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              ยอดขายตามจำนวน (7 วัน)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4">
+              {Object.entries(orderStats.byQuantity).map(([qty, count]) => (
+                <div key={qty} className="text-center">
+                  <div className="text-lg font-bold">{count}</div>
+                  <div className="text-xs text-gray-500">{qty} กระปุก</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* LINE Message Parser */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-green-500" />
+            นำเข้ายอดจาก LINE
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>วางข้อความจาก LINE</Label>
+            <Textarea
+              value={lineMessage}
+              onChange={(e) => setLineMessage(e.target.value)}
+              placeholder={`ตัวอย่าง:\n12\nยอดเก็บ 199\nพรชิตา ทานเเยร\n28.ม.3.ต.สำโรงทาบ อ.เมือง จ.ชลบุรี\n20000\n0984958177\n1`}
+              rows={8}
+              className="font-mono text-sm"
+            />
+          </div>
+          <Button onClick={handleParseLine} disabled={parsing} className="w-full">
+            {parsing ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                กำลังประมวลผล...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                บันทึกยอดขาย
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -625,29 +755,6 @@ export default function StockPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Stock Chart */}
-      {chartData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg md:text-xl">
-              สต็อกตามหมวดหมู่
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="quantity" name="จำนวน" fill="#a855f7" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Products Table */}
       {products.length === 0 ? (
