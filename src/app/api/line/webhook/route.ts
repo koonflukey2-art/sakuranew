@@ -103,6 +103,19 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // ----- ตรวจสอบชื่อประเภทสินค้าจากฐานข้อมูล -----
+      let productTypeName: string | null = parsed.productName ?? null;
+
+      if (organizationId && parsed.productType) {
+        const productTypeRecord = await prisma.productType.findFirst({
+          where: { organizationId, code: parsed.productType },
+        });
+
+        if (productTypeRecord?.name) {
+          productTypeName = productTypeRecord.name;
+        }
+      }
+
       // ----- สร้าง Order -----
       const quantity = parsed.quantity ?? 1;
       const amount = parsed.amount ?? 0;
@@ -110,9 +123,10 @@ export async function POST(req: NextRequest) {
       const order = await prisma.order.create({
         data: {
           amount,
+          unitPrice: parsed.unitPrice ?? null,
           quantity,
           productType: parsed.productType,
-          productName: parsed.productName ?? null,
+          productName: productTypeName,
           rawMessage: text,
           status: "CONFIRMED",
           customerId: customer.id,
@@ -131,8 +145,8 @@ export async function POST(req: NextRequest) {
         order.amount
       );
 
-      // ลด stock อัตโนมัติถ้าสินค้า match productType
-      const product = await prisma.product.findFirst({
+      // ลด stock อัตโนมัติ + อัปเดตราคาขาย หรือสร้างสินค้าใหม่ถ้าไม่มี
+      let product = await prisma.product.findFirst({
         where: {
           organizationId,
           productType: parsed.productType,
@@ -146,10 +160,29 @@ export async function POST(req: NextRequest) {
             quantity: {
               decrement: quantity,
             },
+            sellPrice:
+              parsed.unitPrice && parsed.unitPrice > 0
+                ? parsed.unitPrice
+                : product.sellPrice,
           },
         });
 
         console.log("📉 Stock updated for product", product.id, "-", quantity);
+      } else {
+        product = await prisma.product.create({
+          data: {
+            name: productTypeName || `สินค้าประเภท ${parsed.productType}`,
+            category: "LINE", // default category placeholder
+            productType: parsed.productType,
+            quantity: 0,
+            minStockLevel: 10,
+            costPrice: 0,
+            sellPrice: parsed.unitPrice && parsed.unitPrice > 0 ? parsed.unitPrice : 0,
+            organizationId,
+          },
+        });
+
+        console.log("🆕 Created product for productType", parsed.productType, product.id);
       }
 
       console.log(

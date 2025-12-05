@@ -98,6 +98,7 @@ model Organization {
   // Relations
   users               User[]
   products            Product[]
+  productTypes        ProductType[]
   budgets             Budget[]
   budgetRequests      BudgetRequest[]
   adCampaigns         AdCampaign[]
@@ -172,6 +173,21 @@ model Product {
 
   @@index([organizationId])
   @@index([productType])
+}
+
+model ProductType {
+  id             String   @id @default(cuid())
+  code           Int      @unique
+  name           String
+  description    String?
+  isActive       Boolean  @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([code])
 }
 
 model StockHistory {
@@ -544,6 +560,7 @@ model Order {
 
   // Pricing
   amount         Float       // ยอดเก็บ
+  unitPrice      Float?      // ราคาต่อหน่วยที่ได้จาก LINE
 
   // Order details
   orderDate      DateTime    @default(now())

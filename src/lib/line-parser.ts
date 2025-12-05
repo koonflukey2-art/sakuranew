@@ -1,76 +1,116 @@
 export interface ParsedOrder {
-  productType?: number; // 1-4 from FIRST line
-  quantity?: number; // from LAST line
-  customerName?: string;
-  phone?: string;
-  address?: string;
-  amount?: number;
-  productName?: string;
+  productType: number;
+  productName: string;
+  amount: number;
+  unitPrice: number;
+  quantity: number;
+  customerName: string;
+  phone: string;
+  address: string;
 }
 
 export function parseLineMessage(message: string): ParsedOrder | null {
   try {
-    const result: ParsedOrder = {};
     const lines = message
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l);
+      .filter(Boolean);
 
     if (lines.length < 3) {
       return null;
     }
 
-    // First line = product type (1-4)
+    const result: Partial<ParsedOrder> = {
+      productType: undefined,
+      productName: "",
+      amount: 0,
+      unitPrice: 0,
+      quantity: 1,
+      customerName: "",
+      phone: "",
+      address: "",
+    };
+
+    // 1. FIRST LINE = Product Type (numeric code)
     const firstLine = lines[0];
-    if (/^[1-4]$/.test(firstLine)) {
-      result.productType = parseInt(firstLine);
-      result.productName = `สินค้าหมายเลข ${result.productType}`;
-    } else {
-      console.log("Invalid product type:", firstLine);
-      return null;
+    if (/^[1-9]\d*$/.test(firstLine)) {
+      result.productType = parseInt(firstLine, 10);
+      result.productName = `สินค้าประเภท ${result.productType}`;
     }
 
-    // Last line = quantity
-    const lastLine = lines[lines.length - 1];
-    if (/^\d+$/.test(lastLine)) {
-      result.quantity = parseInt(lastLine);
-    } else {
-      result.quantity = 1;
-    }
+    // 2. EXTRACT PRICE (amount/unit price)
+    let extractedPrice = 0;
+    for (const line of lines) {
+      const priceMatch1 = line.match(
+        /(?:เก็บยอด|ยอดเก็บ|ยอด)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:บาท)?/i
+      );
+      if (priceMatch1) {
+        extractedPrice = parseFloat(priceMatch1[1].replace(/,/g, ""));
+        break;
+      }
 
-    // Extract amount (ยอดเก็บ or เก็บยอด)
-    const amountMatch = message.match(/(?:ยอดเก็บ|เก็บยอด)[:\s]*(\d+(?:,\d+)*)/);
-    if (amountMatch) {
-      result.amount = parseFloat(amountMatch[1].replace(/,/g, ""));
-    }
+      const priceMatch2 = line.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)\s*บาท/);
+      if (priceMatch2) {
+        extractedPrice = parseFloat(priceMatch2[1].replace(/,/g, ""));
+        break;
+      }
 
-    // Extract customer name (Thai characters line)
-    for (let i = 1; i < lines.length - 1; i++) {
-      if (
-        lines[i].match(/^[ก-๙\s]+$/) &&
-        !lines[i].match(/ยอด|เก็บ|กระปุก|บาท/) &&
-        lines[i].length > 3
-      ) {
-        result.customerName = lines[i];
+      const priceMatch3 = line.match(/฿\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+      if (priceMatch3) {
+        extractedPrice = parseFloat(priceMatch3[1].replace(/,/g, ""));
+        break;
+      }
+
+      const priceMatch4 = line.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)บาท/);
+      if (priceMatch4) {
+        extractedPrice = parseFloat(priceMatch4[1].replace(/,/g, ""));
         break;
       }
     }
 
-    // Extract phone (10-digit number)
-    const phoneMatch = message.match(/0\d{9}/);
-    if (phoneMatch) {
-      result.phone = phoneMatch[0];
+    if (extractedPrice > 0) {
+      result.unitPrice = extractedPrice;
+      result.amount = extractedPrice;
     }
 
-    // Extract address (lines containing ต., อ., จ., ม. or postal code)
-    const addressLines = lines.filter(
-      (line) => line.match(/[ต\.อ\.จ\.ม\.]/g) || line.match(/\d{5}/)
-    );
-    if (addressLines.length > 0) {
-      result.address = addressLines.join(" ");
+    // 3. CUSTOMER NAME (use third line when available)
+    if (lines.length >= 3) {
+      result.customerName = lines[2];
     }
 
-    return result;
+    // 4. ADDRESS (lines between name and phone)
+    const addressLines: string[] = [];
+    for (let i = 3; i < lines.length - 2; i++) {
+      if (!/^\d{10}$/.test(lines[i])) {
+        addressLines.push(lines[i]);
+      }
+    }
+    result.address = addressLines.join(" ");
+
+    // 5. PHONE (search bottom-up for 10-digit)
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const phoneMatch = lines[i].match(/0\d{9}/);
+      if (phoneMatch) {
+        result.phone = phoneMatch[0];
+        break;
+      }
+    }
+
+    // 6. LAST LINE = Quantity
+    const lastLine = lines[lines.length - 1];
+    if (/^\d+$/.test(lastLine)) {
+      const qty = parseInt(lastLine, 10);
+      result.quantity = qty;
+      if (result.unitPrice && result.unitPrice > 0) {
+        result.amount = result.unitPrice * qty;
+      }
+    }
+
+    if (!result.productType || !result.customerName || !result.phone) {
+      return null;
+    }
+
+    return result as ParsedOrder;
   } catch (error) {
     console.error("Error parsing LINE message:", error);
     return null;
@@ -79,7 +119,7 @@ export function parseLineMessage(message: string): ParsedOrder | null {
 
 // Map product type to name
 export function getProductTypeName(type: number): string {
-  return `สินค้าหมายเลข ${type}`;
+  return `สินค้าประเภท ${type}`;
 }
 
 export interface ParsedSummary {

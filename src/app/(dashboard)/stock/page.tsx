@@ -79,6 +79,13 @@ interface Product {
   sellPrice: number;
 }
 
+interface ProductTypeOption {
+  id: string;
+  code: number;
+  name: string;
+  description?: string | null;
+}
+
 export default function StockPage() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -99,6 +106,7 @@ export default function StockPage() {
   const [productStats, setProductStats] = useState<
     Record<number, { sold: number; revenue: number; stock: number }>
   >({});
+  const [productTypes, setProductTypes] = useState<ProductTypeOption[]>([]);
 
   // Add Product Form
   const addForm = useForm<ProductFormData>({
@@ -135,6 +143,7 @@ export default function StockPage() {
     fetchProducts();
     fetchOrderStats();
     fetchProductStats();
+    fetchProductTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -205,6 +214,18 @@ export default function StockPage() {
       setProductStats(stats);
     } catch (error) {
       console.error("Failed to fetch product stats:", error);
+    }
+  };
+
+  const fetchProductTypes = async () => {
+    try {
+      const res = await fetch("/api/product-types");
+      if (res.ok) {
+        const data = await res.json();
+        setProductTypes(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch product types:", error);
     }
   };
 
@@ -446,6 +467,7 @@ export default function StockPage() {
               fetchProducts();
               fetchOrderStats();
               fetchProductStats();
+              fetchProductTypes();
             }}
             className="gap-2 bg-white/5 border-white/20 text-white hover:bg-white/10"
           >
@@ -572,7 +594,9 @@ export default function StockPage() {
                       <FormItem>
                         <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) =>
+                            field.onChange(value ? parseInt(value, 10) : undefined)
+                          }
                           defaultValue={field.value?.toString() || ""}
                         >
                           <FormControl>
@@ -581,22 +605,25 @@ export default function StockPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem value="1" className="text-white hover:bg-gray-700">
-                              สินค้าหมายเลข 1
-                            </SelectItem>
-                            <SelectItem value="2" className="text-white hover:bg-gray-700">
-                              สินค้าหมายเลข 2
-                            </SelectItem>
-                            <SelectItem value="3" className="text-white hover:bg-gray-700">
-                              สินค้าหมายเลข 3
-                            </SelectItem>
-                            <SelectItem value="4" className="text-white hover:bg-gray-700">
-                              สินค้าหมายเลข 4
-                            </SelectItem>
+                            {productTypes.length === 0 ? (
+                              <SelectItem value="" disabled className="text-gray-400">
+                                กรุณาเพิ่มประเภทสินค้าในหน้า Settings
+                              </SelectItem>
+                            ) : (
+                              productTypes.map((type) => (
+                                <SelectItem
+                                  key={type.id}
+                                  value={type.code.toString()}
+                                  className="text-white hover:bg-gray-700"
+                                >
+                                  {type.code}. {type.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-gray-400 mt-1">
-                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
+                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยรหัสประเภท สต๊อกจะลดอัตโนมัติ
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -1026,7 +1053,9 @@ export default function StockPage() {
                   <FormItem>
                     <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) =>
+                        field.onChange(value ? parseInt(value, 10) : undefined)
+                      }
                       defaultValue={field.value?.toString() || ""}
                     >
                       <FormControl>
@@ -1035,22 +1064,25 @@ export default function StockPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="1" className="text-white hover:bg-gray-700">
-                          สินค้าหมายเลข 1
-                        </SelectItem>
-                        <SelectItem value="2" className="text-white hover:bg-gray-700">
-                          สินค้าหมายเลข 2
-                        </SelectItem>
-                        <SelectItem value="3" className="text-white hover:bg-gray-700">
-                          สินค้าหมายเลข 3
-                        </SelectItem>
-                        <SelectItem value="4" className="text-white hover:bg-gray-700">
-                          สินค้าหมายเลข 4
-                        </SelectItem>
+                        {productTypes.length === 0 ? (
+                          <SelectItem value="" disabled className="text-gray-400">
+                            กรุณาเพิ่มประเภทสินค้าในหน้า Settings
+                          </SelectItem>
+                        ) : (
+                          productTypes.map((type) => (
+                            <SelectItem
+                              key={type.id}
+                              value={type.code.toString()}
+                              className="text-white hover:bg-gray-700"
+                            >
+                              {type.code}. {type.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-400 mt-1">
-                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
+                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยรหัสประเภท สต๊อกจะลดอัตโนมัติ
                     </p>
                     <FormMessage />
                   </FormItem>

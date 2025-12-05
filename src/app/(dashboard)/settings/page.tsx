@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -43,6 +44,8 @@ import {
   MessageSquare,
   Info,
   Save,
+  Package,
+  Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -170,12 +173,23 @@ export default function SettingsPage() {
     refreshToken: "",
   });
 
+  // ==== Product Type Management ====
+  const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [showProductTypeDialog, setShowProductTypeDialog] = useState(false);
+  const [editingProductType, setEditingProductType] = useState<any>(null);
+  const [productTypeForm, setProductTypeForm] = useState({
+    code: "",
+    name: "",
+    description: "",
+  });
+
   // ==== Initial fetch ====
   useEffect(() => {
     if (isAuthorized) {
       fetchProviders();
       fetchPlatformCreds();
       fetchAdAccounts();
+      fetchProductTypes();
     }
   }, [isAuthorized]);
 
@@ -252,6 +266,103 @@ export default function SettingsPage() {
       });
     } finally {
       setSavingLine(false);
+    }
+  };
+
+  // ========== Product Type functions ==========
+  const fetchProductTypes = async () => {
+    try {
+      const res = await fetch("/api/product-types");
+      if (res.ok) {
+        const data = await res.json();
+        setProductTypes(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch product types:", error);
+    }
+  };
+
+  const handleSaveProductType = async () => {
+    try {
+      const method = editingProductType ? "PUT" : "POST";
+      const body = editingProductType
+        ? { id: editingProductType.id, ...productTypeForm }
+        : productTypeForm;
+
+      const res = await fetch("/api/product-types", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        toast({
+          title: "✅ บันทึกสำเร็จ",
+          description: editingProductType
+            ? "แก้ไขประเภทสินค้าเรียบร้อย"
+            : "เพิ่มประเภทสินค้าใหม่เรียบร้อย",
+        });
+        await fetchProductTypes();
+        setShowProductTypeDialog(false);
+        setEditingProductType(null);
+        setProductTypeForm({ code: "", name: "", description: "" });
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถบันทึกได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถบันทึกข้อมูลได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditProductType = (type: any) => {
+    setEditingProductType(type);
+    setProductTypeForm({
+      code: type.code?.toString() ?? "",
+      name: type.name || "",
+      description: type.description || "",
+    });
+    setShowProductTypeDialog(true);
+  };
+
+  const handleDeleteProductType = async (id: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบประเภทสินค้านี้?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/product-types?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast({
+          title: "✅ ลบสำเร็จ",
+          description: "ลบประเภทสินค้าเรียบร้อย",
+        });
+        setProductTypes((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถลบได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบข้อมูลได้",
+        variant: "destructive",
+      });
     }
   };
 
@@ -781,8 +892,140 @@ export default function SettingsPage() {
               </>
             )}
           </Button>
+      </CardContent>
+    </Card>
+
+      {/* Product Type Management */}
+      <Card className="premium-card hover-glow">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            จัดการประเภทสินค้า (สำหรับ LINE)
+          </CardTitle>
+          <CardDescription className="text-gray-400">
+            กำหนดรหัสและชื่อประเภทสินค้าที่ใช้กับระบบ LINE
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            {productTypes.map((type) => (
+              <div
+                key={type.id}
+                className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-purple-500/80 text-white">
+                    รหัส {type.code}
+                  </Badge>
+                  <div>
+                    <p className="font-medium text-white">{type.name}</p>
+                    {type.description && (
+                      <p className="text-sm text-gray-400">{type.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditProductType(type)}
+                    className="bg-white/5 border-white/20 text-white"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteProductType(type.id)}
+                    className="bg-red-500/10 border-red-500/30 text-red-400"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            onClick={() => setShowProductTypeDialog(true)}
+            className="w-full bg-gradient-purple hover:opacity-90"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            เพิ่มประเภทสินค้าใหม่
+          </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={showProductTypeDialog} onOpenChange={setShowProductTypeDialog}>
+        <DialogContent className="premium-card border-white/20">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">
+              {editingProductType ? "แก้ไขประเภทสินค้า" : "เพิ่มประเภทสินค้าใหม่"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-gray-300">รหัสประเภท</Label>
+              <Input
+                type="number"
+                value={productTypeForm.code}
+                onChange={(e) =>
+                  setProductTypeForm({ ...productTypeForm, code: e.target.value })
+                }
+                placeholder="เช่น 5, 6, 7..."
+                className="bg-white/5 border-white/20 text-white"
+                disabled={!!editingProductType}
+              />
+            </div>
+            <div>
+              <Label className="text-gray-300">ชื่อประเภท</Label>
+              <Input
+                value={productTypeForm.name}
+                onChange={(e) =>
+                  setProductTypeForm({ ...productTypeForm, name: e.target.value })
+                }
+                placeholder="เช่น ครีมอาบน้ำ, ยาสีฟัน..."
+                className="bg-white/5 border-white/20 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-gray-300">คำอธิบาย (ไม่บังคับ)</Label>
+              <Textarea
+                value={productTypeForm.description}
+                onChange={(e) =>
+                  setProductTypeForm({
+                    ...productTypeForm,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="คำอธิบายเพิ่มเติม..."
+                className="bg-white/5 border-white/20 text-white"
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowProductTypeDialog(false);
+                setEditingProductType(null);
+                setProductTypeForm({ code: "", name: "", description: "" });
+              }}
+              className="flex-1 bg-white/5 border-white/20 text-white"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              onClick={handleSaveProductType}
+              className="flex-1 bg-gradient-purple"
+              disabled={!productTypeForm.code || !productTypeForm.name}
+            >
+              บันทึก
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add New AI Provider */}
       <Card className="bg-white border-2 border-gray-200">

@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       data: {
         customerId: customer.id,
         amount: parsed.amount,
+        unitPrice: parsed.unitPrice,
         quantity: parsed.quantity || 1,
         productType: parsed.productType,
         productName: parsed.productName,
