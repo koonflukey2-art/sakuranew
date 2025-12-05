@@ -5,8 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { UserSync } from "@/components/user-sync";
 import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useEffect } from "react";
+import { AccountMenu } from "@/components/account-menu";
+import { Button } from "@/components/ui/button";
+import { Bell } from "lucide-react";
+import { WelcomeMessage } from "@/components/welcome-message";
 
 export default function DashboardLayout({
   children,
@@ -25,28 +28,30 @@ export default function DashboardLayout({
     return () => clearInterval(interval);
   }, []);
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-900">
+    <div className="flex min-h-screen bg-gradient-dark text-white">
       <UserSync />
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 shadow-lg shadow-slate-900/20">
-          <div className="flex items-center justify-between px-4 lg:px-8 py-4">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">
-              Sakura
-            </h2>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <NotificationBell />
-            </div>
+      <main className="flex-1 overflow-auto">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-black/50 backdrop-blur-lg border-b border-white/10">
+          <div>
+            <h2 className="text-xl font-bold text-white">Sakura</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-gray-400 hover:text-white"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </Button>
+            <NotificationBell />
+            <AccountMenu />
           </div>
         </div>
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
-        </main>
-      </div>
+        <WelcomeMessage />
+        <div className="p-6 md:p-8 space-y-4">{children}</div>
+      </main>
       <FloatingAssistant />
       <Toaster />
     </div>

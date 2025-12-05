@@ -1,218 +1,251 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { UserButton, useUser, SignOutButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Package,
-  Megaphone,
-  Wallet,
-  FileBarChart,
-  Calculator,
-  Target,
-  Zap,
-  GitBranch,
+  ShoppingCart,
+  FileText,
+  BarChart3,
+  MessageSquare,
+  Bot,
+  Sparkles,
+  Bell,
   Users,
   Settings,
-  Store,
-  Bell,
-  Bot,
-  BarChart3,
-  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Menu,
-  X,
-  FileText,
-  ShoppingCart,
-  Sparkles,
+  Store,
+  Wallet,
 } from "lucide-react";
 
-type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
+interface MenuItem {
+  name: string;
+  href: string;
+  icon: any;
+  badge?: string;
+}
 
-// Updated nav items based on RBAC requirements
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-cyan-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/stock", label: "จัดการสินค้า", icon: Package, color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
+interface MenuCategory {
+  name: string;
+  icon: any;
+  items: MenuItem[];
+}
+
+const menuStructure: (MenuItem | MenuCategory)[] = [
   {
-    href: "/orders",
-    label: "รายการออเดอร์",
-    icon: ShoppingCart,
-    badge: "New",
-    color: "text-emerald-500",
-    roles: ["ADMIN", "STOCK", "EMPLOYEE"],
+    name: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
   },
-  { href: "/budget-requests", label: "Budget Requests", icon: FileText, color: "text-amber-500", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/analytics", label: "การวิเคราะห์", icon: BarChart3, badge: "New", color: "text-violet-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/ai-chat", label: "AI Chat", icon: Bot, badge: "New", color: "text-emerald-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/ai-assistant", label: "AI Assistant", icon: Bot, badge: "AI", color: "text-blue-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/ai-dashboard", label: "AI Dashboard", icon: Sparkles, badge: "New", color: "text-purple-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-  { href: "/notifications", label: "การแจ้งเตือน", icon: Bell, color: "text-red-400", roles: ["ADMIN", "STOCK", "EMPLOYEE"] },
-
-  // STOCK and ADMIN only pages
-  { href: "/ads", label: "โฆษณา", icon: Megaphone, color: "text-pink-400", roles: ["ADMIN", "STOCK"] },
-  { href: "/budget", label: "งบประมาณ", icon: Wallet, color: "text-amber-400", roles: ["ADMIN", "STOCK"] },
-  { href: "/reports", label: "รายงาน", icon: FileBarChart, color: "text-blue-400", roles: ["ADMIN", "STOCK"] },
-  { href: "/profit", label: "คำนวณกำไร", icon: Calculator, color: "text-green-400", roles: ["ADMIN", "STOCK"] },
-
-  // ADMIN only pages
-  { href: "/automation", label: "กฎอัตโนมัติ", icon: Zap, badge: "New", color: "text-yellow-400", roles: ["ADMIN"] },
-  { href: "/workflows", label: "n8n Workflow", icon: GitBranch, badge: "Beta", color: "text-indigo-400", roles: ["ADMIN"] },
-  { href: "/metrics", label: "แผน Metrics", icon: Target, badge: "New", color: "text-orange-400", roles: ["ADMIN"] },
-  { href: "/users", label: "ผู้ใช้งาน", icon: Users, color: "text-teal-400", roles: ["ADMIN"] },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings, color: "text-muted-foreground", roles: ["ADMIN"] },
+  {
+    name: "จัดการสินค้า",
+    icon: Store,
+    items: [
+      { name: "สินค้า", href: "/stock", icon: Package },
+      { name: "รายการออเดอร์", href: "/orders", icon: ShoppingCart, badge: "New" },
+    ],
+  },
+  {
+    name: "การเงิน",
+    icon: Wallet,
+    items: [
+      { name: "Budget Requests", href: "/budget-requests", icon: FileText },
+    ],
+  },
+  {
+    name: "การวิเคราะห์",
+    href: "/analytics",
+    icon: BarChart3,
+    badge: "New",
+  },
+  {
+    name: "AI Features",
+    icon: Bot,
+    items: [
+      { name: "AI Chat", href: "/ai-chat", icon: MessageSquare, badge: "New" },
+      { name: "AI Assistant", href: "/ai-assistant", icon: Bot, badge: "AI" },
+      { name: "AI Dashboard", href: "/ai-dashboard", icon: Sparkles, badge: "New" },
+    ],
+  },
+  {
+    name: "การแจ้งเตือน",
+    href: "/notifications",
+    icon: Bell,
+  },
+  {
+    name: "ผู้ใช้งาน",
+    href: "/users",
+    icon: Users,
+  },
+  {
+    name: "ตั้งค่า",
+    href: "/settings",
+    icon: Settings,
+  },
 ];
+
+function isCategory(item: MenuItem | MenuCategory): item is MenuCategory {
+  return "items" in item;
+}
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([
+    "จัดการสินค้า",
+    "AI Features",
+  ]);
 
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const response = await fetch("/api/me");
-        if (response.ok) {
-          const data = await response.json();
-          setUserRole(data.role);
-        }
-      } catch (error) {
-        console.error("Error fetching user role:", error);
-      }
-    };
-
-    if (user) {
-      fetchUserRole();
-    }
-  }, [user]);
-
-  const visibleNavItems = userRole
-    ? navItems.filter((item) => item.roles.includes(userRole))
-    : navItems;
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories((prev) =>
+      prev.includes(categoryName)
+        ? prev.filter((name) => name !== categoryName)
+        : [...prev, categoryName]
+    );
+  };
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 glass rounded-lg text-white hover-glow"
+      >
+        <Menu className="w-6 h-6" />
+      </button>
 
       {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white border-r border-gray-200
-        flex flex-col overflow-hidden shadow-lg
-        transform transition-transform duration-200 ease-in-out
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-      `}>
-      {/* Logo Section - Clear */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-lg">
-            <Store className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">
-              Sakura
-            </h1>
-            <p className="text-xs text-gray-500">E-Commerce AI</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation - Clear */}
-      <nav className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-1">
-          {visibleNavItems.map((item, index) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setIsMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
-                pathname === item.href
-                  ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
-                  : "text-gray-700 hover:bg-gray-100"
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium text-sm">{item.label}</span>
-              {item.badge && (
-                <Badge className="ml-auto bg-orange-500 text-white text-xs px-2 py-0.5 border-0">
-                  {item.badge}
-                </Badge>
-              )}
-            </Link>
-          ))}
-        </div>
-      </nav>
-
-      {/* User Section - Clear */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-10 h-10 ring-2 ring-pink-200",
-              },
-            }}
-          />
-          {user && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">
-                {user.fullName}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {user.primaryEmailAddress?.emailAddress}
-              </p>
-              {userRole && (
-                <Badge className="mt-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs px-2 py-0.5 border-0">
-                  {userRole === "ADMIN" && "แอดมิน"}
-                  {userRole === "STOCK" && "พนักงานสต๊อก"}
-                  {userRole === "EMPLOYEE" && "พนักงาน"}
-                </Badge>
-              )}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-screen bg-gradient-dark border-r border-white/10 transition-all duration-300 z-40",
+          collapsed ? "w-20" : "w-72",
+          "lg:relative"
+        )}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          {!collapsed && (
+            <div>
+              <h2 className="text-2xl font-bold text-gradient-purple">Sakura</h2>
+              <p className="text-xs text-gray-400">E-Commerce AI Platform</p>
             </div>
           )}
-        </div>
-
-        <SignOutButton>
           <Button
             variant="ghost"
-            className="w-full justify-start mt-2 text-gray-600 hover:text-red-500 hover:bg-red-50"
+            size="sm"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex text-white hover:bg-white/10"
           >
-            <LogOut className="w-4 h-4 mr-2" />
-            <span className="text-sm">ออกจากระบบ</span>
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
-        </SignOutButton>
-      </div>
-
-      {/* Footer - Clear */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-500">Powered by AI</span>
-          <span className="font-semibold text-pink-500">
-            Gemini 2.0
-          </span>
         </div>
-      </div>
-    </aside>
 
-      {/* Mobile Menu Button - Bottom-Left (to avoid AI Assistant overlap) */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed bottom-20 left-4 lg:hidden z-40 bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95"
-        aria-label={isMobileOpen ? "Close menu" : "Open menu"}
-      >
-        {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-      </button>
+        {/* Menu Items */}
+        <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
+          {menuStructure.map((item) => {
+            if (isCategory(item)) {
+              const Icon = item.icon;
+              const isExpanded = expandedCategories.includes(item.name);
+
+              return (
+                <div key={item.name}>
+                  <button
+                    onClick={() => !collapsed && toggleCategory(item.name)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                      "text-gray-300 hover:bg-white/5 hover-glow",
+                      collapsed && "justify-center"
+                    )}
+                    title={collapsed ? item.name : undefined}
+                  >
+                    <Icon className="w-5 h-5 text-purple-400" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left font-medium">{item.name}</span>
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </>
+                    )}
+                  </button>
+
+                  {!collapsed && isExpanded && (
+                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-purple-500/30 pl-3">
+                      {item.items.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isActive = pathname === subItem.href;
+
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
+                              isActive
+                                ? "bg-gradient-purple text-white glow-purple"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                            )}
+                          >
+                            <SubIcon className="w-4 h-4" />
+                            <span className="flex-1">{subItem.name}</span>
+                            {subItem.badge && (
+                              <span className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded-full">{subItem.badge}</span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                  isActive
+                    ? "bg-gradient-purple text-white glow-purple"
+                    : "text-gray-300 hover:text-white hover:bg-white/5 hover-glow",
+                  collapsed && "justify-center"
+                )}
+                title={collapsed ? item.name : undefined}
+              >
+                <Icon
+                  className={cn("w-5 h-5", isActive ? "text-white" : "text-purple-400")}
+                />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 font-medium">{item.name}</span>
+                    {item.badge && (
+                      <span className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded-full">{item.badge}</span>
+                    )}
+                  </>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* Overlay for mobile */}
+      {!collapsed && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/80 z-30 backdrop-blur-sm"
+          onClick={() => setCollapsed(true)}
+        />
+      )}
     </>
   );
 }

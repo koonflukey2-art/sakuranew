@@ -1,0 +1,154 @@
+"use client";
+
+import { useState } from "react";
+import { useSignIn } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+
+export default function LoginPage() {
+  const { isLoaded, signIn, setActive } = useSignIn();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+
+    try {
+      setLoading(true);
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        toast({
+          title: "🎉 เข้าสู่ระบบสำเร็จ",
+          description: "ยินดีต้อนรับกลับมา!",
+          className: "premium-card border-green-500/50 glow-green",
+        });
+        router.push("/");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      toast({
+        title: "❌ เข้าสู่ระบบไม่สำเร็จ",
+        description: err?.errors?.[0]?.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-purple-900/20 to-black relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-40 left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold text-gradient-purple mb-2">Sakura</h1>
+          <p className="text-gray-400 text-lg">E-Commerce AI Platform</p>
+        </div>
+
+        <Card className="premium-card p-8 glow-purple">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-2xl font-bold text-white text-center">
+              เข้าสู่ระบบ
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-300">
+                  อีเมล
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-300">
+                  รหัสผ่าน
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || !email || !password}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    กำลังเข้าสู่ระบบ...
+                  </>
+                ) : (
+                  "เข้าสู่ระบบ"
+                )}
+              </Button>
+
+              <div className="text-center">
+                <p className="text-sm text-gray-400">
+                  ยังไม่มีบัญชี?{" "}
+                  <a href="/register" className="text-purple-400 hover:text-purple-300 underline">
+                    สมัครสมาชิก
+                  </a>
+                </p>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-gray-500 text-sm mt-6">
+          ระบบจัดการร้านค้าด้วย AI
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -107,9 +107,8 @@ export async function POST(req: NextRequest) {
       const quantity = parsed.quantity ?? 1;
       const amount = parsed.amount ?? 0;
 
-      await prisma.order.create({
+      const order = await prisma.order.create({
         data: {
-          orderNumber: parsed.orderNumber ?? null,
           amount,
           quantity,
           productType: parsed.productType,
@@ -120,6 +119,17 @@ export async function POST(req: NextRequest) {
           organizationId,
         },
       });
+
+      console.log(
+        "Order created:",
+        order.id,
+        "Type:",
+        order.productType,
+        "Qty:",
+        order.quantity,
+        "Amount:",
+        order.amount
+      );
 
       // ลด stock อัตโนมัติถ้าสินค้า match productType
       const product = await prisma.product.findFirst({

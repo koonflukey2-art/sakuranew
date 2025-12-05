@@ -53,8 +53,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [productTypeFilter, setProductTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [productTypeFilter, setProductTypeFilter] = useState<string>("ALL");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
@@ -82,8 +82,9 @@ export default function OrdersPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
-      if (productTypeFilter) params.append("productType", productTypeFilter);
+      if (statusFilter && statusFilter !== "ALL") params.append("status", statusFilter);
+      if (productTypeFilter && productTypeFilter !== "ALL")
+        params.append("productType", productTypeFilter);
 
       const res = await fetch(`/api/orders?${params}`);
       if (res.ok) {
@@ -187,7 +188,7 @@ export default function OrdersPage() {
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">ทั้งหมด</SelectItem>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
                   <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
                   <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
                   <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
@@ -203,11 +204,11 @@ export default function OrdersPage() {
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">ทั้งหมด</SelectItem>
-                  <SelectItem value="1">1 - ครีมอาบน้ำ</SelectItem>
-                  <SelectItem value="2">2 - ยาสีฟัน</SelectItem>
-                  <SelectItem value="3">3 - สินค้าประเภท 3</SelectItem>
-                  <SelectItem value="4">4 - สินค้าประเภท 4</SelectItem>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
+                  <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
+                  <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
+                  <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
+                  <SelectItem value="4">สินค้าหมายเลข 4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
