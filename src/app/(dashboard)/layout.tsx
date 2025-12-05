@@ -6,6 +6,8 @@ import { UserSync } from "@/components/user-sync";
 import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AccountMenu } from "@/components/account-menu";
+import { WelcomeMessage } from "@/components/welcome-message";
 import { useEffect } from "react";
 
 export default function DashboardLayout({
@@ -27,6 +29,7 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-slate-900">
       <UserSync />
+      <WelcomeMessage />
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
@@ -38,6 +41,7 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <NotificationBell />
+              <AccountMenu />
             </div>
           </div>
         </div>
