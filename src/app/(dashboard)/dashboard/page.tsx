@@ -257,19 +257,26 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      const [productsRes, campaignsRes, budgetsRes, ordersStatsRes] =
-        await Promise.all([
-          fetch("/api/products"),
-          fetch("/api/campaigns"),
-          fetch("/api/budgets"),
-          fetch("/api/orders/stats"),
-        ]);
+      const [
+        productsRes,
+        campaignsRes,
+        budgetsRes,
+        ordersStatsRes,
+        ordersRes, // 🔹 เพิ่มดึงรายการออเดอร์จริง
+      ] = await Promise.all([
+        fetch("/api/products"),
+        fetch("/api/campaigns"),
+        fetch("/api/budgets"),
+        fetch("/api/orders/stats"),
+        fetch("/api/orders"),
+      ]);
 
       if (
         productsRes.status === 401 ||
         campaignsRes.status === 401 ||
         budgetsRes.status === 401 ||
-        ordersStatsRes.status === 401
+        ordersStatsRes.status === 401 ||
+        ordersRes.status === 401
       ) {
         console.warn("Dashboard APIs returned 401 (unauthorized)");
         setProducts([]);
@@ -284,6 +291,7 @@ export default function DashboardPage() {
       const campaignsJson = await safeJson<any>(campaignsRes);
       const budgetsJson = await safeJson<any>(budgetsRes);
       const ordersStatsJson = await safeJson<OrderStats>(ordersStatsRes);
+      const ordersJson = await safeJson<any>(ordersRes); // 🔹
 
       const productsData: Product[] = Array.isArray(productsJson)
         ? productsJson
@@ -297,6 +305,11 @@ export default function DashboardPage() {
         ? budgetsJson
         : (budgetsJson?.budgets as Budget[]) ?? [];
 
+      const ordersData: any[] = Array.isArray(ordersJson)
+        ? ordersJson
+        : []; // 🔹 รายการออเดอร์ทั้งหมด
+      const ordersCount = ordersData.length; // 🔹 จำนวนออเดอร์
+
       setProducts(productsData);
       setCampaigns(campaignsData);
       setBudgets(budgetsData);
@@ -309,7 +322,12 @@ export default function DashboardPage() {
       );
 
       const metrics = calculateStats(productsData, campaignsData, budgetsData);
-      setStats(metrics);
+
+      // 🔹 ใช้จำนวนออเดอร์จากหน้า /orders จริง ๆ
+      setStats({
+        ...metrics,
+        totalOrders: ordersCount,
+      });
 
       const budgetRemaining = (budgetsData || []).reduce(
         (sum: number, b: any) =>
@@ -360,12 +378,13 @@ export default function DashboardPage() {
         }))
       );
 
-      // line chart (ถ้าต้องการทำรายวันค่อย map เพิ่ม)
+      // line chart (ยังไม่ได้ใช้)
       setChartData([]);
 
-      // AI insights
+      // AI insights ใช้ totalOrders จากตารางออเดอร์ด้วย
       fetchAIInsights({
         ...metrics,
+        totalOrders: ordersCount,
         budgetRemaining,
         campaignCount: campaignsData.length,
         budgetCount: budgetsData.length,
@@ -543,8 +562,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Orders */}
-        <Card className="stat-card-cyan hover-lift border-0 overflow-hidden relative">
+        {/* Orders – คลิกไปหน้ารายการออเดอร์ */}
+        <Card
+          className="stat-card-cyan hover-lift border-0 overflow-hidden relative cursor-pointer"
+          onClick={() => router.push("/orders")} // ปรับ path ให้ตรงกับไฟล์ OrdersPage ของคุณ
+        >
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="pb-2 relative">
             <div className="flex items-center justify-between">
@@ -834,17 +856,17 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* AI Insights */}
+      {/* AI Insights – พื้นหลังเข้ม / ตัวหนังสือขาว */}
       {!loading && (
-        <Card className="bg-gradient-to-br from-white to-pink-50 border border-pink-200 shadow-md rounded-2xl">
+        <Card className="bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 border border-purple-500/40 shadow-md rounded-2xl text-white">
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-md">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-lg md:text-xl font-bold text-gray-800">
-                  AI Insights & Recommendations
+                <span className="text-lg md:text-xl font-bold text-white">
+                  AI Insights &amp; Recommendations
                 </span>
               </CardTitle>
               <Button
@@ -856,33 +878,33 @@ export default function DashboardPage() {
                 ดูทั้งหมด
               </Button>
             </div>
-            <CardDescription className="text-sm md:text-base text-gray-600 mt-2">
+            <CardDescription className="text-sm md:text-base text-gray-100 mt-2">
               คำแนะนำจาก AI วิเคราะห์ธุรกิจของคุณ
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loadingInsights ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
+                <Loader2 className="w-6 h-6 animate-spin text-pink-400" />
               </div>
             ) : aiInsights.length > 0 ? (
               <ul className="space-y-3">
                 {aiInsights.map((insight, idx) => (
                   <li
                     key={idx}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all"
+                    className="flex items-start gap-3 p-3 rounded-xl bg-slate-900/80 border border-purple-500/30 hover:border-pink-300/60 transition-all"
                   >
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                       {idx + 1}
                     </span>
-                    <span className="text-gray-700 flex-1">{insight}</span>
+                    <span className="text-gray-100 flex-1">{insight}</span>
                   </li>
                 ))}
               </ul>
             ) : aiError ? (
-              <p className="text-gray-600">{aiError}</p>
+              <p className="text-gray-100">{aiError}</p>
             ) : (
-              <p className="text-gray-600">
+              <p className="text-gray-100">
                 เพิ่มข้อมูลสินค้าและแคมเปญเพื่อรับคำแนะนำจาก AI
               </p>
             )}

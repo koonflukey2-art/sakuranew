@@ -79,6 +79,68 @@ interface Product {
   sellPrice: number;
 }
 
+// key ของช่วงเวลา
+type TimeRangeKey = "3d" | "7d" | "1m" | "3m" | "1y";
+
+const getRangeLabel = (range: TimeRangeKey) => {
+  switch (range) {
+    case "3d":
+      return "3 วันล่าสุด";
+    case "7d":
+      return "7 วันล่าสุด";
+    case "1m":
+      return "1 เดือนล่าสุด";
+    case "3m":
+      return "3 เดือนล่าสุด";
+    case "1y":
+      return "1 ปีล่าสุด";
+  }
+};
+
+const getRangeShortLabel = (range: TimeRangeKey) => {
+  switch (range) {
+    case "3d":
+      return "3 วัน";
+    case "7d":
+      return "7 วัน";
+    case "1m":
+      return "1 เดือน";
+    case "3m":
+      return "3 เดือน";
+    case "1y":
+      return "1 ปี";
+  }
+};
+
+// แปลง key → from/to เป็น ISO string
+const getDateRange = (range: TimeRangeKey) => {
+  const now = new Date();
+  const from = new Date(now);
+
+  switch (range) {
+    case "3d":
+      from.setDate(now.getDate() - 3);
+      break;
+    case "7d":
+      from.setDate(now.getDate() - 7);
+      break;
+    case "1m":
+      from.setMonth(now.getMonth() - 1);
+      break;
+    case "3m":
+      from.setMonth(now.getMonth() - 3);
+      break;
+    case "1y":
+      from.setFullYear(now.getFullYear() - 1);
+      break;
+  }
+
+  return {
+    from: from.toISOString(),
+    to: now.toISOString(),
+  };
+};
+
 export default function StockPage() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -92,9 +154,21 @@ export default function StockPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // ช่วงเวลาที่เลือกสำหรับ stats (default 7 วัน)
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
+
   const [orderStats, setOrderStats] = useState({
-    today: { revenue: 0, orders: 0, byType: {} as Record<string, { count: number; revenue: number }> },
-    week: { revenue: 0, orders: 0, byType: {} as Record<string, { count: number; revenue: number }> },
+    today: {
+      revenue: 0,
+      orders: 0,
+      byType: {} as Record<string, { count: number; revenue: number }>,
+    },
+    week: {
+      revenue: 0,
+      orders: 0,
+      byType: {} as Record<string, { count: number; revenue: number }>,
+    },
   });
 
   // Add Product Form
@@ -127,12 +201,17 @@ export default function StockPage() {
     },
   });
 
-  // Fetch products & order stats
+  // โหลดสินค้า (ครั้งเดียวตอน mount)
   useEffect(() => {
     fetchProducts();
-    fetchOrderStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // โหลดสถิติออเดอร์ตามช่วงเวลา
+  useEffect(() => {
+    fetchOrderStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange]);
 
   const fetchProducts = async () => {
     try {
@@ -150,9 +229,13 @@ export default function StockPage() {
 
   const fetchOrderStats = async () => {
     try {
-      const res = await fetch("/api/orders/stats");
+      const { from, to } = getDateRange(timeRange);
+      const params = new URLSearchParams({ from, to });
+
+      const res = await fetch(`/api/orders/stats?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
+        // backend ควรคืน structure เดิม: { today, week } แต่ week = ตามช่วงเวลาที่เรา query
         setOrderStats(data);
       }
     } catch (error) {
@@ -392,6 +475,23 @@ export default function StockPage() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {/* ตัวเลือกช่วงเวลา */}
+          <Select
+            value={timeRange}
+            onValueChange={(value) => setTimeRange(value as TimeRangeKey)}
+          >
+            <SelectTrigger className="w-full sm:w-44 bg-white/5 border-white/20 text-white">
+              <SelectValue placeholder="ช่วงเวลา" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900 border-slate-700 text-white">
+              <SelectItem value="3d">3 วันล่าสุด</SelectItem>
+              <SelectItem value="7d">7 วันล่าสุด</SelectItem>
+              <SelectItem value="1m">1 เดือนล่าสุด</SelectItem>
+              <SelectItem value="3m">3 เดือนล่าสุด</SelectItem>
+              <SelectItem value="1y">1 ปีล่าสุด</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             onClick={() => {
@@ -403,6 +503,7 @@ export default function StockPage() {
             <RefreshCw className="w-4 h-4" />
             รีเฟรช
           </Button>
+
           {selectedIds.length > 0 && (
             <>
               <Button
@@ -454,16 +555,16 @@ export default function StockPage() {
             />
           )}
 
-            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-              <DialogTrigger asChild>
-                <Button
-                  onClick={() => addForm.reset()}
-                  className="w-full sm:w-auto bg-gradient-purple hover:opacity-90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  เพิ่มสินค้า
-                </Button>
-              </DialogTrigger>
+          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+            <DialogTrigger asChild>
+              <Button
+                onClick={() => addForm.reset()}
+                className="w-full sm:w-auto bg-gradient-purple hover:opacity-90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                เพิ่มสินค้า
+              </Button>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
@@ -532,22 +633,35 @@ export default function StockPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem value="1" className="text-white hover:bg-gray-700">
+                            <SelectItem
+                              value="1"
+                              className="text-white hover:bg-gray-700"
+                            >
                               สินค้าหมายเลข 1
                             </SelectItem>
-                            <SelectItem value="2" className="text-white hover:bg-gray-700">
+                            <SelectItem
+                              value="2"
+                              className="text-white hover:bg-gray-700"
+                            >
                               สินค้าหมายเลข 2
                             </SelectItem>
-                            <SelectItem value="3" className="text-white hover:bg-gray-700">
+                            <SelectItem
+                              value="3"
+                              className="text-white hover:bg-gray-700"
+                            >
                               สินค้าหมายเลข 3
                             </SelectItem>
-                            <SelectItem value="4" className="text-white hover:bg-gray-700">
+                            <SelectItem
+                              value="4"
+                              className="text-white hover:bg-gray-700"
+                            >
                               สินค้าหมายเลข 4
                             </SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-gray-400 mt-1">
-                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
+                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4
+                          สต๊อกจะลดอัตโนมัติ
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -649,7 +763,7 @@ export default function StockPage() {
         <Card className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-300">
-              รายได้ 7 วัน
+              รายได้ {getRangeLabel(timeRange)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -663,15 +777,20 @@ export default function StockPage() {
         </Card>
       </div>
 
-      {/* Sales by Product Type - FIXED COLORS */}
+      {/* Sales by Product Type - TODAY */}
       {Object.keys(orderStats.today.byType).length === 0 ? (
         <Card className="mb-6 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
-          <CardContent className="text-gray-400">ยังไม่มีข้อมูลยอดขายรายประเภทวันนี้</CardContent>
+          <CardContent className="text-gray-400">
+            ยังไม่มีข้อมูลยอดขายรายประเภทวันนี้
+          </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {Object.entries(orderStats.today.byType).map(([type, data]) => (
-            <Card key={type} className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700">
+            <Card
+              key={type}
+              className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-300">
                   {`สินค้าหมายเลข ${type}`} (วันนี้)
@@ -682,7 +801,11 @@ export default function StockPage() {
                   ฿{data.revenue.toLocaleString()}
                 </div>
                 <p className="text-sm text-gray-400 mt-1">
-                  ขายไป <span className="text-white font-semibold">{data.count}</span> ชิ้น
+                  ขายไป{" "}
+                  <span className="text-white font-semibold">
+                    {data.count}
+                  </span>{" "}
+                  ชิ้น
                 </p>
               </CardContent>
             </Card>
@@ -690,7 +813,7 @@ export default function StockPage() {
         </div>
       )}
 
-      {/* Product Type Performance (7 days) */}
+      {/* Product Type Performance (ช่วงเวลาที่เลือก) */}
       {Object.keys(orderStats.week.byType).length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {Object.entries(orderStats.week.byType).map(([type, data]) => (
@@ -707,8 +830,12 @@ export default function StockPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-300">ชนิด (7 วัน)</span>
-                    <span className="text-lg font-bold text-white">{data.count} ชิ้น</span>
+                    <span className="text-sm text-gray-300">
+                      ชนิด ({getRangeShortLabel(timeRange)})
+                    </span>
+                    <span className="text-lg font-bold text-white">
+                      {data.count} ชิ้น
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-300">รายได้</span>
@@ -978,22 +1105,35 @@ export default function StockPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="1" className="text-white hover:bg-gray-700">
+                        <SelectItem
+                          value="1"
+                          className="text-white hover:bg-gray-700"
+                        >
                           สินค้าหมายเลข 1
                         </SelectItem>
-                        <SelectItem value="2" className="text-white hover:bg-gray-700">
+                        <SelectItem
+                          value="2"
+                          className="text-white hover:bg-gray-700"
+                        >
                           สินค้าหมายเลข 2
                         </SelectItem>
-                        <SelectItem value="3" className="text-white hover:bg-gray-700">
+                        <SelectItem
+                          value="3"
+                          className="text-white hover:bg-gray-700"
+                        >
                           สินค้าหมายเลข 3
                         </SelectItem>
-                        <SelectItem value="4" className="text-white hover:bg-gray-700">
+                        <SelectItem
+                          value="4"
+                          className="text-white hover:bg-gray-700"
+                        >
                           สินค้าหมายเลข 4
                         </SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-400 mt-1">
-                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ
+                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4
+                      สต๊อกจะลดอัตโนมัติ
                     </p>
                     <FormMessage />
                   </FormItem>

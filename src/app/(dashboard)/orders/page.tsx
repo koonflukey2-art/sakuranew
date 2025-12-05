@@ -51,6 +51,9 @@ interface Order {
 
 const ITEMS_PER_PAGE = 10;
 
+// key สำหรับช่วงเวลา
+type DateRangeKey = "3d" | "7d" | "1m" | "3m" | "1y" | "ALL";
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,9 @@ export default function OrdersPage() {
   // ใช้ "ALL" แทนค่ารวมทั้งหมด (ห้ามปล่อยเป็น "")
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [productTypeFilter, setProductTypeFilter] = useState<string>("ALL");
+
+  // ช่วงเวลา (default: 7 วันล่าสุด)
+  const [dateRange, setDateRange] = useState<DateRangeKey>("7d");
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -71,7 +77,7 @@ export default function OrdersPage() {
     fetchOrders();
     fetchUserRole();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter, productTypeFilter]);
+  }, [search, statusFilter, productTypeFilter, dateRange]);
 
   const fetchUserRole = async () => {
     try {
@@ -85,6 +91,37 @@ export default function OrdersPage() {
     }
   };
 
+  // helper สำหรับคำนวณวันที่เริ่มต้นตามช่วงเวลา
+  const getDateRange = (range: DateRangeKey) => {
+    if (range === "ALL") return null;
+
+    const now = new Date();
+    const from = new Date(now);
+
+    switch (range) {
+      case "3d":
+        from.setDate(now.getDate() - 3);
+        break;
+      case "7d":
+        from.setDate(now.getDate() - 7);
+        break;
+      case "1m":
+        from.setMonth(now.getMonth() - 1);
+        break;
+      case "3m":
+        from.setMonth(now.getMonth() - 3);
+        break;
+      case "1y":
+        from.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+
+    return {
+      from: from.toISOString(),
+      to: now.toISOString(),
+    };
+  };
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -94,6 +131,13 @@ export default function OrdersPage() {
       if (statusFilter !== "ALL") params.append("status", statusFilter);
       if (productTypeFilter !== "ALL")
         params.append("productType", productTypeFilter);
+
+      const range = getDateRange(dateRange);
+      if (range) {
+        // ส่งค่าไปให้ backend ใช้ filter orderDate
+        params.append("from", range.from);
+        params.append("to", range.to);
+      }
 
       const res = await fetch(`/api/orders?${params.toString()}`);
       if (res.ok) {
@@ -196,7 +240,7 @@ export default function OrdersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label>ค้นหา</Label>
               <div className="relative">
@@ -241,6 +285,26 @@ export default function OrdersPage() {
                   <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
                   <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
                   <SelectItem value="4">สินค้าหมายเลข 4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>ช่วงเวลา</Label>
+              <Select
+                value={dateRange}
+                onValueChange={(value) => setDateRange(value as DateRangeKey)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="ช่วงเวลา" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3d">3 วันล่าสุด</SelectItem>
+                  <SelectItem value="7d">7 วันล่าสุด</SelectItem>
+                  <SelectItem value="1m">1 เดือนล่าสุด</SelectItem>
+                  <SelectItem value="3m">3 เดือนล่าสุด</SelectItem>
+                  <SelectItem value="1y">1 ปีล่าสุด</SelectItem>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
                 </SelectContent>
               </Select>
             </div>
