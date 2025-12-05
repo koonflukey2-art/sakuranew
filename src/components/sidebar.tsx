@@ -42,7 +42,7 @@ interface MenuCategory {
 const menuStructure: (MenuItem | MenuCategory)[] = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
