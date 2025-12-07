@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
 import { getProductTypeName } from "@/lib/line-parser";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const clerkUser = await currentUser();

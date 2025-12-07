@@ -3,6 +3,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
 
+export const runtime = "nodejs";
+
 export async function GET(request: Request) {
   try {
     const clerkUser = await currentUser();

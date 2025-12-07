@@ -11,17 +11,10 @@ export interface ParsedOrder {
 
 export function parseLineMessage(message: string): ParsedOrder | null {
   console.log("═══════════════════════════════════════");
-  console.log("🔍 PARSING LINE MESSAGE");
+  console.log("🔍 PARSING LINE MESSAGE (FLEXIBLE VERSION)");
   console.log("═══════════════════════════════════════");
-  console.log("Raw message:", message);
-  console.log("───────────────────────────────────────");
 
   const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
-  
-  console.log("📝 Split into lines:", lines.length);
-  lines.forEach((line, idx) => {
-    console.log(`  Line ${idx + 1}: "${line}"`);
-  });
 
   if (lines.length < 3) {
     console.log("❌ Not enough lines (minimum 3 required)");
@@ -39,187 +32,99 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     address: "",
   };
 
-  // ═══ STEP 1: PRODUCT TYPE (First line) ═══
-  console.log("\n🏷️  STEP 1: Extract Product Type");
+  // ═══ STEP 1: PRODUCT TYPE ═══
   const firstLine = lines[0];
-  console.log(`  First line: "${firstLine}"`);
-  
-  if (/^[1-9]\d*$/.test(firstLine)) {
-    result.productType = parseInt(firstLine);
+  const typeNum = parseInt(firstLine.replace(/[^\d]/g, "")); 
+
+  if (!isNaN(typeNum) && typeNum > 0) {
+    result.productType = typeNum;
     result.productName = `สินค้าประเภท ${result.productType}`;
-    console.log(`  ✅ Product Type: ${result.productType}`);
+    console.log(` ✅ Product Type: ${result.productType}`);
   } else {
-    console.log(`  ❌ Invalid product type: "${firstLine}"`);
+    console.log(` ❌ Invalid product type: "${firstLine}"`);
   }
 
-  // ═══ STEP 2: UNIT PRICE (Second line - "ยอดเก็บ 590") ═══
-  console.log("\n💰 STEP 2: Extract Price");
+  // ═══ STEP 2: UNIT PRICE ═══
   let extractedPrice = 0;
-  
-  // Check second line specifically for price
   if (lines.length >= 2) {
     const priceLine = lines[1];
-    console.log(`  Price line: "${priceLine}"`);
-
-    // Pattern 1: "ยอดเก็บ 590"
-    const match1 = priceLine.match(/(?:ยอดเก็บ|เก็บยอด|ยอด)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
-    if (match1) {
-      extractedPrice = parseFloat(match1[1].replace(/,/g, ""));
-      console.log(`  ✅ Found price (pattern 1): ${extractedPrice}`);
-    }
-
-    // Pattern 2: "590 บาท"
-    if (!extractedPrice) {
-      const match2 = priceLine.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)\s*บาท/);
-      if (match2) {
-        extractedPrice = parseFloat(match2[1].replace(/,/g, ""));
-        console.log(`  ✅ Found price (pattern 2): ${extractedPrice}`);
-      }
-    }
-
-    // Pattern 3: Just a number
-    if (!extractedPrice && /^\d+$/.test(priceLine)) {
-      extractedPrice = parseFloat(priceLine);
-      console.log(`  ✅ Found price (plain number): ${extractedPrice}`);
+    const priceMatch = priceLine.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+    
+    if (priceMatch) {
+      extractedPrice = parseFloat(priceMatch[1].replace(/,/g, ""));
+      console.log(` ✅ Found price: ${extractedPrice}`);
     }
   }
 
   if (extractedPrice > 0) {
     result.unitPrice = extractedPrice;
-    result.amount = extractedPrice;
-    console.log(`  ✅ Unit Price set: ${result.unitPrice}`);
-  } else {
-    console.log(`  ❌ No price found`);
+    result.amount = extractedPrice; 
   }
 
-  // ═══ STEP 3: CUSTOMER NAME (Third line) ═══
-  console.log("\n👤 STEP 3: Extract Customer Name");
+  // ═══ STEP 3: CUSTOMER NAME ═══
   if (lines.length >= 3) {
     result.customerName = lines[2];
-    console.log(`  ✅ Customer: "${result.customerName}"`);
-  } else {
-    console.log(`  ❌ No customer name (need line 3)`);
+    console.log(` ✅ Customer: "${result.customerName}"`);
   }
 
   // ═══ STEP 4: PHONE NUMBER ═══
-  console.log("\n📱 STEP 4: Extract Phone Number");
-  for (let i = 3; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Check for phone pattern "โทร 0925519656"
-    const phoneMatch1 = line.match(/(?:โทร|Tel|เบอร์)\s*(0\d{9})/i);
-    if (phoneMatch1) {
-      result.phone = phoneMatch1[1];
-      console.log(`  ✅ Found phone (pattern 1): ${result.phone} at line ${i + 1}`);
-      break;
-    }
-
-    // Check for standalone phone "0925519656"
-    const phoneMatch2 = line.match(/^(0\d{9})$/);
-    if (phoneMatch2) {
-      result.phone = phoneMatch2[1];
-      console.log(`  ✅ Found phone (pattern 2): ${result.phone} at line ${i + 1}`);
-      break;
-    }
-
-    // Check for phone anywhere in line
-    const phoneMatch3 = line.match(/(0\d{9})/);
-    if (phoneMatch3) {
-      result.phone = phoneMatch3[1];
-      console.log(`  ✅ Found phone (pattern 3): ${result.phone} at line ${i + 1}`);
-      break;
-    }
-  }
-
-  if (!result.phone) {
-    console.log(`  ❌ No phone number found`);
-  }
-
-  // ═══ STEP 5: QUANTITY (Last line) ═══
-  console.log("\n🔢 STEP 5: Extract Quantity");
-  const lastLine = lines[lines.length - 1];
-  console.log(`  Last line: "${lastLine}"`);
-  
-  if (/^\d+$/.test(lastLine)) {
-    const qty = parseInt(lastLine);
-    // Make sure it's not a phone number
-    if (qty < 100 && qty !== parseInt(result.phone || "0")) {
-      result.quantity = qty;
-      console.log(`  ✅ Quantity: ${result.quantity}`);
-      
-      // Update total amount
-      if (result.unitPrice && result.unitPrice > 0) {
-        result.amount = result.unitPrice * result.quantity;
-        console.log(`  ✅ Total amount: ${result.unitPrice} × ${result.quantity} = ${result.amount}`);
-      }
-    } else {
-      console.log(`  ⚠️  Looks like phone number, using default quantity: 1`);
-    }
-  } else {
-    console.log(`  ⚠️  Not a number, using default quantity: 1`);
-  }
-
-  // ═══ STEP 6: ADDRESS (Lines between customer and phone) ═══
-  console.log("\n🏠 STEP 6: Extract Address");
-  const addressLines: string[] = [];
-  
-  // Find phone line index
   let phoneLineIndex = -1;
   for (let i = 3; i < lines.length; i++) {
-    if (lines[i].includes(result.phone || "")) {
+    const line = lines[i];
+    const phoneMatch = line.match(/(0\d{9})/);
+    
+    if (phoneMatch) {
+      result.phone = phoneMatch[1];
       phoneLineIndex = i;
+      console.log(` ✅ Found phone: ${result.phone} at line ${i + 1}`);
       break;
     }
   }
 
-  // Get address lines (between customer name and phone)
-  const startIdx = 3; // After customer name
-  const endIdx = phoneLineIndex > 0 ? phoneLineIndex : lines.length - 1;
+  // ═══ STEP 5: QUANTITY ═══
+  const lastLine = lines[lines.length - 1];
+  const qtyMatch = lastLine.match(/(\d+)/);
   
+  if (qtyMatch) {
+    const parsedQty = parseInt(qtyMatch[1]);
+    const isPhoneNumber = result.phone && lastLine.includes(result.phone);
+    const isTooLong = parsedQty > 9999; 
+
+    if (!isPhoneNumber && !isTooLong) {
+      result.quantity = parsedQty;
+      console.log(` ✅ Quantity found in "${lastLine}": ${result.quantity}`);
+    }
+  }
+
+  // Recalculate Total Amount
+  if (result.unitPrice && result.quantity) {
+      result.amount = result.unitPrice * result.quantity;
+  }
+
+  // ═══ STEP 6: ADDRESS ═══
+  const addressLines: string[] = [];
+  const startIdx = 3; 
+  const endIdx = phoneLineIndex > 0 ? phoneLineIndex : lines.length - 1;
+
   for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
-    // Skip if it's a phone number or quantity
-    if (!/^(0\d{9}|\d{1,2})$/.test(line) && !line.match(/^โทร/i)) {
-      addressLines.push(line);
+    if (!line.match(/^\d+$/) && !line.match(/จำนวน/)) {
+        addressLines.push(line);
     }
   }
   
   result.address = addressLines.join(" ");
-  console.log(`  Address lines: ${addressLines.length}`);
-  addressLines.forEach((line, idx) => {
-    console.log(`    ${idx + 1}. "${line}"`);
-  });
-  console.log(`  ✅ Full address: "${result.address}"`);
 
   // ═══ VALIDATION ═══
-  console.log("\n✅ VALIDATION");
-  console.log("───────────────────────────────────────");
-  
-  const validationResults = {
-    productType: !!result.productType,
-    customerName: !!result.customerName,
-    phone: !!result.phone,
-    unitPrice: result.unitPrice > 0,
-  };
-
-  Object.entries(validationResults).forEach(([field, valid]) => {
-    console.log(`  ${valid ? "✅" : "❌"} ${field}: ${valid ? "OK" : "MISSING"}`);
-  });
-
-  if (!result.productType || !result.customerName || !result.phone) {
+  if (!result.productType || !result.customerName || !result.phone || !result.amount) {
     console.log("\n❌ VALIDATION FAILED - Missing required fields");
-    console.log("═══════════════════════════════════════\n");
     return null;
   }
-
-  console.log("\n✅ PARSING SUCCESSFUL");
-  console.log("═══════════════════════════════════════");
-  console.log("Final result:", JSON.stringify(result, null, 2));
-  console.log("═══════════════════════════════════════\n");
 
   return result as ParsedOrder;
 }
 
+// ✅ ฟังก์ชันที่เคยหายไป เพิ่มให้แล้วครับ
 export function getProductTypeName(type: number): string {
   return `สินค้าประเภท ${type}`;
 }
