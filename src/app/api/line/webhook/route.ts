@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseLineMessage, parseSummaryMessage } from "@/lib/line-parser";
+import { parseLineMessage } from "@/lib/line-parser";
 
 export const runtime = "nodejs";
 
@@ -27,8 +27,10 @@ export async function POST(req: NextRequest) {
     rawBody = await req.text();
     const data = JSON.parse(rawBody);
 
-    console.log("🔥 LINE webhook POST hit");
-    console.log("Body:", JSON.stringify(data, null, 2));
+    console.log("\n╔═══════════════════════════════════════════╗");
+    console.log("║  🔥 LINE WEBHOOK - NEW REQUEST            ║");
+    console.log("╚═══════════════════════════════════════════╝");
+    console.log("📥 Body:", JSON.stringify(data, null, 2));
 
     if (!Array.isArray(data.events) || data.events.length === 0) {
       console.log("⚠️ No events in webhook payload");
@@ -40,41 +42,54 @@ export async function POST(req: NextRequest) {
 
     if (!organizationId) {
       console.warn("⚠️ No organizationId on active LINE settings – skip saving");
+      return NextResponse.json({ ok: false, error: "No organization" }, { status: 400 });
     }
+
+    console.log("✅ Organization ID:", organizationId);
 
     // loop ทุก event
     for (const event of data.events) {
-      if (event.type !== "message" || event.message?.type !== "text") continue;
+      console.log("\n───────────────────────────────────────────");
+      console.log("📨 Processing event type:", event.type);
+
+      if (event.type !== "message" || event.message?.type !== "text") {
+        console.log("⏭️  Skipping non-text event");
+        continue;
+      }
 
       const text: string = event.message.text?.trim() ?? "";
-      if (!text) continue;
-
-      // ถ้าเป็นข้อความสรุปรายวัน (มีคำว่า "ยอดตามทั้งหมด" อะไรพวกนี้)
-      if (text.includes("ยอดตามทั้งหมด") || text.includes("จำนวนออเดอร์")) {
-        const summary = parseSummaryMessage(text);
-        console.log("📊 Parsed summary:", summary);
-        // ตอนนี้ยังไม่มี table summary ก็แค่ log ไว้ก่อน
+      if (!text) {
+        console.log("⚠️ Empty message text");
         continue;
       }
 
-      // ปกติ: แปลงเป็นออเดอร์เดี่ยว
+      console.log("💬 Message text:", text);
+
+      // แปลงข้อความเป็นออเดอร์
       const parsed = parseLineMessage(text);
-      console.log("📦 Parsed order:", parsed);
+      console.log("📦 Parsed result:", JSON.stringify(parsed, null, 2));
 
       if (!parsed || !organizationId) {
+        console.log("❌ Failed to parse or no organization");
         continue;
       }
 
-      // ต้องมียอดเก็บและประเภทสินค้า (1-4)
-      if (!parsed.amount || !parsed.productType) {
-        console.log("🚫 Missing amount or productType, skip");
+      // ต้องมีประเภทสินค้า
+      if (!parsed.productType) {
+        console.log("🚫 Missing productType, skip");
         continue;
       }
+
+      console.log("\n👤 Processing customer...");
 
       // ----- จัดการ Customer -----
       const phone = parsed.phone?.trim() || "";
       const name = parsed.customerName?.trim() || "ลูกค้าไม่ระบุชื่อ";
       const address = parsed.address?.trim() || "";
+
+      console.log("  Phone:", phone || "N/A");
+      console.log("  Name:", name);
+      console.log("  Address:", address || "N/A");
 
       // หา customer เดิมจากเบอร์ (ถ้ามี) + org
       let customer = phone
@@ -84,6 +99,7 @@ export async function POST(req: NextRequest) {
         : null;
 
       if (!customer) {
+        console.log("  ➕ Creating new customer...");
         customer = await prisma.customer.create({
           data: {
             name,
@@ -92,24 +108,37 @@ export async function POST(req: NextRequest) {
             organizationId,
           },
         });
+        console.log("  ✅ Customer created:", customer.id);
       } else {
+        console.log("  ✅ Customer found:", customer.id);
         // อัปเดตชื่อ/ที่อยู่ถ้าข้อมูลใหม่ดีกว่าเดิม
         await prisma.customer.update({
           where: { id: customer.id },
           data: {
-            name: customer.name || name,
-            address: customer.address || address || null,
+            name: name || customer.name,
+            address: address || customer.address || null,
           },
         });
+        console.log("  ✅ Customer updated");
       }
+
+      console.log("\n📦 Creating order...");
 
       // ----- สร้าง Order -----
       const quantity = parsed.quantity ?? 1;
-      const amount = parsed.amount ?? 0;
+      const unitPrice = parsed.unitPrice ?? 0;
+      const amount = parsed.amount ?? (unitPrice * quantity);
+
+      console.log("  Product Type:", parsed.productType);
+      console.log("  Product Name:", parsed.productName || "N/A");
+      console.log("  Quantity:", quantity);
+      console.log("  Unit Price:", unitPrice);
+      console.log("  Total Amount:", amount);
 
       const order = await prisma.order.create({
         data: {
           amount,
+          unitPrice,
           quantity,
           productType: parsed.productType,
           productName: parsed.productName ?? null,
@@ -120,16 +149,13 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      console.log(
-        "Order created:",
-        order.id,
-        "Type:",
-        order.productType,
-        "Qty:",
-        order.quantity,
-        "Amount:",
-        order.amount
-      );
+      console.log("✅ Order created:", order.id);
+      console.log("  Type:", order.productType);
+      console.log("  Qty:", order.quantity);
+      console.log("  Unit Price:", order.unitPrice);
+      console.log("  Amount:", order.amount);
+
+      console.log("\n📊 Updating product stock...");
 
       // ลด stock อัตโนมัติถ้าสินค้า match productType
       const product = await prisma.product.findFirst({
@@ -140,6 +166,9 @@ export async function POST(req: NextRequest) {
       });
 
       if (product) {
+        console.log("  ✅ Product found:", product.id);
+        console.log("  Current stock:", product.quantity);
+        
         await prisma.product.update({
           where: { id: product.id },
           data: {
@@ -149,17 +178,29 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        console.log("📉 Stock updated for product", product.id, "-", quantity);
+        console.log("  ✅ Stock decreased by", quantity);
+        console.log("  New stock:", product.quantity - quantity);
+      } else {
+        console.log("  ⚠️ No product found for type", parsed.productType);
       }
 
-      console.log(
-        `✅ Saved order for org=${organizationId}, customer=${customer.id}`
-      );
+      console.log("\n✅ Order processing complete!");
+      console.log(`   Org: ${organizationId}`);
+      console.log(`   Customer: ${customer.id}`);
+      console.log(`   Order: ${order.id}`);
     }
+
+    console.log("\n╔═══════════════════════════════════════════╗");
+    console.log("║  ✅ WEBHOOK PROCESSING COMPLETE           ║");
+    console.log("╚═══════════════════════════════════════════╝\n");
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    console.error("💥 LINE webhook error:", err, "rawBody:", rawBody);
+    console.error("\n❌❌❌ LINE WEBHOOK ERROR ❌❌❌");
+    console.error("Error:", err);
+    console.error("Raw body:", rawBody);
+    console.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+    
     // ตอบ 200 ให้ LINE เสมอ
     return NextResponse.json({ ok: true }, { status: 200 });
   }
@@ -169,5 +210,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     message: "LINE webhook alive ✅ (orders enabled)",
+    timestamp: new Date().toISOString(),
   });
 }
