@@ -4,7 +4,8 @@ export interface ParsedOrder {
   customerName?: string;
   phone?: string;
   address?: string;
-  amount?: number;
+  amount?: number; // Total amount
+  unitPrice?: number; // Price per unit from "ยอดเก็บ 590"
   productName?: string;
 }
 
@@ -38,10 +39,12 @@ export function parseLineMessage(message: string): ParsedOrder | null {
       result.quantity = 1;
     }
 
-    // Extract amount (ยอดเก็บ or เก็บยอด)
+    // Extract amount and unitPrice (ยอดเก็บ or เก็บยอด)
     const amountMatch = message.match(/(?:ยอดเก็บ|เก็บยอด)[:\s]*(\d+(?:,\d+)*)/);
     if (amountMatch) {
-      result.amount = parseFloat(amountMatch[1].replace(/,/g, ""));
+      const extractedPrice = parseFloat(amountMatch[1].replace(/,/g, ""));
+      result.unitPrice = extractedPrice; // Price per unit
+      result.amount = extractedPrice; // Default to same value (will be adjusted by quantity later)
     }
 
     // Extract customer name (Thai characters line)
@@ -68,6 +71,11 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     );
     if (addressLines.length > 0) {
       result.address = addressLines.join(" ");
+    }
+
+    // Calculate total amount = unitPrice * quantity
+    if (result.unitPrice && result.quantity) {
+      result.amount = result.unitPrice * result.quantity;
     }
 
     return result;

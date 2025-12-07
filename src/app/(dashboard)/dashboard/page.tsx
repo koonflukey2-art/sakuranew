@@ -66,11 +66,13 @@ interface OrderStats {
   today: {
     revenue: number;
     orders: number;
+    profit?: number;
     byType?: Record<string, { count: number; revenue: number }>;
   };
   week: {
     revenue: number;
     orders: number;
+    profit?: number;
     byType?: Record<string, { count: number; revenue: number }>;
   };
 }
@@ -83,8 +85,8 @@ const DEFAULT_STATS: Stats = {
 };
 
 const DEFAULT_ORDER_STATS: OrderStats = {
-  today: { revenue: 0, orders: 0, byType: {} },
-  week: { revenue: 0, orders: 0, byType: {} },
+  today: { revenue: 0, orders: 0, profit: 0, byType: {} },
+  week: { revenue: 0, orders: 0, profit: 0, byType: {} },
 };
 
 const COLORS = [
@@ -434,7 +436,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Top stats + sales by type (today) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* ยอดขายวันนี้ */}
         <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-slate-900 to-slate-950">
           <CardHeader>
@@ -448,6 +450,23 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-gray-300 mt-1">
               {orderStats.today.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* กำไรวันนี้ */}
+        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-slate-900 to-slate-950">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-gray-100">
+              กำไรวันนี้
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-400">
+              ฿{(orderStats.today.profit ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-300 mt-1">
+              จากการขายทั้งหมด
             </p>
           </CardContent>
         </Card>
@@ -469,7 +488,26 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* ยอดขายแยกตามประเภท (วันนี้) */}
+        {/* กำไร 7 วัน */}
+        <Card className="border-l-4 border-l-orange-500 bg-gradient-to-br from-slate-900 to-slate-950">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-gray-100">
+              กำไร 7 วัน
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-400">
+              ฿{(orderStats.week.profit ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-gray-300 mt-1">
+              {orderStats.week.orders} ออเดอร์
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ยอดขายแยกตามประเภท (วันนี้) */}
+      {Object.entries(orderStats.today.byType || {}).length > 0 && (
         <Card className="border border-purple-500/40 bg-gradient-to-br from-slate-900 to-slate-950">
           <CardHeader>
             <CardTitle className="text-base font-semibold text-gray-50">
@@ -509,7 +547,7 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

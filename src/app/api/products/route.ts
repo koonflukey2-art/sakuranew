@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         quantity: body.quantity ?? 0,
         minStockLevel: body.minStockLevel ?? 10,
         costPrice: body.costPrice,
-        sellPrice: body.sellPrice,
+        sellPrice: body.sellPrice ?? null, // Optional - selling price comes from LINE orders
         // ✅ ผูกกับ organization ตาม schema ใหม่
         organizationId: user.organizationId,
       },
@@ -116,7 +116,7 @@ export async function PUT(request: Request) {
         quantity: body.quantity,
         minStockLevel: body.minStockLevel,
         costPrice: body.costPrice,
-        sellPrice: body.sellPrice,
+        sellPrice: body.sellPrice ?? null, // Optional - selling price comes from LINE orders
       },
     });
 
