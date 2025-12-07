@@ -1,5 +1,3 @@
-// src/app/api/line/webhook/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseLineMessage } from "@/lib/line-parser";
@@ -27,10 +25,8 @@ export async function POST(req: NextRequest) {
     rawBody = await req.text();
     const data = JSON.parse(rawBody);
 
-    console.log("\n╔═══════════════════════════════════════════╗");
-    console.log("║  🔥 LINE WEBHOOK - NEW REQUEST            ║");
-    console.log("╚═══════════════════════════════════════════╝");
-    console.log("📥 Body:", JSON.stringify(data, null, 2));
+    console.log("🔥 LINE WEBHOOK - NEW REQUEST");
+    // console.log("Body:", JSON.stringify(data, null, 2));
 
     if (!Array.isArray(data.events) || data.events.length === 0) {
       console.log("⚠️ No events in webhook payload");
@@ -42,56 +38,56 @@ export async function POST(req: NextRequest) {
 
     if (!organizationId) {
       console.warn("⚠️ No organizationId on active LINE settings – skip saving");
-      return NextResponse.json({ ok: false, error: "No organization" }, { status: 400 });
+      // ถึงไม่มี Org ก็ต้องตอบ 200 กลับไปหา LINE
+      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    console.log("✅ Organization ID:", organizationId);
+    console.log(`✅ Organization ID: ${organizationId}`);
 
     // loop ทุก event
     for (const event of data.events) {
-      console.log("\n───────────────────────────────────────────");
-      console.log("📨 Processing event type:", event.type);
-
-      if (event.type !== "message" || event.message?.type !== "text") {
-        console.log("⏭️  Skipping non-text event");
-        continue;
-      }
+      if (event.type !== "message" || event.message?.type !== "text") continue;
 
       const text: string = event.message.text?.trim() ?? "";
-      if (!text) {
-        console.log("⚠️ Empty message text");
-        continue;
-      }
+      if (!text) continue;
 
+      console.log("───────────────────────────────────────────");
+      console.log("📨 Processing event type: message");
       console.log("💬 Message text:", text);
 
-      // แปลงข้อความเป็นออเดอร์
+      // ถ้าเป็นข้อความสรุปรายวัน (ข้ามไปก่อน)
+      if (text.includes("ยอดตามทั้งหมด") || text.includes("จำนวนออเดอร์")) {
+        console.log("📊 Summary message detected - skipping order creation");
+        continue;
+      }
+
+      // 1. แปลงข้อความเป็นข้อมูล (ใช้ฟังก์ชันใหม่ที่แก้แล้ว)
       const parsed = parseLineMessage(text);
+
+      if (!parsed) {
+         console.log("🚫 Failed to parse message, skipping.");
+         continue;
+      }
+
       console.log("📦 Parsed result:", JSON.stringify(parsed, null, 2));
 
-      if (!parsed || !organizationId) {
-        console.log("❌ Failed to parse or no organization");
+      // ต้องมียอดเก็บและประเภทสินค้า
+      if (!parsed.amount || !parsed.productType) {
+        console.log("🚫 Missing amount or productType, skip");
         continue;
       }
 
-      // ต้องมีประเภทสินค้า
-      if (!parsed.productType) {
-        console.log("🚫 Missing productType, skip");
-        continue;
-      }
-
+      // 2. จัดการ Customer (ลูกค้า)
       console.log("\n👤 Processing customer...");
-
-      // ----- จัดการ Customer -----
       const phone = parsed.phone?.trim() || "";
       const name = parsed.customerName?.trim() || "ลูกค้าไม่ระบุชื่อ";
       const address = parsed.address?.trim() || "";
 
-      console.log("  Phone:", phone || "N/A");
-      console.log("  Name:", name);
-      console.log("  Address:", address || "N/A");
+      console.log(`  Phone: ${phone}`);
+      console.log(`  Name: ${name}`);
+      console.log(`  Address: ${address}`);
 
-      // หา customer เดิมจากเบอร์ (ถ้ามี) + org
+      // หา customer เดิมจากเบอร์ + org
       let customer = phone
         ? await prisma.customer.findFirst({
             where: { organizationId, phone },
@@ -99,7 +95,6 @@ export async function POST(req: NextRequest) {
         : null;
 
       if (!customer) {
-        console.log("  ➕ Creating new customer...");
         customer = await prisma.customer.create({
           data: {
             name,
@@ -108,56 +103,44 @@ export async function POST(req: NextRequest) {
             organizationId,
           },
         });
-        console.log("  ✅ Customer created:", customer.id);
+        console.log(`  ✅ Customer created: ${customer.id}`);
       } else {
-        console.log("  ✅ Customer found:", customer.id);
         // อัปเดตชื่อ/ที่อยู่ถ้าข้อมูลใหม่ดีกว่าเดิม
         await prisma.customer.update({
           where: { id: customer.id },
           data: {
-            name: name || customer.name,
-            address: address || customer.address || null,
+            name: customer.name === "ลูกค้าไม่ระบุชื่อ" ? name : customer.name, // ถ้าของเดิมไม่มีชื่อ ให้ใช้ชื่อใหม่
+            address: address || customer.address, // ถ้ามีที่อยู่ใหม่ ให้ทับของเดิม (หรือจะแก้ logic ตามต้องการ)
           },
         });
-        console.log("  ✅ Customer updated");
+        console.log(`  ✅ Customer found: ${customer.id}`);
+        console.log(`  ✅ Customer updated`);
       }
 
+      // 3. สร้าง Order (บันทึกลงฐานข้อมูล)
       console.log("\n📦 Creating order...");
-
-      // ----- สร้าง Order -----
-      const quantity = parsed.quantity ?? 1;
-      const unitPrice = parsed.unitPrice ?? 0;
-      const amount = parsed.amount ?? (unitPrice * quantity);
-
-      console.log("  Product Type:", parsed.productType);
-      console.log("  Product Name:", parsed.productName || "N/A");
-      console.log("  Quantity:", quantity);
-      console.log("  Unit Price:", unitPrice);
-      console.log("  Total Amount:", amount);
+      console.log(`  Product Type: ${parsed.productType}`);
+      console.log(`  Quantity: ${parsed.quantity}`);
+      console.log(`  Total Amount: ${parsed.amount}`);
 
       const order = await prisma.order.create({
         data: {
-          amount,
-          unitPrice,
-          quantity,
+          amount: parsed.amount,       // ยอดเงินรวม (Quantity * UnitPrice)
+          quantity: parsed.quantity,   // จำนวนสินค้า
           productType: parsed.productType,
           productName: parsed.productName ?? null,
           rawMessage: text,
           status: "CONFIRMED",
           customerId: customer.id,
           organizationId,
+          // ⚠️ IMPORTANT: เอา unitPrice ออก เพราะใน Database ไม่มี column นี้
+          // unitPrice: parsed.unitPrice, <--- สาเหตุที่ Error คือบรรทัดนี้
         },
       });
 
-      console.log("✅ Order created:", order.id);
-      console.log("  Type:", order.productType);
-      console.log("  Qty:", order.quantity);
-      console.log("  Unit Price:", order.unitPrice);
-      console.log("  Amount:", order.amount);
+      console.log(`✅ Order created successfully: ${order.id}`);
 
-      console.log("\n📊 Updating product stock...");
-
-      // ลด stock อัตโนมัติถ้าสินค้า match productType
+      // 4. ตัด Stock
       const product = await prisma.product.findFirst({
         where: {
           organizationId,
@@ -166,50 +149,29 @@ export async function POST(req: NextRequest) {
       });
 
       if (product) {
-        console.log("  ✅ Product found:", product.id);
-        console.log("  Current stock:", product.quantity);
-        
         await prisma.product.update({
           where: { id: product.id },
           data: {
             quantity: {
-              decrement: quantity,
+              decrement: parsed.quantity,
             },
           },
         });
-
-        console.log("  ✅ Stock decreased by", quantity);
-        console.log("  New stock:", product.quantity - quantity);
+        console.log(`📉 Stock updated for product ${product.id} (-${parsed.quantity})`);
       } else {
-        console.log("  ⚠️ No product found for type", parsed.productType);
+         console.log(`⚠️ Product type ${parsed.productType} not found in stock system - skipping stock decrement`);
       }
-
-      console.log("\n✅ Order processing complete!");
-      console.log(`   Org: ${organizationId}`);
-      console.log(`   Customer: ${customer.id}`);
-      console.log(`   Order: ${order.id}`);
     }
 
-    console.log("\n╔═══════════════════════════════════════════╗");
-    console.log("║  ✅ WEBHOOK PROCESSING COMPLETE           ║");
-    console.log("╚═══════════════════════════════════════════╝\n");
-
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (err) {
+
+  } catch (err: any) {
     console.error("\n❌❌❌ LINE WEBHOOK ERROR ❌❌❌");
     console.error("Error:", err);
     console.error("Raw body:", rawBody);
-    console.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+    console.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌");
     
-    // ตอบ 200 ให้ LINE เสมอ
+    // ตอบ 200 ให้ LINE เสมอ เพื่อไม่ให้ Webhook พัง
     return NextResponse.json({ ok: true }, { status: 200 });
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    message: "LINE webhook alive ✅ (orders enabled)",
-    timestamp: new Date().toISOString(),
-  });
 }
