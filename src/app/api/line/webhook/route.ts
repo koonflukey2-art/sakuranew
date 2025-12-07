@@ -106,13 +106,11 @@ export async function POST(req: NextRequest) {
       // ----- สร้าง Order -----
       const quantity = parsed.quantity ?? 1;
       const amount = parsed.amount ?? 0;
-      const unitPrice = parsed.unitPrice ?? 0;
 
       const order = await prisma.order.create({
         data: {
           amount,
           quantity,
-          unitPrice, // ✅ Save unit price from LINE message
           productType: parsed.productType,
           productName: parsed.productName ?? null,
           rawMessage: text,

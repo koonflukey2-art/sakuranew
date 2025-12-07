@@ -156,7 +156,7 @@ model Product {
   quantity      Int      @default(0)
   minStockLevel Int      @default(10)
   costPrice     Float
-  sellPrice     Float?   // Optional - selling price comes from LINE orders
+  sellPrice     Float
 
   // NEW: Product type code for LINE integration
   productType   Int?     // 1=ครีมอาบน้ำ, 2=ยาสีฟัน, 3=..., 4=...
@@ -536,15 +536,14 @@ model Order {
   orderNumber    String?     // From LINE message (12, 13, etc)
   customerId     String
   customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
+  
   // Product info
   productType    Int?        // 1-4 from LINE message
   productName    String?
   quantity       Int         @default(1)
 
   // Pricing
-  amount         Float       // Total amount (ยอดเก็บ)
-  unitPrice      Float       @default(0) // Price per unit from LINE message
+  amount         Float       // ยอดเก็บ
 
   // Order details
   orderDate      DateTime    @default(now())

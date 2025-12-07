@@ -14,8 +14,8 @@ export async function GET() {
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({
-        today: { revenue: 0, orders: 0, profit: 0, byType: {} },
-        week: { revenue: 0, orders: 0, profit: 0, byType: {} },
+        today: { revenue: 0, orders: 0, byType: {} },
+        week: { revenue: 0, orders: 0, byType: {} },
       });
     }
 
@@ -45,39 +45,9 @@ export async function GET() {
       },
     });
 
-    // Get all products for cost price lookup
-    const products = await prisma.product.findMany({
-      where: { organizationId: orgId },
-      select: {
-        productType: true,
-        costPrice: true,
-      },
-    });
-
-    // Helper function to calculate profit for orders
-    const calculateProfit = (orders: any[]) => {
-      let totalProfit = 0;
-
-      orders.forEach((order) => {
-        // Find product by productType
-        const product = products.find((p) => p.productType === order.productType);
-
-        if (product && order.unitPrice > 0) {
-          // Profit = (unitPrice - costPrice) * quantity
-          const profitPerUnit = order.unitPrice - product.costPrice;
-          totalProfit += profitPerUnit * order.quantity;
-        }
-      });
-
-      return totalProfit;
-    };
-
     // Calculate stats
     const todayRevenue = todayOrders.reduce((sum, o) => sum + o.amount, 0);
     const weekRevenue = weekOrders.reduce((sum, o) => sum + o.amount, 0);
-
-    const todayProfit = calculateProfit(todayOrders);
-    const weekProfit = calculateProfit(weekOrders);
 
     // Group by product type
     const todayByType: Record<string, { count: number; revenue: number }> = {};
@@ -111,13 +81,11 @@ export async function GET() {
       today: {
         revenue: todayRevenue,
         orders: todayOrders.length,
-        profit: todayProfit,
         byType: todayByType,
       },
       week: {
         revenue: weekRevenue,
         orders: weekOrders.length,
-        profit: weekProfit,
         byType: weekByType,
       },
     });

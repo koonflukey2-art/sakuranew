@@ -76,7 +76,7 @@ interface Product {
   quantity: number;
   minStockLevel: number;
   costPrice: number;
-  sellPrice?: number | null; // Optional - price comes from LINE orders
+  sellPrice: number;
 }
 
 // key ของช่วงเวลา
@@ -399,7 +399,8 @@ export default function StockPage() {
       หมวดหมู่: p.category,
       จำนวน: p.quantity,
       ราคาทุน: p.costPrice,
-      รหัสประเภท: p.productType ?? "-",
+      ราคาขาย: p.sellPrice,
+      กำไร: p.sellPrice - p.costPrice,
     }));
 
     exportToExcel(data, `selected-products-${selectedIds.length}`);
@@ -535,18 +536,19 @@ export default function StockPage() {
               data={products.map((p) => ({
                 ชื่อสินค้า: p.name,
                 หมวดหมู่: p.category,
-                รหัสประเภท: p.productType ?? "-",
                 จำนวน: p.quantity,
                 ระดับต่ำสุด: p.minStockLevel,
                 ราคาทุน: p.costPrice,
+                ราคาขาย: p.sellPrice,
+                กำไร: p.sellPrice - p.costPrice,
               }))}
               filename="stock-report"
               pdfColumns={[
                 { header: "ชื่อสินค้า", dataKey: "ชื่อสินค้า" },
                 { header: "หมวดหมู่", dataKey: "หมวดหมู่" },
-                { header: "รหัสประเภท", dataKey: "รหัสประเภท" },
                 { header: "จำนวน", dataKey: "จำนวน" },
                 { header: "ราคาทุน", dataKey: "ราคาทุน" },
+                { header: "ราคาขาย", dataKey: "ราคาขาย" },
               ]}
               pdfTitle="รายงานสต็อกสินค้า"
               className="w-full sm:w-auto"
@@ -693,25 +695,33 @@ export default function StockPage() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={addForm.control}
-                    name="costPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ราคาทุน (฿)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Note about pricing */}
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                    <p className="text-sm text-blue-300">
-                      💡 <strong>หมายเหตุ:</strong> ราคาขายจะมาจากออเดอร์ที่รับผ่าน LINE อัตโนมัติ
-                    </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="costPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ราคาทุน</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addForm.control}
+                      name="sellPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ราคาขาย</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                   <DialogFooter>
                     <Button
@@ -917,7 +927,10 @@ export default function StockPage() {
                       จำนวน
                     </TableHead>
                     <TableHead className="text-right text-slate-300">
-                      ราคาทุน (฿)
+                      ราคาทุน
+                    </TableHead>
+                    <TableHead className="text-right text-slate-300">
+                      ราคาขาย
                     </TableHead>
                     <TableHead className="text-slate-300">สถานะ</TableHead>
                     <TableHead className="text-right text-slate-300">
@@ -929,7 +942,7 @@ export default function StockPage() {
                   {filteredProducts.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground"
                       >
                         ไม่พบสินค้า
@@ -937,6 +950,11 @@ export default function StockPage() {
                     </TableRow>
                   ) : (
                     filteredProducts.map((product) => {
+                      const profit = product.sellPrice - product.costPrice;
+                      const profitPercent = (
+                        (profit / (product.costPrice || 1)) *
+                        100
+                      ).toFixed(1);
                       const isLowStock =
                         product.quantity < product.minStockLevel;
 
@@ -964,6 +982,9 @@ export default function StockPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             ฿{product.costPrice.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ฿{product.sellPrice.toLocaleString()}
                           </TableCell>
                           <TableCell>
                             {isLowStock ? (
@@ -1146,25 +1167,33 @@ export default function StockPage() {
                   )}
                 />
               </div>
-              <FormField
-                control={editForm.control}
-                name="costPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ราคาทุน (฿)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Note about pricing */}
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                <p className="text-sm text-blue-300">
-                  💡 <strong>หมายเหตุ:</strong> ราคาขายจะมาจากออเดอร์ที่รับผ่าน LINE อัตโนมัติ
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="costPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ราคาทุน</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="sellPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ราคาขาย</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
               <DialogFooter>
                 <Button
