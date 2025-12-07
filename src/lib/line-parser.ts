@@ -13,7 +13,7 @@ export interface ParsedOrder {
 
 export function parseLineMessage(message: string): ParsedOrder | null {
   console.log("═══════════════════════════════════════");
-  console.log("🔍 PARSING LINE MESSAGE (NO MULTIPLY)");
+  console.log("🔍 PARSING LINE MESSAGE (SMART PHONE DETECT)");
   console.log("═══════════════════════════════════════");
 
   const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -42,14 +42,13 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     result.productType = typeNum;
     result.productName = `สินค้าประเภท ${result.productType}`;
     console.log(` ✅ Product Type: ${result.productType}`);
-  } else {
-    console.log(` ❌ Invalid product type: "${firstLine}"`);
   }
 
   // ═══ STEP 2: PRICE (ยอดเก็บ = ยอดรวมเลย) ═══
   let extractedPrice = 0;
   if (lines.length >= 2) {
     const priceLine = lines[1];
+    // หาตัวเลขที่มี comma หรือทศนิยม
     const priceMatch = priceLine.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)/);
     
     if (priceMatch) {
@@ -59,8 +58,8 @@ export function parseLineMessage(message: string): ParsedOrder | null {
   }
 
   if (extractedPrice > 0) {
-    result.unitPrice = extractedPrice; // เก็บไว้เผื่อใช้ แต่ไม่สำคัญ
-    result.amount = extractedPrice;    // ✅ ยึดค่านี่เป็นยอดรวมเลย (ไม่ต้องคูณแล้ว)
+    result.unitPrice = extractedPrice; 
+    result.amount = extractedPrice;    // ยึดค่านี่เป็นยอดรวม
   }
 
   // ═══ STEP 3: CUSTOMER NAME ═══
@@ -69,38 +68,41 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     console.log(` ✅ Customer: "${result.customerName}"`);
   }
 
-  // ═══ STEP 4: PHONE NUMBER ═══
+  // ═══ STEP 4: PHONE NUMBER (แก้ใหม่ รองรับขีด - และจุด .) ═══
   let phoneLineIndex = -1;
   for (let i = 3; i < lines.length; i++) {
     const line = lines[i];
-    const phoneMatch = line.match(/(0\d{9})/);
     
-    if (phoneMatch) {
-      result.phone = phoneMatch[1];
+    // 1. ลบทุกอย่างที่ไม่ใช่ตัวเลขออก (ลบ - . ช่องว่าง ก ข ค)
+    // "โทร.087-3179458" จะกลายเป็น "0873179458"
+    const cleanNumber = line.replace(/\D/g, ""); 
+
+    // 2. เช็คว่าเป็นเบอร์มือถือไหม (ขึ้นต้นด้วย 0 และยาว 10 หลัก)
+    // หรือเบอร์บ้าน (ขึ้นต้นด้วย 02 ยาว 9 หลัก) แต่เน้นมือถือเป็นหลัก
+    if (cleanNumber.length === 10 && cleanNumber.startsWith("0")) {
+      result.phone = cleanNumber; // เก็บเบอร์แบบไม่มีขีดลง DB
       phoneLineIndex = i;
-      console.log(` ✅ Found phone: ${result.phone} at line ${i + 1}`);
+      console.log(` ✅ Found phone (cleaned): ${result.phone} at line ${i + 1}`);
       break;
     }
   }
 
   // ═══ STEP 5: QUANTITY ═══
   const lastLine = lines[lines.length - 1];
+  // หาตัวเลขในบรรทัดสุดท้าย
   const qtyMatch = lastLine.match(/(\d+)/);
   
   if (qtyMatch) {
     const parsedQty = parseInt(qtyMatch[1]);
-    const isPhoneNumber = result.phone && lastLine.includes(result.phone);
+    
+    // เช็คว่าเลขที่เจอ ไม่ใช่เบอร์โทรศัพท์ (เผื่อบรรทัดสุดท้ายเป็นเบอร์)
+    const isPhoneNumber = result.phone && lastLine.replace(/\D/g, "").includes(result.phone);
     const isTooLong = parsedQty > 9999; 
 
     if (!isPhoneNumber && !isTooLong) {
       result.quantity = parsedQty;
       console.log(` ✅ Quantity found in "${lastLine}": ${result.quantity}`);
-      
-      // ❌❌❌ ลบส่วนคำนวณคูณทิ้งไป ❌❌❌
-      // if (result.unitPrice && result.quantity) {
-      //     result.amount = result.unitPrice * result.quantity;
-      // }
-      // ------------------------------------
+      // ไม่มีการคูณ amount แล้ว ตามที่ขอ
     }
   }
 
@@ -111,12 +113,14 @@ export function parseLineMessage(message: string): ParsedOrder | null {
 
   for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
+    // กรองบรรทัดที่ไม่ใช่ส่วนหนึ่งของที่อยู่จริงๆ
     if (!line.match(/^\d+$/) && !line.match(/จำนวน/)) {
         addressLines.push(line);
     }
   }
   
   result.address = addressLines.join(" ");
+  console.log(` ✅ Address combined: "${result.address}"`);
 
   // ═══ VALIDATION ═══
   if (!result.productType || !result.customerName || !result.phone || !result.amount) {
