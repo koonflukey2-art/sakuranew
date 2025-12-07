@@ -99,6 +99,7 @@ model Organization {
   users               User[]
   products            Product[]
   budgets             Budget[]
+  capitalBudgets      CapitalBudget[]
   budgetRequests      BudgetRequest[]
   adCampaigns         AdCampaign[]
   adAccounts          AdAccount[]
@@ -187,6 +188,7 @@ model StockHistory {
   user    User    @relation(fields: [userId], references: [id])
 }
 
+// Campaign Budget (เดิม)
 model Budget {
   id        String   @id @default(cuid())
   amount    Float
@@ -201,6 +203,43 @@ model Budget {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+// Capital Budget (ใหม่ - สำหรับจัดการงบประมาณสินค้า)
+model CapitalBudget {
+  id             String   @id @default(cuid())
+  amount         Float    // งบประมาณทั้งหมด
+  remaining      Float    // งบคงเหลือ
+  minThreshold   Float    @default(5000) // ขั้นต่ำที่ต้องเตือน
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String   // User ID ที่สร้าง
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   CapitalBudgetTransaction[]
+
+  @@index([organizationId])
+}
+
+model CapitalBudgetTransaction {
+  id             String   @id @default(cuid())
+  budgetId       String
+  type           String   // "ADD" | "DEDUCT"
+  amount         Float
+  description    String?
+  productId      String?
+  orderId        String?
+  createdBy      String
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  budget         CapitalBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@index([organizationId])
+  @@index([createdAt])
 }
 
 model BudgetRequest {
@@ -536,7 +575,7 @@ model Order {
   orderNumber    String?     // From LINE message (12, 13, etc)
   customerId     String
   customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
+
   // Product info
   productType    Int?        // 1-4 from LINE message
   productName    String?
@@ -544,6 +583,7 @@ model Order {
 
   // Pricing
   amount         Float       // ยอดเก็บ
+  unitPrice      Float       @default(0)  // ราคาต่อชิ้นจากไลน์
 
   // Order details
   orderDate      DateTime    @default(now())

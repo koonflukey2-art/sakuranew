@@ -76,7 +76,7 @@ interface Product {
   quantity: number;
   minStockLevel: number;
   costPrice: number;
-  sellPrice: number;
+  sellPrice: number; // Keep for compatibility, but won't show in forms
 }
 
 // key ของช่วงเวลา
@@ -181,7 +181,7 @@ export default function StockPage() {
       quantity: 0,
       minStockLevel: 10,
       costPrice: 0,
-      sellPrice: 0,
+      sellPrice: 0, // Auto-calculated from LINE, hidden from form
       description: "",
     },
   });
@@ -695,33 +695,35 @@ export default function StockPage() {
                       )}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={addForm.control}
-                      name="costPrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ราคาทุน</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="0" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addForm.control}
-                      name="sellPrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ราคาขาย</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="0" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={addForm.control}
+                    name="costPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ราคาทุน/ชิ้น (฿)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Explanation about LINE pricing */}
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <div className="flex gap-3">
+                      <div className="text-blue-400 text-2xl">💡</div>
+                      <div>
+                        <p className="text-sm text-blue-300 font-medium mb-1">
+                          หมายเหตุเกี่ยวกับราคาสินค้า
+                        </p>
+                        <ul className="text-sm text-blue-200 space-y-1">
+                          <li>• ราคาสินค้าจะรับยอดมาจากไลน์โดยอัตโนมัติ</li>
+                          <li>• ราคาขายเป็นราคาต่อ 1 ชิ้น</li>
+                          <li>• ระบบจะคำนวณกำไรจาก (ราคาขาย - ราคาทุน) × จำนวน</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button
@@ -927,10 +929,10 @@ export default function StockPage() {
                       จำนวน
                     </TableHead>
                     <TableHead className="text-right text-slate-300">
-                      ราคาทุน
+                      ราคาทุน/ชิ้น
                     </TableHead>
                     <TableHead className="text-right text-slate-300">
-                      ราคาขาย
+                      ต้นทุนรวม
                     </TableHead>
                     <TableHead className="text-slate-300">สถานะ</TableHead>
                     <TableHead className="text-right text-slate-300">
@@ -983,8 +985,8 @@ export default function StockPage() {
                           <TableCell className="text-right">
                             ฿{product.costPrice.toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-right">
-                            ฿{product.sellPrice.toLocaleString()}
+                          <TableCell className="text-right text-green-400 font-medium">
+                            ฿{(product.quantity * product.costPrice).toLocaleString()}
                           </TableCell>
                           <TableCell>
                             {isLowStock ? (
@@ -1167,33 +1169,35 @@ export default function StockPage() {
                   )}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="costPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ราคาทุน</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="sellPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ราคาขาย</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={editForm.control}
+                name="costPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ราคาทุน/ชิ้น (฿)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Explanation about LINE pricing */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <div className="text-blue-400 text-2xl">💡</div>
+                  <div>
+                    <p className="text-sm text-blue-300 font-medium mb-1">
+                      หมายเหตุเกี่ยวกับราคาสินค้า
+                    </p>
+                    <ul className="text-sm text-blue-200 space-y-1">
+                      <li>• ราคาสินค้าจะรับยอดมาจากไลน์โดยอัตโนมัติ</li>
+                      <li>• ราคาขายเป็นราคาต่อ 1 ชิ้น</li>
+                      <li>• ระบบจะคำนวณกำไรจาก (ราคาขาย - ราคาทุน) × จำนวน</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button

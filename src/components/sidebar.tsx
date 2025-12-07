@@ -57,6 +57,7 @@ const menuStructure: (MenuItem | MenuCategory)[] = [
     name: "การเงิน",
     icon: Wallet,
     items: [
+      { name: "งบประมาณสินค้า", href: "/capital-budget", icon: Wallet, badge: "New" },
       { name: "Budget Requests", href: "/budget-requests", icon: FileText },
     ],
   },
