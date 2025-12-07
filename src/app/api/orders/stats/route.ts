@@ -16,10 +16,15 @@ export async function GET() {
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({
-        today: { revenue: 0, orders: 0, byType: {} },
-        week: { revenue: 0, orders: 0, byType: {} },
+        today: { revenue: 0, orders: 0, profit: 0, expense: 0, byType: {} },
+        week: { revenue: 0, orders: 0, profit: 0, expense: 0, byType: {}, daily: [] },
       });
     }
+
+    // Fetch products for cost calculation
+    const products = await prisma.product.findMany({
+      where: { organizationId: orgId },
+    });
 
     // Today's stats
     const today = new Date();
@@ -47,9 +52,60 @@ export async function GET() {
       },
     });
 
-    // Calculate stats
-    const todayRevenue = todayOrders.reduce((sum, o) => sum + o.amount, 0);
-    const weekRevenue = weekOrders.reduce((sum, o) => sum + o.amount, 0);
+    // Calculate profit and expense
+    const calculateStats = (orders: any[]) => {
+      let revenue = 0;
+      let expense = 0;
+      let profit = 0;
+
+      orders.forEach((order) => {
+        revenue += order.amount;
+
+        // Find product cost
+        const product = products.find((p) => p.productType === order.productType);
+
+        if (product) {
+          const orderExpense = product.costPrice * order.quantity;
+          expense += orderExpense;
+          // Calculate profit: (unitPrice or amount/quantity) * quantity - expense
+          const unitPrice = order.unitPrice || order.amount / (order.quantity || 1);
+          profit += unitPrice * order.quantity - orderExpense;
+        }
+      });
+
+      return { revenue, expense, profit, orders: orders.length };
+    };
+
+    // Today stats
+    const todayStats = calculateStats(todayOrders);
+
+    // Week stats
+    const weekStats = calculateStats(weekOrders);
+
+    // Daily breakdown for chart (last 7 days)
+    const dailyStats = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(date.getDate() + 1);
+
+      const dayOrders = weekOrders.filter(
+        (o) => o.orderDate >= date && o.orderDate < nextDate
+      );
+
+      const dayStats = calculateStats(dayOrders);
+
+      dailyStats.push({
+        date: date.toLocaleDateString("th-TH", { day: "2-digit", month: "short" }),
+        revenue: dayStats.revenue,
+        expense: dayStats.expense,
+        profit: dayStats.profit,
+      });
+    }
 
     // Group by product type
     const todayByType: Record<string, { count: number; revenue: number }> = {};
@@ -81,14 +137,19 @@ export async function GET() {
 
     return NextResponse.json({
       today: {
-        revenue: todayRevenue,
-        orders: todayOrders.length,
+        revenue: todayStats.revenue,
+        orders: todayStats.orders,
+        profit: todayStats.profit,
+        expense: todayStats.expense,
         byType: todayByType,
       },
       week: {
-        revenue: weekRevenue,
-        orders: weekOrders.length,
+        revenue: weekStats.revenue,
+        orders: weekStats.orders,
+        profit: weekStats.profit,
+        expense: weekStats.expense,
         byType: weekByType,
+        daily: dailyStats,
       },
     });
   } catch (error: any) {
