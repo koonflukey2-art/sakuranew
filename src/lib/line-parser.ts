@@ -13,7 +13,7 @@ export interface ParsedOrder {
 
 export function parseLineMessage(message: string): ParsedOrder | null {
   console.log("═══════════════════════════════════════");
-  console.log("🔍 PARSING LINE MESSAGE (SMART PHONE DETECT)");
+  console.log("🔍 PARSING LINE MESSAGE (HYBRID ADDRESS/PHONE)");
   console.log("═══════════════════════════════════════");
 
   const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -44,22 +44,21 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     console.log(` ✅ Product Type: ${result.productType}`);
   }
 
-  // ═══ STEP 2: PRICE (ยอดเก็บ = ยอดรวมเลย) ═══
+  // ═══ STEP 2: PRICE ═══
   let extractedPrice = 0;
   if (lines.length >= 2) {
     const priceLine = lines[1];
-    // หาตัวเลขที่มี comma หรือทศนิยม
     const priceMatch = priceLine.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)/);
     
     if (priceMatch) {
       extractedPrice = parseFloat(priceMatch[1].replace(/,/g, ""));
-      console.log(` ✅ Found price (Total Amount): ${extractedPrice}`);
+      console.log(` ✅ Found price: ${extractedPrice}`);
     }
   }
 
   if (extractedPrice > 0) {
     result.unitPrice = extractedPrice; 
-    result.amount = extractedPrice;    // ยึดค่านี่เป็นยอดรวม
+    result.amount = extractedPrice;    
   }
 
   // ═══ STEP 3: CUSTOMER NAME ═══
@@ -68,65 +67,84 @@ export function parseLineMessage(message: string): ParsedOrder | null {
     console.log(` ✅ Customer: "${result.customerName}"`);
   }
 
-  // ═══ STEP 4: PHONE NUMBER (แก้ใหม่ รองรับขีด - และจุด .) ═══
-  let phoneLineIndex = -1;
-  for (let i = 3; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // 1. ลบทุกอย่างที่ไม่ใช่ตัวเลขออก (ลบ - . ช่องว่าง ก ข ค)
-    // "โทร.087-3179458" จะกลายเป็น "0873179458"
-    const cleanNumber = line.replace(/\D/g, ""); 
+  // ═══ STEP 4 & 6: PHONE & ADDRESS (Logic ใหม่) ═══
+  // เราจะ Loop ตั้งแต่บรรทัดที่ 4 เป็นต้นไป เพื่อหาเบอร์และเก็บที่อยู่ไปพร้อมกัน
+  const addressParts: string[] = [];
+  let phoneFound = false;
 
-    // 2. เช็คว่าเป็นเบอร์มือถือไหม (ขึ้นต้นด้วย 0 และยาว 10 หลัก)
-    // หรือเบอร์บ้าน (ขึ้นต้นด้วย 02 ยาว 9 หลัก) แต่เน้นมือถือเป็นหลัก
-    if (cleanNumber.length === 10 && cleanNumber.startsWith("0")) {
-      result.phone = cleanNumber; // เก็บเบอร์แบบไม่มีขีดลง DB
-      phoneLineIndex = i;
-      console.log(` ✅ Found phone (cleaned): ${result.phone} at line ${i + 1}`);
-      break;
+  // เริ่ม Loop จากบรรทัดที่ 3 (index 3) คือบรรทัดถัดจากชื่อลูกค้า
+  for (let i = 3; i < lines.length; i++) {
+    let line = lines[i];
+    
+    // ถ้าบรรทัดสุดท้ายเป็นตัวเลขล้วนๆ สั้นๆ น่าจะเป็น Quantity ให้ข้ามไปทำ Step 5
+    if (i === lines.length - 1 && /^\d+$/.test(line) && line.length < 5) {
+      continue; 
+    }
+
+    // ─── หาเบอร์โทรในบรรทัดนี้ ───
+    if (!result.phone) {
+      // ลบขีด ลบวงเล็บ ลบช่องว่าง ออกให้หมดเพื่อเช็ค
+      // แต่เราจะใช้ Regex จับ pattern 0xxxxxxxxx (10 หลัก)
+      // เทคนิค: แทนที่ - . วรรค ด้วยว่าง แล้วหา 0 ตามด้วยเลข 9 ตัว
+      const normalizedForCheck = line.replace(/[-.\s]/g, "");
+      const phoneMatch = normalizedForCheck.match(/(0\d{9})/);
+
+      if (phoneMatch) {
+        result.phone = phoneMatch[1];
+        console.log(` ✅ Found phone: ${result.phone} (extracted from line ${i + 1})`);
+        
+        // ⚠️ ไฮไลท์สำคัญ: ตัดเบอร์โทรออกจากบรรทัดนี้ เพื่อให้เหลือแต่ที่อยู่
+        // เราต้องลบเบอร์ที่เราเจอ (รวมถึง format ที่อาจจะมีขีด) ออกจาก text
+        // วิธีง่ายคือ ลบตัวเลข 10 หลักที่เจอ หรือลบส่วนท้าย
+        
+        // ลบเบอร์ที่เจอออกจาก line (แบบง่าย: ลบตัวเลขที่เกาะกลุ่มกัน 10 ตัวท้าย)
+        line = line.replace(result.phone, "").trim();
+        // ลบพวกคำว่า "โทร" หรือ "Tel" ที่อาจหลงเหลืออยู่
+        line = line.replace(/(?:โทร|Tel|เบอร์)\.?\s*$/i, "").trim();
+      }
+    }
+
+    // ถ้าเหลือข้อความ (ที่ไม่ใช่เบอร์โทร) ให้ถือเป็นที่อยู่
+    if (line.length > 0) {
+        // กรองเคสที่บรรทัดเหลือแค่ . หรือ -
+        if (line.replace(/[-.\s]/g, "").length > 0) {
+            addressParts.push(line);
+        }
     }
   }
 
+  result.address = addressParts.join(" ");
+  console.log(` ✅ Address: "${result.address}"`);
+
+
   // ═══ STEP 5: QUANTITY ═══
   const lastLine = lines[lines.length - 1];
-  // หาตัวเลขในบรรทัดสุดท้าย
   const qtyMatch = lastLine.match(/(\d+)/);
   
   if (qtyMatch) {
     const parsedQty = parseInt(qtyMatch[1]);
-    
-    // เช็คว่าเลขที่เจอ ไม่ใช่เบอร์โทรศัพท์ (เผื่อบรรทัดสุดท้ายเป็นเบอร์)
     const isPhoneNumber = result.phone && lastLine.replace(/\D/g, "").includes(result.phone);
     const isTooLong = parsedQty > 9999; 
 
     if (!isPhoneNumber && !isTooLong) {
       result.quantity = parsedQty;
       console.log(` ✅ Quantity found in "${lastLine}": ${result.quantity}`);
-      // ไม่มีการคูณ amount แล้ว ตามที่ขอ
     }
   }
-
-  // ═══ STEP 6: ADDRESS ═══
-  const addressLines: string[] = [];
-  const startIdx = 3; 
-  const endIdx = phoneLineIndex > 0 ? phoneLineIndex : lines.length - 1;
-
-  for (let i = startIdx; i < endIdx; i++) {
-    const line = lines[i];
-    // กรองบรรทัดที่ไม่ใช่ส่วนหนึ่งของที่อยู่จริงๆ
-    if (!line.match(/^\d+$/) && !line.match(/จำนวน/)) {
-        addressLines.push(line);
-    }
-  }
-  
-  result.address = addressLines.join(" ");
-  console.log(` ✅ Address combined: "${result.address}"`);
 
   // ═══ VALIDATION ═══
-  if (!result.productType || !result.customerName || !result.phone || !result.amount) {
-    console.log("\n❌ VALIDATION FAILED - Missing required fields");
-    return null;
+  if (!result.productType || !result.customerName || !result.amount) {
+    // ยอมให้ phone ว่างได้ ถ้าหาไม่เจอจริงๆ (บางทีลูกค้าไม่พิมพ์) แต่ Log เตือน
+    if(!result.phone) console.log("⚠️ Warning: No phone number found");
+    
+    if (!result.productType || !result.customerName || !result.amount) {
+        console.log("\n❌ VALIDATION FAILED - Missing required fields");
+        return null;
+    }
   }
+
+  // ถ้าไม่มีเบอร์ ให้ใส่ default กัน Error
+  if (!result.phone) result.phone = "UNKNOWN";
 
   return result as ParsedOrder;
 }
