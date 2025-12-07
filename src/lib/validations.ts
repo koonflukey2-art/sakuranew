@@ -28,12 +28,10 @@ export const productSchema = z.object({
     .number({ required_error: "กรุณากรอกราคาทุน" })
     .min(0, "ราคาทุนต้องไม่น้อยกว่า 0"),
   sellPrice: z.coerce
-    .number({ required_error: "กรุณากรอกราคาขาย" })
-    .min(0, "ราคาขายต้องไม่น้อยกว่า 0"),
+    .number()
+    .min(0, "ราคาขายต้องไม่น้อยกว่า 0")
+    .optional(),
   description: z.string().optional(),
-}).refine((data) => data.sellPrice >= data.costPrice, {
-  message: "ราคาขายต้องมากกว่าหรือเท่ากับราคาทุน",
-  path: ["sellPrice"],
 });
 
 export type ProductFormData = z.infer<typeof productSchema>;
