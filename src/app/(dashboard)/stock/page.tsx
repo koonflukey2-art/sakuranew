@@ -37,6 +37,7 @@ import {
   TrendingUp,
   Download,
   RefreshCw,
+  Wallet, // ✅ เพิ่มบรรทัดนี้
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
@@ -583,7 +584,7 @@ export default function StockPage() {
                 เพิ่มสินค้า
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent style={{ pointerEvents: "auto" }}>
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
                 <DialogDescription>
@@ -754,7 +755,7 @@ export default function StockPage() {
                     >
                       ยกเลิก
                     </Button>
-                    <Button type="submit" disabled={submitting}>
+                    <Button type="submit" disabled={submitting} style={{ pointerEvents: "auto" }}>
                       {submitting ? <ButtonLoading /> : "บันทึก"}
                     </Button>
                   </DialogFooter>
@@ -1099,8 +1100,7 @@ export default function StockPage() {
                           <TableCell>
                             {isLowStock ? (
                               <Badge variant="destructive">สต็อกต่ำ</Badge>
-                            ) : product.quantity <
-                              product.minStockLevel * 1.5 ? (
+                            ) : product.quantity <= product.minStockLevel * 1.5 ? (
                               <Badge
                                 variant="secondary"
                                 className="bg-orange-500/10 text-orange-500"
@@ -1147,7 +1147,7 @@ export default function StockPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent>
+        <DialogContent style={{ pointerEvents: "auto" }}>
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
             <DialogDescription>
@@ -1318,7 +1318,7 @@ export default function StockPage() {
                 >
                   ยกเลิก
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting} style={{ pointerEvents: "auto" }}>
                   {submitting ? <ButtonLoading /> : "บันทึก"}
                 </Button>
               </DialogFooter>
