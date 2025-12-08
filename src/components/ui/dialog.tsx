@@ -48,6 +48,7 @@ const DialogContent = React.forwardRef<
         "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className
       )}
+      style={{ pointerEvents: "auto" }}
       {...props}
     >
       {children}

@@ -19,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -599,6 +600,9 @@ export default function StockPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
+                <DialogDescription>
+                  เพิ่มสินค้าใหม่เข้าสู่ระบบ งบประมาณจะถูกหักอัตโนมัติ
+                </DialogDescription>
               </DialogHeader>
               <Form {...addForm}>
                 <form
@@ -1180,6 +1184,9 @@ export default function StockPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
+            <DialogDescription>
+              แก้ไขข้อมูลสินค้าในระบบ งบประมาณจะถูกปรับอัตโนมัติ
+            </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form
