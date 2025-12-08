@@ -36,11 +36,9 @@ export default function DashboardLayout({
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with mobile padding for menu button */}
         <header className="px-4 py-4 md:px-8 md:py-6 border-b border-white/5 bg-black/20 backdrop-blur">
           <div className="flex items-center justify-between gap-4">
-            {/* Add left padding on mobile to avoid overlap with menu button */}
-            <h2 className="text-2xl font-bold text-gradient-purple truncate pl-12 lg:pl-0">
+            <h2 className="text-2xl font-bold text-gradient-purple truncate">
               Sakura
             </h2>
             <div className="flex items-center gap-2">
