@@ -155,6 +155,9 @@ export default function StockPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Capital Budget state
+  const [budget, setBudget] = useState<any>(null);
+
   // ช่วงเวลาที่เลือกสำหรับ stats (default 7 วัน)
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
 
@@ -204,6 +207,7 @@ export default function StockPage() {
   // โหลดสินค้า (ครั้งเดียวตอน mount)
   useEffect(() => {
     fetchProducts();
+    fetchBudget();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -227,6 +231,18 @@ export default function StockPage() {
     }
   };
 
+  const fetchBudget = async () => {
+    try {
+      const res = await fetch("/api/capital-budget");
+      if (res.ok) {
+        const data = await res.json();
+        setBudget(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch capital budget:", error);
+    }
+  };
+
   const fetchOrderStats = async () => {
     try {
       const { from, to } = getDateRange(timeRange);
@@ -247,6 +263,8 @@ export default function StockPage() {
   const handleCreate = async (data: ProductFormData) => {
     try {
       setSubmitting(true);
+      const totalCost = data.quantity * data.costPrice;
+
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -256,13 +274,14 @@ export default function StockPage() {
       if (!response.ok) throw new Error("Failed to create product");
 
       toast({
-        title: "สำเร็จ",
-        description: "เพิ่มสินค้าเรียบร้อยแล้ว",
+        title: "✅ สำเร็จ",
+        description: `เพิ่มสินค้าเรียบร้อยแล้ว\nหักงบประมาณ ฿${totalCost.toLocaleString()}`,
       });
 
       addForm.reset();
       setOpenAddDialog(false);
       fetchProducts();
+      fetchBudget(); // Refresh budget
     } catch (error) {
       toast({
         variant: "destructive",
@@ -289,7 +308,7 @@ export default function StockPage() {
       if (!response.ok) throw new Error("Failed to update product");
 
       toast({
-        title: "สำเร็จ",
+        title: "✅ สำเร็จ",
         description: "แก้ไขสินค้าเรียบร้อยแล้ว",
       });
 
@@ -297,6 +316,7 @@ export default function StockPage() {
       setOpenEditDialog(false);
       setSelectedProduct(null);
       fetchProducts();
+      fetchBudget(); // Refresh budget
     } catch (error) {
       toast({
         variant: "destructive",
@@ -452,6 +472,17 @@ export default function StockPage() {
     (acc, p) => acc + p.costPrice * p.quantity,
     0
   );
+
+  // Budget preview helpers
+  const getProductCost = (quantity: number, costPrice: number) => {
+    return quantity * costPrice;
+  };
+
+  const getRemainingAfterPurchase = (quantity: number, costPrice: number) => {
+    if (!budget) return 0;
+    const cost = getProductCost(quantity, costPrice);
+    return budget.remaining - cost;
+  };
 
   if (loading) {
     return <ProductsPageSkeleton />;
@@ -709,6 +740,45 @@ export default function StockPage() {
                     )}
                   />
 
+                  {/* Budget Warning */}
+                  {budget && addForm.watch("quantity") > 0 && addForm.watch("costPrice") > 0 && (
+                    <div
+                      className={`p-4 rounded-lg border ${
+                        getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0
+                          ? "bg-blue-500/10 border-blue-500/30"
+                          : "bg-red-500/10 border-red-500/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0 ? "text-blue-400" : "text-red-400"}>
+                          {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0 ? "💰" : "⚠️"}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium mb-1">
+                            ต้นทุนสินค้า: ฿
+                            {getProductCost(addForm.watch("quantity"), addForm.watch("costPrice")).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            งบคงเหลือหลังเพิ่ม:{" "}
+                            <span
+                              className={
+                                getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 ? "text-red-400" : "text-green-400"
+                              }
+                            >
+                              {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 && "-"}฿
+                              {Math.abs(getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice"))).toLocaleString()}
+                            </span>
+                          </p>
+                          {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 && (
+                            <p className="text-xs text-red-400 mt-1">
+                              ⚠️ งบไม่พอ! จะแสดงค่าติดลบ
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Explanation about LINE pricing */}
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                     <div className="flex gap-3">
@@ -743,6 +813,74 @@ export default function StockPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Capital Budget Cards */}
+      {budget && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {/* Total Capital Card */}
+          <Card className="bg-gradient-to-br from-blue-900/30 to-blue-800/30 border border-blue-500/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-300">
+                ต้นทุนรวม
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-400">
+                ฿{totalValue.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                จากสินค้า {products.length} รายการ
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Budget Remaining Card */}
+          <Card className={`bg-gradient-to-br ${
+            budget.remaining < 0
+              ? "from-red-900/30 to-red-800/30 border-red-500/30"
+              : "from-green-900/30 to-green-800/30 border-green-500/30"
+          } border`}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-300">
+                งบประมาณคงเหลือ
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold ${
+                  budget.remaining < 0 ? "text-red-400" : "text-green-400"
+                }`}
+              >
+                {budget.remaining < 0 && "-"}฿
+                {Math.abs(budget.remaining).toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                จากงบทั้งหมด ฿{budget.amount.toLocaleString()}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Low Budget Warning */}
+          {budget.remaining <= budget.minThreshold && (
+            <Card className="bg-gradient-to-br from-red-900/30 to-red-800/30 border border-red-500/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-red-400 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  แจ้งเตือนงบประมาณ
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold text-red-400">
+                  {budget.remaining < 0 ? "งบติดลบ!" : "งบต่ำกว่าขั้นต่ำ!"}
+                </div>
+                <p className="text-xs text-red-300 mt-1">
+                  กรุณาเพิ่มงบที่หน้า Capital Budget
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Sales Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
