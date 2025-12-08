@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,6 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
-  X,
   Store,
   Wallet,
 } from "lucide-react";
@@ -100,7 +99,6 @@ function isCategory(item: MenuItem | MenuCategory): item is MenuCategory {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
     "จัดการสินค้า",
@@ -115,32 +113,22 @@ export function Sidebar() {
     );
   };
 
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
-
   return (
     <>
-      {/* Mobile Menu Button - Fixed top-left */}
+      {/* Mobile Menu Button */}
       <button
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onClick={() => setCollapsed(!collapsed)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 glass rounded-lg text-white hover-glow"
       >
-        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <Menu className="w-6 h-6" />
       </button>
 
       {/* Sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-0 h-screen bg-gradient-dark border-r border-white/10 transition-all duration-300 z-40",
-          // Desktop: collapsible width
-          collapsed ? "lg:w-20" : "lg:w-72",
-          // Desktop: always visible
-          "lg:relative lg:translate-x-0",
-          // Mobile: full width when open, hidden when closed
-          "w-72",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          collapsed ? "w-20" : "w-72",
+          "lg:relative"
         )}
       >
         {/* Header */}
@@ -252,11 +240,11 @@ export function Sidebar() {
         </nav>
       </aside>
 
-      {/* Mobile Overlay - Click to close */}
-      {isMobileMenuOpen && (
+      {/* Overlay for mobile */}
+      {!collapsed && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
-          onClick={() => setIsMobileMenuOpen(false)}
+          className="lg:hidden fixed inset-0 bg-black/80 z-30 backdrop-blur-sm"
+          onClick={() => setCollapsed(true)}
         />
       )}
     </>

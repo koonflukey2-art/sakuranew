@@ -58,10 +58,6 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // Calculate total cost for capital budget deduction
-    const totalCost = parseFloat(body.costPrice) * parseInt(body.quantity);
-
-    // Create product and update capital budget in a transaction
     const product = await prisma.product.create({
       data: {
         name: body.name,
@@ -75,39 +71,6 @@ export async function POST(request: Request) {
         organizationId: user.organizationId,
       },
     });
-
-    // Deduct from capital budget
-    const capitalBudget = await prisma.capitalBudget.findFirst({
-      where: { organizationId: user.organizationId },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (capitalBudget) {
-      // Update remaining budget
-      await prisma.capitalBudget.update({
-        where: { id: capitalBudget.id },
-        data: {
-          remaining: { decrement: totalCost },
-        },
-      });
-
-      // Create transaction record
-      await prisma.capitalBudgetTransaction.create({
-        data: {
-          budgetId: capitalBudget.id,
-          type: "DEDUCT",
-          amount: totalCost,
-          description: `เพิ่มสินค้า: ${body.name} (${body.quantity} ชิ้น)`,
-          productId: product.id,
-          createdBy: user.clerkId || "",
-          organizationId: user.organizationId,
-        },
-      });
-
-      console.log(`💰 Capital budget deducted: ฿${totalCost.toLocaleString()}`);
-      console.log(`   Product: ${body.name} (${body.quantity} units)`);
-      console.log(`   Remaining: ฿${(capitalBudget.remaining - totalCost).toLocaleString()}`);
-    }
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
@@ -143,21 +106,7 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
 
-    // Get old product data to calculate cost difference
-    const oldProduct = await prisma.product.findUnique({
-      where: { id: body.id },
-    });
-
-    if (!oldProduct) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
-    }
-
-    // Calculate cost difference
-    const oldTotalCost = oldProduct.quantity * oldProduct.costPrice;
-    const newTotalCost = parseInt(body.quantity) * parseFloat(body.costPrice);
-    const costDifference = newTotalCost - oldTotalCost;
-
-    // Update product
+    // (ถ้าจะกัน cross-org จริง ๆ ควร check ว่า product นี้ belong กับ org เดียวกันก่อน)
     const product = await prisma.product.update({
       where: { id: body.id },
       data: {
@@ -170,41 +119,6 @@ export async function PUT(request: Request) {
         sellPrice: body.sellPrice,
       },
     });
-
-    // Adjust capital budget if cost changed
-    if (costDifference !== 0) {
-      const capitalBudget = await prisma.capitalBudget.findFirst({
-        where: { organizationId: user.organizationId },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (capitalBudget) {
-        // Update remaining budget (deduct the difference)
-        await prisma.capitalBudget.update({
-          where: { id: capitalBudget.id },
-          data: {
-            remaining: { decrement: costDifference },
-          },
-        });
-
-        // Create transaction record
-        await prisma.capitalBudgetTransaction.create({
-          data: {
-            budgetId: capitalBudget.id,
-            type: costDifference > 0 ? "DEDUCT" : "ADD",
-            amount: Math.abs(costDifference),
-            description: `แก้ไขสินค้า: ${body.name} (${costDifference > 0 ? "เพิ่ม" : "ลด"}ต้นทุน ฿${Math.abs(costDifference).toLocaleString()})`,
-            productId: product.id,
-            createdBy: user.clerkId || "",
-            organizationId: user.organizationId,
-          },
-        });
-
-        console.log(`💰 Capital budget adjusted: ${costDifference > 0 ? "-" : "+"}฿${Math.abs(costDifference).toLocaleString()}`);
-        console.log(`   Product: ${body.name}`);
-        console.log(`   Old cost: ฿${oldTotalCost.toLocaleString()} → New cost: ฿${newTotalCost.toLocaleString()}`);
-      }
-    }
 
     return NextResponse.json(product);
   } catch (error) {
