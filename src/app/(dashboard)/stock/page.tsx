@@ -34,6 +34,7 @@ import {
   Loader2,
   Download,
   RefreshCw,
+  Wallet,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportToExcel } from "@/lib/export";
@@ -196,7 +197,7 @@ export default function StockPage() {
 
   const fetchBudget = async () => {
     try {
-      const res = await fetch("/api/capital-budget");
+      const res = await fetch("/api/budget"); // ใช้ /api/budget ตาม Phase 4
       if (res.ok) {
         const data = await res.json();
         setBudget(data);
@@ -221,10 +222,21 @@ export default function StockPage() {
     }
   };
 
+  // Create product
   const handleCreate = async (data: ProductFormData) => {
     try {
       setSubmitting(true);
       const totalCost = data.quantity * data.costPrice;
+
+      // เช็ค Budget ก่อนส่ง
+      if (budget && budget.remaining < totalCost) {
+        toast({
+          title: "⚠️ งบประมาณไม่เพียงพอ",
+          description: `ต้องการ ฿${totalCost.toLocaleString()} แต่งบเหลือ ฿${budget.remaining.toLocaleString()}`,
+          variant: "destructive",
+        });
+        return; // หยุดการทำงานถ้าเงินไม่พอ
+      }
 
       const response = await fetch("/api/products", {
         method: "POST",
@@ -242,7 +254,7 @@ export default function StockPage() {
       addForm.reset();
       setOpenAddDialog(false);
       fetchProducts();
-      fetchBudget();
+      fetchBudget(); 
     } catch (error) {
       toast({
         variant: "destructive",
@@ -267,16 +279,13 @@ export default function StockPage() {
 
       if (!response.ok) throw new Error("Failed to update product");
 
-      toast({
-        title: "✅ สำเร็จ",
-        description: "แก้ไขสินค้าเรียบร้อยแล้ว",
-      });
+      toast({ title: "✅ สำเร็จ", description: "แก้ไขสินค้าเรียบร้อยแล้ว" });
 
       editForm.reset();
       setOpenEditDialog(false);
       setSelectedProduct(null);
       fetchProducts();
-      fetchBudget();
+      fetchBudget(); 
     } catch (error) {
       toast({
         variant: "destructive",
@@ -299,10 +308,7 @@ export default function StockPage() {
 
       if (!response.ok) throw new Error("Failed to delete product");
 
-      toast({
-        title: "สำเร็จ",
-        description: "ลบสินค้าเรียบร้อยแล้ว",
-      });
+      toast({ title: "สำเร็จ", description: "ลบสินค้าเรียบร้อยแล้ว" });
 
       setOpenDeleteDialog(false);
       setSelectedProduct(null);
@@ -438,7 +444,7 @@ export default function StockPage() {
       {/* Header + Bulk actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2">
         <div>
-          <h1 className="text-4xl font-bold text-gradient-pink mb-1">
+          <h1 className="text-3xl md:text-4xl font-bold text-gradient-pink mb-1">
             Stock Management
           </h1>
           <p className="text-gray-400 text-sm md:text-base">
@@ -511,12 +517,14 @@ export default function StockPage() {
                 <Plus className="w-4 h-4 mr-2" /> เพิ่มสินค้า
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
               </DialogHeader>
               <Form {...addForm}>
                 <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
+                  
+                  {/* ชื่อสินค้า */}
                   <FormField
                     control={addForm.control}
                     name="name"
@@ -530,6 +538,8 @@ export default function StockPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* หมวดหมู่ */}
                   <FormField
                     control={addForm.control}
                     name="category"
@@ -555,8 +565,8 @@ export default function StockPage() {
                       </FormItem>
                     )}
                   />
-                  
-                  {/* แก้ไข: แปลง String เป็น Int (parseInt) */}
+
+                  {/* Product Type (แก้แล้ว: parseInt) */}
                   <FormField
                     control={addForm.control}
                     name="productType"
@@ -585,8 +595,8 @@ export default function StockPage() {
                     )}
                   />
 
+                  {/* Quantity & MinStock (แก้แล้ว: parseFloat) */}
                   <div className="grid grid-cols-2 gap-4">
-                    {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
                     <FormField
                       control={addForm.control}
                       name="quantity"
@@ -605,7 +615,6 @@ export default function StockPage() {
                         </FormItem>
                       )}
                     />
-                    {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
                     <FormField
                       control={addForm.control}
                       name="minStockLevel"
@@ -625,7 +634,8 @@ export default function StockPage() {
                       )}
                     />
                   </div>
-                  {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
+
+                  {/* Cost Price (แก้แล้ว: parseFloat) */}
                   <FormField
                     control={addForm.control}
                     name="costPrice"
@@ -668,7 +678,7 @@ export default function StockPage() {
                             </span>
                           </p>
                           {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 && (
-                            <p className="text-xs text-red-400 mt-1">⚠️ งบไม่พอ! จะแสดงค่าติดลบ</p>
+                            <p className="text-xs text-red-400 mt-1">⚠️ งบไม่พอ! ระบบจะแจ้งเตือน</p>
                           )}
                         </div>
                       </div>
@@ -925,7 +935,7 @@ export default function StockPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
           </DialogHeader>
@@ -970,7 +980,6 @@ export default function StockPage() {
                 )}
               />
               
-              {/* แก้ไข Edit Form: แปลง String เป็น Int */}
               <FormField
                 control={editForm.control}
                 name="productType"
@@ -999,7 +1008,6 @@ export default function StockPage() {
               />
               
               <div className="grid grid-cols-2 gap-4">
-                {/* แก้ไข Edit Form: แปลง String เป็น Float */}
                 <FormField
                   control={editForm.control}
                   name="quantity"
@@ -1017,7 +1025,6 @@ export default function StockPage() {
                     </FormItem>
                   )}
                 />
-                {/* แก้ไข Edit Form: แปลง String เป็น Float */}
                 <FormField
                   control={editForm.control}
                   name="minStockLevel"
@@ -1036,7 +1043,6 @@ export default function StockPage() {
                   )}
                 />
               </div>
-              {/* แก้ไข Edit Form: แปลง String เป็น Float */}
               <FormField
                 control={editForm.control}
                 name="costPrice"
