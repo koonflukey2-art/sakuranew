@@ -31,7 +31,14 @@ export const productSchema = z.object({
     .number({ required_error: "กรุณากรอกราคาขาย" })
     .min(0, "ราคาขายต้องไม่น้อยกว่า 0"),
   description: z.string().optional(),
-}).refine((data) => data.sellPrice >= data.costPrice, {
+}).refine((data) => {
+  // Allow sellPrice to be 0 since it will be updated from LINE automatically
+  // Only validate if sellPrice is greater than 0
+  if (data.sellPrice > 0) {
+    return data.sellPrice >= data.costPrice;
+  }
+  return true;
+}, {
   message: "ราคาขายต้องมากกว่าหรือเท่ากับราคาทุน",
   path: ["sellPrice"],
 });
