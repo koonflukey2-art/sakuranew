@@ -19,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -171,6 +172,9 @@ export default function StockPage() {
     },
   });
 
+  // Budget state
+  const [budget, setBudget] = useState<any>(null);
+
   // Add Product Form
   const addForm = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -204,6 +208,7 @@ export default function StockPage() {
   // โหลดสินค้า (ครั้งเดียวตอน mount)
   useEffect(() => {
     fetchProducts();
+    fetchBudget();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -212,6 +217,18 @@ export default function StockPage() {
     fetchOrderStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
+
+  const fetchBudget = async () => {
+    try {
+      const res = await fetch("/api/capital-budget");
+      if (res.ok) {
+        const data = await res.json();
+        setBudget(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch budget:", error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -257,12 +274,13 @@ export default function StockPage() {
 
       toast({
         title: "สำเร็จ",
-        description: "เพิ่มสินค้าเรียบร้อยแล้ว",
+        description: "เพิ่มสินค้าเรียบร้อยแล้ว งบประมาณถูกหักแล้ว",
       });
 
       addForm.reset();
       setOpenAddDialog(false);
       fetchProducts();
+      fetchBudget(); // Refresh budget after adding product
     } catch (error) {
       toast({
         variant: "destructive",
@@ -568,6 +586,9 @@ export default function StockPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
+                <DialogDescription>
+                  เพิ่มสินค้าใหม่เข้าสู่ระบบ งบประมาณจะถูกหักอัตโนมัติ
+                </DialogDescription>
               </DialogHeader>
               <Form {...addForm}>
                 <form
@@ -743,6 +764,93 @@ export default function StockPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Budget Cards */}
+      {budget && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border border-green-500/40 hover:border-green-500/60 transition-colors">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-green-300 flex items-center gap-2">
+                <Wallet className="w-4 h-4" />
+                งบประมาณทั้งหมด
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-400">
+                ฿{budget.amount?.toLocaleString() || "0"}
+              </div>
+              <p className="text-xs text-green-200 mt-1">งบที่ได้รับทั้งหมด</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`bg-gradient-to-br border transition-colors ${
+              budget.remaining <= 0
+                ? "from-red-900/30 to-red-950/30 border-red-500/40 hover:border-red-500/60"
+                : budget.remaining <= budget.minThreshold
+                ? "from-orange-900/30 to-orange-950/30 border-orange-500/40 hover:border-orange-500/60"
+                : "from-blue-900/30 to-blue-950/30 border-blue-500/40 hover:border-blue-500/60"
+            }`}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle
+                className={`text-sm font-medium flex items-center gap-2 ${
+                  budget.remaining <= 0
+                    ? "text-red-300"
+                    : budget.remaining <= budget.minThreshold
+                    ? "text-orange-300"
+                    : "text-blue-300"
+                }`}
+              >
+                <AlertTriangle className="w-4 h-4" />
+                งบคงเหลือ
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-3xl font-bold ${
+                  budget.remaining <= 0
+                    ? "text-red-400"
+                    : budget.remaining <= budget.minThreshold
+                    ? "text-orange-400"
+                    : "text-blue-400"
+                }`}
+              >
+                ฿{budget.remaining?.toLocaleString() || "0"}
+              </div>
+              <p
+                className={`text-xs mt-1 ${
+                  budget.remaining <= 0
+                    ? "text-red-200"
+                    : budget.remaining <= budget.minThreshold
+                    ? "text-orange-200"
+                    : "text-blue-200"
+                }`}
+              >
+                {budget.remaining <= 0
+                  ? "⚠️ งบหมดแล้ว! (สามารถติดลบได้)"
+                  : budget.remaining <= budget.minThreshold
+                  ? "⚠️ งบต่ำกว่าขั้นต่ำ!"
+                  : `${budget.amount ? ((budget.remaining / budget.amount) * 100).toFixed(1) : "0"}% ของงบทั้งหมด`}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-900/30 to-purple-950/30 border border-purple-500/40 hover:border-purple-500/60 transition-colors">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-purple-300">ขั้นต่ำที่ตั้งไว้</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-400">
+                ฿{budget.minThreshold?.toLocaleString() || "5,000"}
+              </div>
+              <p className="text-xs text-purple-200 mt-1">
+                เตือนเมื่องบต่ำกว่านี้
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Sales Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1042,6 +1150,9 @@ export default function StockPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
+            <DialogDescription>
+              แก้ไขข้อมูลสินค้าในระบบ
+            </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form
