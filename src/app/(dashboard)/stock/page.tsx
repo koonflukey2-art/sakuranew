@@ -24,7 +24,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   Plus,
   Search,
@@ -33,7 +32,6 @@ import {
   Pencil,
   Trash2,
   Loader2,
-  TrendingUp,
   Download,
   RefreshCw,
 } from "lucide-react";
@@ -76,7 +74,7 @@ interface Product {
   quantity: number;
   minStockLevel: number;
   costPrice: number;
-  sellPrice: number; // Keep for compatibility, but won't show in forms
+  sellPrice: number;
 }
 
 // key ของช่วงเวลา
@@ -84,55 +82,24 @@ type TimeRangeKey = "3d" | "7d" | "1m" | "3m" | "1y";
 
 const getRangeLabel = (range: TimeRangeKey) => {
   switch (range) {
-    case "3d":
-      return "3 วันล่าสุด";
-    case "7d":
-      return "7 วันล่าสุด";
-    case "1m":
-      return "1 เดือนล่าสุด";
-    case "3m":
-      return "3 เดือนล่าสุด";
-    case "1y":
-      return "1 ปีล่าสุด";
+    case "3d": return "3 วันล่าสุด";
+    case "7d": return "7 วันล่าสุด";
+    case "1m": return "1 เดือนล่าสุด";
+    case "3m": return "3 เดือนล่าสุด";
+    case "1y": return "1 ปีล่าสุด";
   }
 };
 
-const getRangeShortLabel = (range: TimeRangeKey) => {
-  switch (range) {
-    case "3d":
-      return "3 วัน";
-    case "7d":
-      return "7 วัน";
-    case "1m":
-      return "1 เดือน";
-    case "3m":
-      return "3 เดือน";
-    case "1y":
-      return "1 ปี";
-  }
-};
-
-// แปลง key → from/to เป็น ISO string
 const getDateRange = (range: TimeRangeKey) => {
   const now = new Date();
   const from = new Date(now);
 
   switch (range) {
-    case "3d":
-      from.setDate(now.getDate() - 3);
-      break;
-    case "7d":
-      from.setDate(now.getDate() - 7);
-      break;
-    case "1m":
-      from.setMonth(now.getMonth() - 1);
-      break;
-    case "3m":
-      from.setMonth(now.getMonth() - 3);
-      break;
-    case "1y":
-      from.setFullYear(now.getFullYear() - 1);
-      break;
+    case "3d": from.setDate(now.getDate() - 3); break;
+    case "7d": from.setDate(now.getDate() - 7); break;
+    case "1m": from.setMonth(now.getMonth() - 1); break;
+    case "3m": from.setMonth(now.getMonth() - 3); break;
+    case "1y": from.setFullYear(now.getFullYear() - 1); break;
   }
 
   return {
@@ -184,7 +151,7 @@ export default function StockPage() {
       quantity: 0,
       minStockLevel: 10,
       costPrice: 0,
-      sellPrice: 0, // Auto-calculated from LINE, hidden from form
+      sellPrice: 0,
       description: "",
     },
   });
@@ -204,17 +171,13 @@ export default function StockPage() {
     },
   });
 
-  // โหลดสินค้า (ครั้งเดียวตอน mount)
   useEffect(() => {
     fetchProducts();
     fetchBudget();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // โหลดสถิติออเดอร์ตามช่วงเวลา
   useEffect(() => {
     fetchOrderStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
   const fetchProducts = async () => {
@@ -251,7 +214,6 @@ export default function StockPage() {
       const res = await fetch(`/api/orders/stats?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        // backend ควรคืน structure เดิม: { today, week } แต่ week = ตามช่วงเวลาที่เรา query
         setOrderStats(data);
       }
     } catch (error) {
@@ -259,7 +221,6 @@ export default function StockPage() {
     }
   };
 
-  // Create product
   const handleCreate = async (data: ProductFormData) => {
     try {
       setSubmitting(true);
@@ -281,7 +242,7 @@ export default function StockPage() {
       addForm.reset();
       setOpenAddDialog(false);
       fetchProducts();
-      fetchBudget(); // Refresh budget
+      fetchBudget();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -293,7 +254,6 @@ export default function StockPage() {
     }
   };
 
-  // Update product
   const handleUpdate = async (data: ProductFormData) => {
     if (!selectedProduct) return;
 
@@ -316,7 +276,7 @@ export default function StockPage() {
       setOpenEditDialog(false);
       setSelectedProduct(null);
       fetchProducts();
-      fetchBudget(); // Refresh budget
+      fetchBudget();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -328,7 +288,6 @@ export default function StockPage() {
     }
   };
 
-  // Delete product
   const handleDelete = async () => {
     if (!selectedProduct) return;
 
@@ -359,7 +318,6 @@ export default function StockPage() {
     }
   };
 
-  // Bulk Actions
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredProducts.length) {
       setSelectedIds([]);
@@ -435,13 +393,7 @@ export default function StockPage() {
     setSelectedProduct(product);
     editForm.reset({
       name: product.name,
-      category: product.category as
-        | "Skincare"
-        | "Makeup"
-        | "Haircare"
-        | "Supplement"
-        | "Fashion"
-        | "Other",
+      category: product.category as any,
       productType: product.productType ?? undefined,
       quantity: product.quantity,
       minStockLevel: product.minStockLevel,
@@ -457,23 +409,17 @@ export default function StockPage() {
     setOpenDeleteDialog(true);
   };
 
-  // Filter products
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Calculate stats
-  const lowStockCount = products.filter(
-    (p) => p.quantity < p.minStockLevel
-  ).length;
   const totalValue = products.reduce(
     (acc, p) => acc + p.costPrice * p.quantity,
     0
   );
 
-  // Budget preview helpers
   const getProductCost = (quantity: number, costPrice: number) => {
     return quantity * costPrice;
   };
@@ -484,13 +430,8 @@ export default function StockPage() {
     return budget.remaining - cost;
   };
 
-  if (loading) {
-    return <ProductsPageSkeleton />;
-  }
-
-  if (error && !loading) {
-    return <ErrorState message={error} onRetry={fetchProducts} />;
-  }
+  if (loading) return <ProductsPageSkeleton />;
+  if (error && !loading) return <ErrorState message={error} onRetry={fetchProducts} />;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -501,12 +442,10 @@ export default function StockPage() {
             Stock Management
           </h1>
           <p className="text-gray-400 text-sm md:text-base">
-            จัดการสินค้าและสต็อก
-            {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
+            จัดการสินค้าและสต็อก {selectedIds.length > 0 && ` • เลือกแล้ว ${selectedIds.length} รายการ`}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {/* ตัวเลือกช่วงเวลา */}
           <Select
             value={timeRange}
             onValueChange={(value) => setTimeRange(value as TimeRangeKey)}
@@ -525,39 +464,19 @@ export default function StockPage() {
 
           <Button
             variant="outline"
-            onClick={() => {
-              fetchProducts();
-              fetchOrderStats();
-            }}
+            onClick={() => { fetchProducts(); fetchOrderStats(); }}
             className="gap-2 bg-white/5 border-white/20 text-white hover:bg-white/10"
           >
-            <RefreshCw className="w-4 h-4" />
-            รีเฟรช
+            <RefreshCw className="w-4 h-4" /> รีเฟรช
           </Button>
 
           {selectedIds.length > 0 && (
             <>
-              <Button
-                variant="outline"
-                onClick={handleBulkExport}
-                disabled={bulkDeleting}
-                className="w-full sm:w-auto"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export ({selectedIds.length})
+              <Button variant="outline" onClick={handleBulkExport} disabled={bulkDeleting} className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" /> Export ({selectedIds.length})
               </Button>
-              <Button
-                variant="destructive"
-                onClick={handleBulkDelete}
-                disabled={bulkDeleting}
-                className="w-full sm:w-auto"
-              >
-                {bulkDeleting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4 mr-2" />
-                )}
-                ลบ ({selectedIds.length})
+              <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting} className="w-full sm:w-auto">
+                {bulkDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />} ลบ ({selectedIds.length})
               </Button>
             </>
           )}
@@ -588,12 +507,8 @@ export default function StockPage() {
 
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
-              <Button
-                onClick={() => addForm.reset()}
-                className="w-full sm:w-auto bg-gradient-purple hover:opacity-90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                เพิ่มสินค้า
+              <Button onClick={() => addForm.reset()} className="w-full sm:w-auto bg-gradient-purple hover:opacity-90 text-white">
+                <Plus className="w-4 h-4 mr-2" /> เพิ่มสินค้า
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -601,10 +516,7 @@ export default function StockPage() {
                 <DialogTitle>เพิ่มสินค้าใหม่</DialogTitle>
               </DialogHeader>
               <Form {...addForm}>
-                <form
-                  onSubmit={addForm.handleSubmit(handleCreate)}
-                  className="space-y-4 py-4"
-                >
+                <form onSubmit={addForm.handleSubmit(handleCreate)} className="space-y-4 py-4">
                   <FormField
                     control={addForm.control}
                     name="name"
@@ -624,10 +536,7 @@ export default function StockPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>หมวดหมู่</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="เลือกหมวดหมู่" />
@@ -637,9 +546,7 @@ export default function StockPage() {
                             <SelectItem value="Skincare">Skincare</SelectItem>
                             <SelectItem value="Makeup">Makeup</SelectItem>
                             <SelectItem value="Haircare">Haircare</SelectItem>
-                            <SelectItem value="Supplement">
-                              Supplement
-                            </SelectItem>
+                            <SelectItem value="Supplement">Supplement</SelectItem>
                             <SelectItem value="Fashion">Fashion</SelectItem>
                             <SelectItem value="Other">Other</SelectItem>
                           </SelectContent>
@@ -648,14 +555,16 @@ export default function StockPage() {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* แก้ไข: แปลง String เป็น Int (parseInt) */}
                   <FormField
                     control={addForm.control}
                     name="productType"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
+                        <Select 
+                          onValueChange={(val) => field.onChange(parseInt(val))} 
                           defaultValue={field.value?.toString() || ""}
                         >
                           <FormControl>
@@ -664,41 +573,20 @@ export default function StockPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="bg-gray-800 border-gray-700">
-                            <SelectItem
-                              value="1"
-                              className="text-white hover:bg-gray-700"
-                            >
-                              สินค้าหมายเลข 1
-                            </SelectItem>
-                            <SelectItem
-                              value="2"
-                              className="text-white hover:bg-gray-700"
-                            >
-                              สินค้าหมายเลข 2
-                            </SelectItem>
-                            <SelectItem
-                              value="3"
-                              className="text-white hover:bg-gray-700"
-                            >
-                              สินค้าหมายเลข 3
-                            </SelectItem>
-                            <SelectItem
-                              value="4"
-                              className="text-white hover:bg-gray-700"
-                            >
-                              สินค้าหมายเลข 4
-                            </SelectItem>
+                            <SelectItem value="1" className="text-white hover:bg-gray-700">สินค้าหมายเลข 1</SelectItem>
+                            <SelectItem value="2" className="text-white hover:bg-gray-700">สินค้าหมายเลข 2</SelectItem>
+                            <SelectItem value="3" className="text-white hover:bg-gray-700">สินค้าหมายเลข 3</SelectItem>
+                            <SelectItem value="4" className="text-white hover:bg-gray-700">สินค้าหมายเลข 4</SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-gray-400 mt-1">
-                          เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4
-                          สต๊อกจะลดอัตโนมัติ
-                        </p>
+                        <p className="text-xs text-gray-400 mt-1">เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4 สต๊อกจะลดอัตโนมัติ</p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <div className="grid grid-cols-2 gap-4">
+                    {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
                     <FormField
                       control={addForm.control}
                       name="quantity"
@@ -706,12 +594,18 @@ export default function StockPage() {
                         <FormItem>
                           <FormLabel>จำนวน</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="0" {...field} />
+                            <Input 
+                              type="number" 
+                              placeholder="0" 
+                              {...field} 
+                              onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
                     <FormField
                       control={addForm.control}
                       name="minStockLevel"
@@ -719,13 +613,19 @@ export default function StockPage() {
                         <FormItem>
                           <FormLabel>สต็อกขั้นต่ำ</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="10" {...field} />
+                            <Input 
+                              type="number" 
+                              placeholder="10" 
+                              {...field} 
+                              onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+                  {/* แก้ไข: แปลง String เป็น Float (parseFloat) */}
                   <FormField
                     control={addForm.control}
                     name="costPrice"
@@ -733,7 +633,12 @@ export default function StockPage() {
                       <FormItem>
                         <FormLabel>ราคาทุน/ชิ้น (฿)</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            {...field} 
+                            onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -742,51 +647,39 @@ export default function StockPage() {
 
                   {/* Budget Warning */}
                   {budget && addForm.watch("quantity") > 0 && addForm.watch("costPrice") > 0 && (
-                    <div
-                      className={`p-4 rounded-lg border ${
-                        getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0
-                          ? "bg-blue-500/10 border-blue-500/30"
-                          : "bg-red-500/10 border-red-500/30"
-                      }`}
-                    >
+                    <div className={`p-4 rounded-lg border ${
+                      getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0
+                        ? "bg-blue-500/10 border-blue-500/30"
+                        : "bg-red-500/10 border-red-500/30"
+                    }`}>
                       <div className="flex items-start gap-3">
                         <div className={getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0 ? "text-blue-400" : "text-red-400"}>
                           {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) >= 0 ? "💰" : "⚠️"}
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium mb-1">
-                            ต้นทุนสินค้า: ฿
-                            {getProductCost(addForm.watch("quantity"), addForm.watch("costPrice")).toLocaleString()}
+                            ต้นทุนสินค้า: ฿{getProductCost(addForm.watch("quantity"), addForm.watch("costPrice")).toLocaleString()}
                           </p>
                           <p className="text-xs text-gray-400">
                             งบคงเหลือหลังเพิ่ม:{" "}
-                            <span
-                              className={
-                                getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 ? "text-red-400" : "text-green-400"
-                              }
-                            >
+                            <span className={getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 ? "text-red-400" : "text-green-400"}>
                               {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 && "-"}฿
                               {Math.abs(getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice"))).toLocaleString()}
                             </span>
                           </p>
                           {getRemainingAfterPurchase(addForm.watch("quantity"), addForm.watch("costPrice")) < 0 && (
-                            <p className="text-xs text-red-400 mt-1">
-                              ⚠️ งบไม่พอ! จะแสดงค่าติดลบ
-                            </p>
+                            <p className="text-xs text-red-400 mt-1">⚠️ งบไม่พอ! จะแสดงค่าติดลบ</p>
                           )}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Explanation about LINE pricing */}
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                     <div className="flex gap-3">
                       <div className="text-blue-400 text-2xl">💡</div>
                       <div>
-                        <p className="text-sm text-blue-300 font-medium mb-1">
-                          หมายเหตุเกี่ยวกับราคาสินค้า
-                        </p>
+                        <p className="text-sm text-blue-300 font-medium mb-1">หมายเหตุเกี่ยวกับราคาสินค้า</p>
                         <ul className="text-sm text-blue-200 space-y-1">
                           <li>• ราคาสินค้าจะรับยอดมาจากไลน์โดยอัตโนมัติ</li>
                           <li>• ราคาขายเป็นราคาต่อ 1 ชิ้น</li>
@@ -795,17 +688,10 @@ export default function StockPage() {
                       </div>
                     </div>
                   </div>
+
                   <DialogFooter>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => setOpenAddDialog(false)}
-                    >
-                      ยกเลิก
-                    </Button>
-                    <Button type="submit" disabled={submitting}>
-                      {submitting ? <ButtonLoading /> : "บันทึก"}
-                    </Button>
+                    <Button variant="outline" type="button" onClick={() => setOpenAddDialog(false)}>ยกเลิก</Button>
+                    <Button type="submit" disabled={submitting}>{submitting ? <ButtonLoading /> : "บันทึก"}</Button>
                   </DialogFooter>
                 </form>
               </Form>
@@ -817,65 +703,38 @@ export default function StockPage() {
       {/* Capital Budget Cards */}
       {budget && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Total Capital Card */}
           <Card className="bg-gradient-to-br from-blue-900/30 to-blue-800/30 border border-blue-500/30">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                ต้นทุนรวม
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-300">ต้นทุนรวม</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-400">
-                ฿{totalValue.toLocaleString()}
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                จากสินค้า {products.length} รายการ
-              </p>
+              <div className="text-2xl font-bold text-blue-400">฿{totalValue.toLocaleString()}</div>
+              <p className="text-xs text-gray-400 mt-1">จากสินค้า {products.length} รายการ</p>
             </CardContent>
           </Card>
 
-          {/* Budget Remaining Card */}
-          <Card className={`bg-gradient-to-br ${
-            budget.remaining < 0
-              ? "from-red-900/30 to-red-800/30 border-red-500/30"
-              : "from-green-900/30 to-green-800/30 border-green-500/30"
-          } border`}>
+          <Card className={`bg-gradient-to-br ${budget.remaining < 0 ? "from-red-900/30 to-red-800/30 border-red-500/30" : "from-green-900/30 to-green-800/30 border-green-500/30"} border`}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                งบประมาณคงเหลือ
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-300">งบประมาณคงเหลือ</CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className={`text-2xl font-bold ${
-                  budget.remaining < 0 ? "text-red-400" : "text-green-400"
-                }`}
-              >
-                {budget.remaining < 0 && "-"}฿
-                {Math.abs(budget.remaining).toLocaleString()}
+              <div className={`text-2xl font-bold ${budget.remaining < 0 ? "text-red-400" : "text-green-400"}`}>
+                {budget.remaining < 0 && "-"}฿{Math.abs(budget.remaining).toLocaleString()}
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                จากงบทั้งหมด ฿{budget.amount.toLocaleString()}
-              </p>
+              <p className="text-xs text-gray-400 mt-1">จากงบทั้งหมด ฿{budget.amount.toLocaleString()}</p>
             </CardContent>
           </Card>
 
-          {/* Low Budget Warning */}
           {budget.remaining <= budget.minThreshold && (
             <Card className="bg-gradient-to-br from-red-900/30 to-red-800/30 border border-red-500/30">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-red-400 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  แจ้งเตือนงบประมาณ
+                  <AlertTriangle className="w-4 h-4" /> แจ้งเตือนงบประมาณ
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-lg font-bold text-red-400">
-                  {budget.remaining < 0 ? "งบติดลบ!" : "งบต่ำกว่าขั้นต่ำ!"}
-                </div>
-                <p className="text-xs text-red-300 mt-1">
-                  กรุณาเพิ่มงบที่หน้า Capital Budget
-                </p>
+                <div className="text-lg font-bold text-red-400">{budget.remaining < 0 ? "งบติดลบ!" : "งบต่ำกว่าขั้นต่ำ!"}</div>
+                <p className="text-xs text-red-300 mt-1">กรุณาเพิ่มงบที่หน้า Capital Budget</p>
               </CardContent>
             </Card>
           )}
@@ -886,33 +745,21 @@ export default function StockPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-300">
-              รายได้วันนี้
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-300">รายได้วันนี้</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-400">
-              ฿{orderStats.today.revenue.toLocaleString()}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {orderStats.today.orders} ออเดอร์
-            </p>
+            <div className="text-2xl font-bold text-green-400">฿{orderStats.today.revenue.toLocaleString()}</div>
+            <p className="text-xs text-gray-400 mt-1">{orderStats.today.orders} ออเดอร์</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-300">
-              รายได้ {getRangeLabel(timeRange)}
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-300">รายได้ {getRangeLabel(timeRange)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-400">
-              ฿{orderStats.week.revenue.toLocaleString()}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {orderStats.week.orders} ออเดอร์
-            </p>
+            <div className="text-2xl font-bold text-blue-400">฿{orderStats.week.revenue.toLocaleString()}</div>
+            <p className="text-xs text-gray-400 mt-1">{orderStats.week.orders} ออเดอร์</p>
           </CardContent>
         </Card>
       </div>
@@ -920,260 +767,161 @@ export default function StockPage() {
       {/* Sales by Product Type - TODAY */}
       {Object.keys(orderStats.today.byType).length === 0 ? (
         <Card className="mb-6 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700">
-          <CardContent className="text-gray-400">
-            ยังไม่มีข้อมูลยอดขายรายประเภทวันนี้
-          </CardContent>
+          <CardContent className="text-gray-400 p-6">ยังไม่มีข้อมูลยอดขายรายประเภทวันนี้</CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {Object.entries(orderStats.today.byType).map(([type, data]) => (
-            <Card
-              key={type}
-              className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700"
-            >
+            <Card key={type} className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-300">
-                  {`สินค้าหมายเลข ${type}`} (วันนี้)
-                </CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-300">{`สินค้าหมายเลข ${type}`} (วันนี้)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-xl font-bold text-green-400">
-                  ฿{data.revenue.toLocaleString()}
-                </div>
-                <p className="text-sm text-gray-400 mt-1">
-                  ขายไป{" "}
-                  <span className="text-white font-semibold">
-                    {data.count}
-                  </span>{" "}
-                  ชิ้น
-                </p>
+                <div className="text-xl font-bold text-green-400">฿{data.revenue.toLocaleString()}</div>
+                <p className="text-sm text-gray-400 mt-1">ขายไป <span className="text-white font-semibold">{data.count}</span> ชิ้น</p>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Product Type Performance (ช่วงเวลาที่เลือก) */}
+      {/* Product Type Performance (Week/Range) */}
       {Object.keys(orderStats.week.byType).length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {Object.entries(orderStats.week.byType).map(([type, data]) => (
-            <Card
-              key={type}
-              className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 hover:border-purple-500 transition"
-            >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-white flex items-center gap-2">
-                  <Package className="w-5 h-5 text-purple-400" />
-                  {`สินค้าหมายเลข ${type}`}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-300">
-                      ชนิด ({getRangeShortLabel(timeRange)})
-                    </span>
-                    <span className="text-lg font-bold text-white">
-                      {data.count} ชิ้น
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-300">รายได้</span>
-                    <span className="text-lg font-bold text-green-400">
-                      ฿{data.revenue.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+         <div className="mb-6">
+            <h3 className="text-lg font-medium text-white mb-3">ยอดขายรายประเภท ({getRangeLabel(timeRange)})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Object.entries(orderStats.week.byType).map(([type, data]) => (
+                <Card key={type} className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border-gray-700 border-dashed">
+                  <CardContent className="pt-4">
+                     <p className="text-sm text-gray-400 mb-1">{`สินค้าหมายเลข ${type}`}</p>
+                     <div className="text-lg font-bold text-blue-400">฿{data.revenue.toLocaleString()}</div>
+                     <p className="text-xs text-gray-500">{data.count} ชิ้น</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              สินค้าทั้งหมด
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{products.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              สินค้าใกล้หมด
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">
-              {lowStockCount}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              มูลค่าสินค้าคงคลัง
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ฿{totalValue.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Main Search & Filter */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="ค้นหาสินค้า..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+          />
+        </div>
       </div>
 
-      {/* Products Table */}
-      {products.length === 0 ? (
-        <EmptyProducts onAdd={() => setOpenAddDialog(true)} />
-      ) : (
-        <Card>
-          <CardHeader>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="ค้นหาสินค้า..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto -mx-2 sm:mx-0">
-              <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={
-                          filteredProducts.length > 0 &&
-                          selectedIds.length === filteredProducts.length
-                        }
-                        onCheckedChange={toggleSelectAll}
-                      />
-                    </TableHead>
-                    <TableHead className="text-slate-300">ชื่อสินค้า</TableHead>
-                    <TableHead className="text-slate-300">หมวดหมู่</TableHead>
-                    <TableHead className="text-right text-slate-300">
-                      จำนวน
-                    </TableHead>
-                    <TableHead className="text-right text-slate-300">
-                      ราคาทุน/ชิ้น
-                    </TableHead>
-                    <TableHead className="text-right text-slate-300">
-                      ต้นทุนรวม
-                    </TableHead>
-                    <TableHead className="text-slate-300">สถานะ</TableHead>
-                    <TableHead className="text-right text-slate-300">
-                      จัดการ
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="text-center text-muted-foreground"
+      {/* Product Table */}
+      <div className="rounded-md border border-white/10 bg-black/20 backdrop-blur-sm overflow-hidden">
+        {filteredProducts.length === 0 ? (
+          <EmptyProducts onAdd={() => setOpenAddDialog(true)} />
+        ) : (
+          <Table>
+            <TableHeader className="bg-white/5">
+              <TableRow className="border-white/10 hover:bg-white/5">
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={
+                      filteredProducts.length > 0 &&
+                      selectedIds.length === filteredProducts.length
+                    }
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="text-gray-300">สินค้า</TableHead>
+                <TableHead className="text-gray-300">หมวดหมู่</TableHead>
+                <TableHead className="text-gray-300 text-center">ประเภท (LINE)</TableHead>
+                <TableHead className="text-gray-300 text-right">จำนวน</TableHead>
+                <TableHead className="text-gray-300 text-right">ราคาทุน</TableHead>
+                <TableHead className="text-gray-300 text-right">ราคาขาย</TableHead>
+                <TableHead className="text-gray-300 text-right">สถานะ</TableHead>
+                <TableHead className="text-right text-gray-300">จัดการ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow
+                  key={product.id}
+                  className="border-white/5 hover:bg-white/5 transition-colors"
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.includes(product.id)}
+                      onCheckedChange={() => toggleSelect(product.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium text-white">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded bg-gradient-purple/10 text-pink-400">
+                        <Package className="w-4 h-4" />
+                      </div>
+                      {product.name}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="bg-white/10 text-gray-300 hover:bg-white/20">
+                      {product.category}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center text-gray-400">
+                    {product.productType ? (
+                       <Badge variant="outline" className="border-blue-500/50 text-blue-400">
+                         #{product.productType}
+                       </Badge>
+                    ) : "-"}
+                  </TableCell>
+                  <TableCell className="text-right font-medium text-white">
+                    {product.quantity}
+                  </TableCell>
+                  <TableCell className="text-right text-gray-400">
+                    ฿{product.costPrice.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-gray-400">
+                    ฿{product.sellPrice.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {product.quantity <= product.minStockLevel ? (
+                      <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        ใกล้หมด
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-green-500/50 text-green-400">
+                        ปกติ
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEdit(product)}
+                        className="text-gray-400 hover:text-white hover:bg-white/10"
                       >
-                        ไม่พบสินค้า
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredProducts.map((product) => {
-                      const profit = product.sellPrice - product.costPrice;
-                      const profitPercent = (
-                        (profit / (product.costPrice || 1)) *
-                        100
-                      ).toFixed(1);
-                      const isLowStock =
-                        product.quantity < product.minStockLevel;
-
-                      return (
-                        <TableRow
-                          key={product.id}
-                          className={
-                            selectedIds.includes(product.id)
-                              ? "bg-slate-700/50"
-                              : ""
-                          }
-                        >
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedIds.includes(product.id)}
-                              onCheckedChange={() => toggleSelect(product.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {product.name}
-                          </TableCell>
-                          <TableCell>{product.category}</TableCell>
-                          <TableCell className="text-right">
-                            {product.quantity}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ฿{product.costPrice.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right text-green-400 font-medium">
-                            ฿{(product.quantity * product.costPrice).toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            {isLowStock ? (
-                              <Badge variant="destructive">สต็อกต่ำ</Badge>
-                            ) : product.quantity <
-                              product.minStockLevel * 1.5 ? (
-                              <Badge
-                                variant="secondary"
-                                className="bg-orange-500/10 text-orange-500"
-                              >
-                                ใกล้หมด
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="secondary"
-                                className="bg-green-500/10 text-green-500"
-                              >
-                                ปกติ
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(product)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openDelete(product)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDelete(product)}
+                        className="text-gray-400 hover:text-red-400 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
@@ -1182,10 +930,7 @@ export default function StockPage() {
             <DialogTitle>แก้ไขสินค้า</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
-            <form
-              onSubmit={editForm.handleSubmit(handleUpdate)}
-              className="space-y-4 py-4"
-            >
+            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4 py-4">
               <FormField
                 control={editForm.control}
                 name="name"
@@ -1205,10 +950,7 @@ export default function StockPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>หมวดหมู่</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="เลือกหมวดหมู่" />
@@ -1218,9 +960,7 @@ export default function StockPage() {
                         <SelectItem value="Skincare">Skincare</SelectItem>
                         <SelectItem value="Makeup">Makeup</SelectItem>
                         <SelectItem value="Haircare">Haircare</SelectItem>
-                        <SelectItem value="Supplement">
-                          Supplement
-                        </SelectItem>
+                        <SelectItem value="Supplement">Supplement</SelectItem>
                         <SelectItem value="Fashion">Fashion</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
@@ -1229,57 +969,37 @@ export default function StockPage() {
                   </FormItem>
                 )}
               />
+              
+              {/* แก้ไข Edit Form: แปลง String เป็น Int */}
               <FormField
                 control={editForm.control}
                 name="productType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>รหัสประเภทสินค้า (สำหรับ LINE)</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
+                    <FormLabel>รหัสประเภทสินค้า</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(parseInt(val))} 
                       defaultValue={field.value?.toString() || ""}
                     >
                       <FormControl>
-                        <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                          <SelectValue placeholder="เลือกประเภทสินค้า" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="เลือกประเภท" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem
-                          value="1"
-                          className="text-white hover:bg-gray-700"
-                        >
-                          สินค้าหมายเลข 1
-                        </SelectItem>
-                        <SelectItem
-                          value="2"
-                          className="text-white hover:bg-gray-700"
-                        >
-                          สินค้าหมายเลข 2
-                        </SelectItem>
-                        <SelectItem
-                          value="3"
-                          className="text-white hover:bg-gray-700"
-                        >
-                          สินค้าหมายเลข 3
-                        </SelectItem>
-                        <SelectItem
-                          value="4"
-                          className="text-white hover:bg-gray-700"
-                        >
-                          สินค้าหมายเลข 4
-                        </SelectItem>
+                      <SelectContent>
+                        <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
+                        <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
+                        <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
+                        <SelectItem value="4">สินค้าหมายเลข 4</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-400 mt-1">
-                      เมื่อส่งข้อความใน LINE ขึ้นต้นด้วยเลข 1-4
-                      สต๊อกจะลดอัตโนมัติ
-                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              
               <div className="grid grid-cols-2 gap-4">
+                {/* แก้ไข Edit Form: แปลง String เป็น Float */}
                 <FormField
                   control={editForm.control}
                   name="quantity"
@@ -1287,12 +1007,17 @@ export default function StockPage() {
                     <FormItem>
                       <FormLabel>จำนวน</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {/* แก้ไข Edit Form: แปลง String เป็น Float */}
                 <FormField
                   control={editForm.control}
                   name="minStockLevel"
@@ -1300,71 +1025,53 @@ export default function StockPage() {
                     <FormItem>
                       <FormLabel>สต็อกขั้นต่ำ</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="10" {...field} />
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
+              {/* แก้ไข Edit Form: แปลง String เป็น Float */}
               <FormField
                 control={editForm.control}
                 name="costPrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ราคาทุน/ชิ้น (฿)</FormLabel>
+                    <FormLabel>ราคาทุน</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
+                      <Input 
+                        type="number" 
+                        {...field} 
+                        onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {/* Explanation about LINE pricing */}
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex gap-3">
-                  <div className="text-blue-400 text-2xl">💡</div>
-                  <div>
-                    <p className="text-sm text-blue-300 font-medium mb-1">
-                      หมายเหตุเกี่ยวกับราคาสินค้า
-                    </p>
-                    <ul className="text-sm text-blue-200 space-y-1">
-                      <li>• ราคาสินค้าจะรับยอดมาจากไลน์โดยอัตโนมัติ</li>
-                      <li>• ราคาขายเป็นราคาต่อ 1 ชิ้น</li>
-                      <li>• ระบบจะคำนวณกำไรจาก (ราคาขาย - ราคาทุน) × จำนวน</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setOpenEditDialog(false)}
-                >
-                  ยกเลิก
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? <ButtonLoading /> : "บันทึก"}
-                </Button>
+                <Button variant="outline" type="button" onClick={() => setOpenEditDialog(false)}>ยกเลิก</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? <ButtonLoading /> : "บันทึก"}</Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <ConfirmDialog
         open={openDeleteDialog}
         onOpenChange={setOpenDeleteDialog}
-        title="ยืนยันการลบ"
-        description={`คุณแน่ใจหรือไม่ที่จะลบสินค้า "${selectedProduct?.name}"? การกระทำนี้ไม่สามารถย้อนกลับได้`}
+        title="ยืนยันการลบสินค้า"
+        description={`คุณแน่ใจหรือไม่ที่จะลบ "${selectedProduct?.name}"? การกระทำนี้ไม่สามารถเรียกคืนได้`}
         onConfirm={handleDelete}
-        confirmText="ลบ"
-        cancelText="ยกเลิก"
-        variant="destructive"
         loading={submitting}
+        variant="destructive"
       />
     </div>
   );
