@@ -157,3 +157,27 @@
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* ---------- Dialog pointer-events fix ---------- */
+/* Fix dialog pointer events - Ensure buttons are always clickable */
+[role="dialog"] {
+  pointer-events: auto !important;
+}
+
+[role="dialog"] * {
+  pointer-events: auto !important;
+}
+
+button:not(:disabled) {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Ensure dialog content is always interactive */
+[data-state="open"] {
+  pointer-events: auto !important;
+}
+
+[data-state="closed"] {
+  pointer-events: none !important;
+}

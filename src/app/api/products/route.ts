@@ -58,6 +58,10 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    // Calculate total cost for budget deduction
+    const totalCost = parseFloat(body.costPrice || 0) * parseInt(body.quantity || 0, 10);
+
+    // Create product
     const product = await prisma.product.create({
       data: {
         name: body.name,
@@ -71,6 +75,44 @@ export async function POST(request: Request) {
         organizationId: user.organizationId,
       },
     });
+
+    // Deduct from capital budget (allow negative)
+    try {
+      const budget = await prisma.capitalBudget.findFirst({
+        where: { organizationId: user.organizationId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (budget && totalCost > 0) {
+        // Update budget remaining
+        await prisma.capitalBudget.update({
+          where: { id: budget.id },
+          data: {
+            remaining: { decrement: totalCost },
+          },
+        });
+
+        // Create transaction record
+        await prisma.capitalBudgetTransaction.create({
+          data: {
+            budgetId: budget.id,
+            type: "DEDUCT",
+            amount: totalCost,
+            description: `ซื้อสินค้า: ${body.name} (${body.quantity} ชิ้น)`,
+            productId: product.id,
+            createdBy: user.id,
+            organizationId: user.organizationId,
+          },
+        });
+
+        console.log(`💰 Budget deducted: ฿${totalCost.toLocaleString()}`);
+        console.log(`   Product: ${body.name} (${body.quantity} units @ ฿${body.costPrice} each)`);
+        console.log(`   Remaining: ฿${(budget.remaining - totalCost).toLocaleString()}`);
+      }
+    } catch (budgetError) {
+      console.error("Failed to deduct budget:", budgetError);
+      // Don't fail the product creation if budget deduction fails
+    }
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {

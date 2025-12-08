@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
+  X,
   Store,
   Wallet,
 } from "lucide-react";
@@ -99,11 +100,18 @@ function isCategory(item: MenuItem | MenuCategory): item is MenuCategory {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false); // Desktop collapse
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
     "จัดการสินค้า",
     "AI Features",
+    "การเงิน",
   ]);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories((prev) =>
@@ -115,20 +123,35 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - Fixed top-left */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 glass rounded-lg text-white hover-glow"
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg text-white hover:bg-white/10 transition-colors"
       >
-        <Menu className="w-6 h-6" />
+        {isMobileMenuOpen ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <Menu className="w-6 h-6" />
+        )}
       </button>
+
+      {/* Overlay - Click to close mobile menu */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-0 h-screen bg-gradient-dark border-r border-white/10 transition-all duration-300 z-40",
+          // Desktop width
           collapsed ? "w-20" : "w-72",
-          "lg:relative"
+          // Mobile behavior
+          "lg:relative",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Header */}
@@ -239,14 +262,6 @@ export function Sidebar() {
           })}
         </nav>
       </aside>
-
-      {/* Overlay for mobile */}
-      {!collapsed && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/80 z-30 backdrop-blur-sm"
-          onClick={() => setCollapsed(true)}
-        />
-      )}
     </>
   );
 }
