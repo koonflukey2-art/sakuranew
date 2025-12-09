@@ -3,8 +3,7 @@ import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs";
-// 1. เพิ่มบรรทัดนี้
-import { ThemeProvider } from "@/contexts/theme-context";
+import { ThemeProvider } from "@/contexts/theme-context"; // <--- ต้องมี
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ["latin", "thai"],
@@ -33,7 +32,7 @@ export default function RootLayout({
         <body
           className={`${notoSansThai.variable} font-headline antialiased bg-slate-950`}
         >
-          {/* 2. ครอบ ThemeProvider ไว้ตรงนี้ */}
+          {/* ต้องมี ThemeProvider ครอบตรงนี้ */}
           <ThemeProvider>
             {children}
             <Toaster />
@@ -43,3 +42,5 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
+
+// update for build (เพิ่มบรรทัดนี้เพื่อให้ Git เห็นว่ามีการแก้ไข)
