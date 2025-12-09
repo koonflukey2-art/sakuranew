@@ -1,10 +1,10 @@
-// src/app/layout.tsx  (หรือ src/app/(อะไรก็ตาม)/layout.tsx ที่เป็น root)
-
 import type { Metadata } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs";
+// 1. เพิ่มบรรทัดนี้
+import { ThemeProvider } from "@/contexts/theme-context";
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ["latin", "thai"],
@@ -25,7 +25,6 @@ export default function RootLayout({
     <ClerkProvider
       appearance={{
         layout: {
-          // ซ่อนแบนเนอร์ "Development mode" + footer ขาวของ Clerk
           unsafe_disableDevelopmentModeWarnings: true,
         },
       }}
@@ -34,8 +33,11 @@ export default function RootLayout({
         <body
           className={`${notoSansThai.variable} font-headline antialiased bg-slate-950`}
         >
-          {children}
-          <Toaster />
+          {/* 2. ครอบ ThemeProvider ไว้ตรงนี้ */}
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>
