@@ -169,7 +169,7 @@ export default function CapitalBudgetPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            จัดการงบประมาณสินค้า
+            Sakura Biotech - จัดการงบประมาณสินค้า
           </h1>
           <p className="text-gray-400 mt-1">
             จัดการงบประมาณและทุนหมุนเวียนสำหรับซื้อสินค้า (สำหรับ ADMIN)

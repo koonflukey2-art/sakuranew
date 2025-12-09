@@ -486,7 +486,7 @@ export default function StockPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2">
         <div>
           <h1 className="text-4xl font-bold text-gradient-pink mb-1">
-            Stock Management
+            Sakura Biotech - Stock Management
           </h1>
           <p className="text-gray-400 text-sm md:text-base">
             จัดการสินค้าและสต็อก

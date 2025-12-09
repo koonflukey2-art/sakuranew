@@ -25,6 +25,9 @@ import {
   X,
   Store,
   Wallet,
+  TrendingUp,
+  GitBranch,
+  Activity,
 } from "lucide-react";
 
 interface MenuItem {
@@ -51,30 +54,34 @@ const menuStructure: (MenuItem | MenuCategory)[] = [
     icon: Store,
     items: [
       { name: "สินค้า", href: "/stock", icon: Package },
-      { name: "รายการออเดอร์", href: "/orders", icon: ShoppingCart, badge: "New" },
+      { name: "รายการออเดอร์", href: "/orders", icon: ShoppingCart },
     ],
   },
   {
     name: "การเงิน",
     icon: Wallet,
     items: [
-      { name: "งบประมาณสินค้า", href: "/capital-budget", icon: Wallet, badge: "New" },
-      { name: "Budget Requests", href: "/budget-requests", icon: FileText },
+      { name: "งบประมาณสินค้า", href: "/capital-budget", icon: Wallet },
+      { name: "คำขอเบิกงบ", href: "/budget-requests", icon: FileText },
+      { name: "กำไร", href: "/profit", icon: TrendingUp },
     ],
   },
   {
     name: "การวิเคราะห์",
-    href: "/analytics",
     icon: BarChart3,
-    badge: "New",
+    items: [
+      { name: "ต้นทุนและกำไร", href: "/analysis", icon: Activity, badge: "New" },
+      { name: "Work Flow", href: "/workflow", icon: GitBranch, badge: "New" },
+      { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    ],
   },
   {
     name: "AI Features",
     icon: Bot,
     items: [
-      { name: "AI Chat", href: "/ai-chat", icon: MessageSquare, badge: "New" },
+      { name: "AI Chat", href: "/ai-chat", icon: MessageSquare },
       { name: "AI Assistant", href: "/ai-assistant", icon: Bot, badge: "AI" },
-      { name: "AI Dashboard", href: "/ai-dashboard", icon: Sparkles, badge: "New" },
+      { name: "AI Dashboard", href: "/ai-dashboard", icon: Sparkles },
     ],
   },
   {
@@ -104,8 +111,8 @@ export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
     "จัดการสินค้า",
-    "AI Features",
     "การเงิน",
+    "การวิเคราะห์",
   ]);
 
   // Close mobile menu when route changes
@@ -158,8 +165,8 @@ export function Sidebar() {
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           {!collapsed && (
             <div>
-              <h2 className="text-2xl font-bold text-gradient-purple">Sakura</h2>
-              <p className="text-xs text-gray-400">E-Commerce AI Platform</p>
+              <h2 className="text-2xl font-bold text-gradient-purple">Sakura Biotech</h2>
+              <p className="text-xs text-gray-400">Co. Ltd</p>
             </div>
           )}
           <Button
