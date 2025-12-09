@@ -1,139 +1,94 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
   LayoutDashboard,
   Package,
   ShoppingCart,
-  FileText,
-  BarChart3,
-  MessageSquare,
-  Bot,
-  Sparkles,
-  Bell,
-  Users,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Menu,
-  X,
-  Store,
   Wallet,
   TrendingUp,
+  FileText,
+  BarChart3,
+  Target,
   GitBranch,
-  Activity,
+  Settings,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/contexts/theme-context";
 
-interface MenuItem {
-  name: string;
-  href: string;
-  icon: any;
-  badge?: string;
-}
-
-interface MenuCategory {
-  name: string;
-  icon: any;
-  items: MenuItem[];
-}
-
-const menuStructure: (MenuItem | MenuCategory)[] = [
+const menuStructure = [
   {
-    name: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
+    section: "ภาพรวม",
+    items: [{ label: "แดชบอร์ด", href: "/", icon: LayoutDashboard }],
   },
   {
-    name: "จัดการสินค้า",
-    icon: Store,
+    section: "จัดการสินค้า",
     items: [
-      { name: "สินค้า", href: "/stock", icon: Package },
-      { name: "รายการออเดอร์", href: "/orders", icon: ShoppingCart },
+      { label: "สต็อกสินค้า", href: "/stock", icon: Package },
+      { label: "คำสั่งซื้อ", href: "/orders", icon: ShoppingCart },
     ],
   },
   {
-    name: "การเงิน",
-    icon: Wallet,
+    section: "การเงิน",
     items: [
-      { name: "งบประมาณสินค้า", href: "/capital-budget", icon: Wallet },
-      { name: "คำขอเบิกงบ", href: "/budget-requests", icon: FileText },
-      { name: "กำไร", href: "/profit", icon: TrendingUp },
+      { label: "งบประมาณ", href: "/capital-budget", icon: Wallet },
+      { label: "กำไร", href: "/profit", icon: TrendingUp },
+      { label: "คำขอเบิกงบ", href: "/budget-requests", icon: FileText },
     ],
   },
   {
-    name: "การวิเคราะห์",
-    icon: BarChart3,
+    section: "การวิเคราะห์",
     items: [
-      { name: "ต้นทุนและกำไร", href: "/analysis", icon: Activity, badge: "New" },
-      { name: "Work Flow", href: "/workflow", icon: GitBranch, badge: "New" },
-      { name: "Analytics", href: "/analytics", icon: BarChart3 },
+      { label: "ต้นทุนและกำไร", href: "/analysis", icon: BarChart3 },
+      { label: "KPI Dashboard", href: "/kpi", icon: Target },
+      { label: "Work Flow", href: "/workflow", icon: GitBranch },
     ],
   },
   {
-    name: "AI Features",
-    icon: Bot,
-    items: [
-      { name: "AI Chat", href: "/ai-chat", icon: MessageSquare },
-      { name: "AI Assistant", href: "/ai-assistant", icon: Bot, badge: "AI" },
-      { name: "AI Dashboard", href: "/ai-dashboard", icon: Sparkles },
-    ],
-  },
-  {
-    name: "การแจ้งเตือน",
-    href: "/notifications",
-    icon: Bell,
-  },
-  {
-    name: "ผู้ใช้งาน",
-    href: "/users",
-    icon: Users,
-  },
-  {
-    name: "ตั้งค่า",
-    href: "/settings",
-    icon: Settings,
+    section: "ตั้งค่า",
+    items: [{ label: "ตั้งค่าระบบ", href: "/settings", icon: Settings }],
   },
 ];
 
-function isCategory(item: MenuItem | MenuCategory): item is MenuCategory {
-  return "items" in item;
-}
-
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false); // Desktop collapse
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([
-    "จัดการสินค้า",
-    "การเงิน",
-    "การวิเคราะห์",
-  ]);
+  const { theme, toggleTheme } = useTheme();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  // Load saved state
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-expanded");
+    if (saved !== null) {
+      setIsExpanded(saved === "true");
+    }
+  }, []);
 
   // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const toggleCategory = (categoryName: string) => {
-    setExpandedCategories((prev) =>
-      prev.includes(categoryName)
-        ? prev.filter((name) => name !== categoryName)
-        : [...prev, categoryName]
-    );
+  const toggleExpanded = () => {
+    const newState = !isExpanded;
+    setIsExpanded(newState);
+    localStorage.setItem("sidebar-expanded", String(newState));
   };
 
   return (
     <>
-      {/* Mobile Menu Button - Fixed top-left */}
+      {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg text-white hover:bg-white/10 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg text-white hover:bg-white/10 light:bg-white light:text-black light:border-black/20"
       >
         {isMobileMenuOpen ? (
           <X className="w-6 h-6" />
@@ -142,10 +97,10 @@ export function Sidebar() {
         )}
       </button>
 
-      {/* Overlay - Click to close mobile menu */}
+      {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -153,121 +108,108 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen bg-gradient-dark border-r border-white/10 transition-all duration-300 z-40",
-          // Desktop width
-          collapsed ? "w-20" : "w-72",
+          "fixed top-0 left-0 h-screen bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 transition-all duration-300 ease-in-out overflow-y-auto light:bg-white light:border-black/10",
+          // Width
+          isExpanded ? "w-64" : "w-20",
           // Mobile behavior
-          "lg:relative",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "lg:translate-x-0",
+          isMobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          {!collapsed && (
-            <div>
-              <h2 className="text-2xl font-bold text-gradient-purple">Sakura Biotech</h2>
-              <p className="text-xs text-gray-400">Co. Ltd</p>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex text-white hover:bg-white/10"
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
-        </div>
-
-        {/* Menu Items */}
-        <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
-          {menuStructure.map((item) => {
-            if (isCategory(item)) {
-              const Icon = item.icon;
-              const isExpanded = expandedCategories.includes(item.name);
-
-              return (
-                <div key={item.name}>
-                  <button
-                    onClick={() => !collapsed && toggleCategory(item.name)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
-                      "text-gray-300 hover:bg-white/5 hover-glow",
-                      collapsed && "justify-center"
-                    )}
-                    title={collapsed ? item.name : undefined}
-                  >
-                    <Icon className="w-5 h-5 text-purple-400" />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 text-left font-medium">{item.name}</span>
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </>
-                    )}
-                  </button>
-
-                  {!collapsed && isExpanded && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-purple-500/30 pl-3">
-                      {item.items.map((subItem) => {
-                        const SubIcon = subItem.icon;
-                        const isActive = pathname === subItem.href;
-
-                        return (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
-                              isActive
-                                ? "bg-gradient-purple text-white glow-purple"
-                                : "text-gray-400 hover:text-white hover:bg-white/5"
-                            )}
-                          >
-                            <SubIcon className="w-4 h-4" />
-                            <span className="flex-1">{subItem.name}</span>
-                            {subItem.badge && (
-                              <span className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded-full">{subItem.badge}</span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
+        <div className="p-4">
+          {/* Logo + Collapse Button */}
+          <div className="flex items-center justify-between mb-8">
+            {isExpanded && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-2xl">🌸</span>
                 </div>
-              );
-            }
+                <div>
+                  <h1 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                    Sakura Biotech
+                  </h1>
+                  <p className="text-xs text-gray-400 light:text-gray-600">
+                    Co. Ltd
+                  </p>
+                </div>
+              </div>
+            )}
+            {!isExpanded && (
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mx-auto">
+                <span className="text-2xl">🌸</span>
+              </div>
+            )}
+            <button
+              onClick={toggleExpanded}
+              className="hidden lg:block p-1.5 hover:bg-white/10 rounded-lg transition-colors light:hover:bg-black/5"
+            >
+              {isExpanded ? (
+                <ChevronLeft className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+          </div>
 
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className={cn(
+              "w-full mb-6 p-3 rounded-lg flex items-center gap-3 transition-colors",
+              "bg-white/5 hover:bg-white/10 light:bg-black/5 light:hover:bg-black/10",
+              !isExpanded && "justify-center"
+            )}
+          >
+            {theme === "dark" ? (
+              <Sun className="w-5 h-5 text-yellow-400" />
+            ) : (
+              <Moon className="w-5 h-5 text-blue-500" />
+            )}
+            {isExpanded && (
+              <span className="text-sm text-white light:text-black">
+                {theme === "dark" ? "โหมดสว่าง" : "โหมดมืด"}
+              </span>
+            )}
+          </button>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
-                  isActive
-                    ? "bg-gradient-purple text-white glow-purple"
-                    : "text-gray-300 hover:text-white hover:bg-white/5 hover-glow",
-                  collapsed && "justify-center"
+          {/* Menu */}
+          <nav className="space-y-6">
+            {menuStructure.map((section) => (
+              <div key={section.section}>
+                {isExpanded && (
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase mb-2 px-3 light:text-gray-600">
+                    {section.section}
+                  </h3>
                 )}
-                title={collapsed ? item.name : undefined}
-              >
-                <Icon
-                  className={cn("w-5 h-5", isActive ? "text-white" : "text-purple-400")}
-                />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 font-medium">{item.name}</span>
-                    {item.badge && (
-                      <span className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded-full">{item.badge}</span>
-                    )}
-                  </>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+                <div className="space-y-1">
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                        !isExpanded && "justify-center",
+                        pathname === item.href
+                          ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30 light:from-purple-100 light:to-pink-100 light:text-black light:border-purple-300"
+                          : "text-gray-400 hover:text-white hover:bg-white/5 light:text-gray-600 light:hover:text-black light:hover:bg-black/5"
+                      )}
+                      title={!isExpanded ? item.label : undefined}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      {isExpanded && (
+                        <span className="text-sm font-medium">
+                          {item.label}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </div>
       </aside>
     </>
   );
