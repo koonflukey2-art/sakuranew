@@ -5,40 +5,60 @@
 /* ---------- Base theme variables ---------- */
 @layer base {
   :root {
-    --background: 0 0% 0%;          /* #000 – พื้นหลังหลัก */
-    --foreground: 0 0% 100%;        /* #fff – สีตัวอักษรหลัก (ใช้ผ่าน text-foreground) */
-
-    --card: 0 0% 6.7%;              /* #111 */
+    /* Dark mode (default) */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 6.7%;
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 6.7%;
-    --popover-foreground: 0 0% 100%;
-
-    --primary: 280 100% 70%;        /* ม่วง */
+    --primary: 280 100% 70%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 0 0% 13.3%;        /* #222 */
+    --secondary: 0 0% 13.3%;
     --secondary-foreground: 0 0% 100%;
-
     --muted: 0 0% 13.3%;
     --muted-foreground: 0 0% 60%;
-
     --accent: 280 100% 70%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 280 100% 70%;
-
+    --popover: 0 0% 6.7%;
+    --popover-foreground: 0 0% 100%;
     --radius: 0.75rem;
   }
 
+  .light {
+    /* Light mode */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 3.9%;
+    --primary: 280 100% 70%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 3.9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 280 100% 70%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 280 100% 70%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 0 0% 3.9%;
+  }
+
   body {
-    /* ไม่ใส่ color ที่นี่แล้ว เพื่อไม่ให้ไปบังคับทั้งเว็บ */
     background: #000000;
     font-family: "Inter", sans-serif;
+  }
+
+  /* Light mode body background */
+  .light body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   }
 }
 
@@ -180,4 +200,142 @@ button:not(:disabled) {
 
 [data-state="closed"] {
   pointer-events: none !important;
+}
+
+/* ---------- Light mode overrides ---------- */
+.light .bg-black {
+  background: white !important;
+}
+
+.light .bg-slate-950 {
+  background: white !important;
+}
+
+.light .bg-slate-900 {
+  background: #f8f9fa !important;
+}
+
+.light .bg-slate-800 {
+  background: #e9ecef !important;
+}
+
+.light .text-white {
+  color: #1a1a1a !important;
+}
+
+.light .text-gray-400 {
+  color: #666666 !important;
+}
+
+.light .text-gray-300 {
+  color: #4a4a4a !important;
+}
+
+.light .text-gray-200 {
+  color: #333333 !important;
+}
+
+.light .text-slate-50,
+.light .text-slate-100 {
+  color: #1a1a1a !important;
+}
+
+.light .text-slate-200 {
+  color: #333333 !important;
+}
+
+.light .text-slate-300 {
+  color: #4a4a4a !important;
+}
+
+.light .text-slate-400 {
+  color: #666666 !important;
+}
+
+.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .border-slate-700 {
+  border-color: #d0d0d0 !important;
+}
+
+.light .border-slate-500 {
+  border-color: #b0b0b0 !important;
+}
+
+.light .border-gray-700 {
+  border-color: #d0d0d0 !important;
+}
+
+.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .bg-black\/20 {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .premium-card {
+  background: white !important;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.light .bg-gradient-dark {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+}
+
+/* Light mode dialogs */
+.light [role="dialog"] {
+  background: white !important;
+  color: #1a1a1a !important;
+  border: 1px solid #e0e0e0 !important;
+}
+
+.light input,
+.light textarea,
+.light select {
+  background: white !important;
+  color: #1a1a1a !important;
+  border-color: #d0d0d0 !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #999999 !important;
+}
+
+/* Light mode charts */
+.light .recharts-text {
+  fill: #1a1a1a !important;
+}
+
+.light .recharts-cartesian-axis-tick-value {
+  fill: #666666 !important;
+}
+
+/* Light mode scrollbar */
+.light ::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
 }
