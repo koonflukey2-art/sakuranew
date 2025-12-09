@@ -9,6 +9,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -21,10 +23,25 @@ import {
   Settings,
   Sun,
   Moon,
+  Bot,
+  MessageSquare,
+  Users,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 
-const menuStructure = [
+interface MenuItem {
+  label: string;
+  href: string;
+  icon: any;
+}
+
+interface MenuSection {
+  section: string;
+  items: MenuItem[];
+  collapsible?: boolean;
+}
+
+const menuStructure: MenuSection[] = [
   {
     section: "ภาพรวม",
     items: [{ label: "แดชบอร์ด", href: "/", icon: LayoutDashboard }],
@@ -38,6 +55,7 @@ const menuStructure = [
   },
   {
     section: "การเงิน",
+    collapsible: true,
     items: [
       { label: "งบประมาณ", href: "/capital-budget", icon: Wallet },
       { label: "กำไร", href: "/profit", icon: TrendingUp },
@@ -46,11 +64,24 @@ const menuStructure = [
   },
   {
     section: "การวิเคราะห์",
+    collapsible: true,
     items: [
       { label: "ต้นทุนและกำไร", href: "/analysis", icon: BarChart3 },
       { label: "KPI Dashboard", href: "/kpi", icon: Target },
       { label: "Work Flow", href: "/workflow", icon: GitBranch },
     ],
+  },
+  {
+    section: "AI",
+    collapsible: true,
+    items: [
+      { label: "AI Chat", href: "/ai-chat", icon: MessageSquare },
+      { label: "AI Dashboard", href: "/ai-dashboard", icon: Bot },
+    ],
+  },
+  {
+    section: "ผู้ใช้งาน",
+    items: [{ label: "จัดการผู้ใช้", href: "/users", icon: Users }],
   },
   {
     section: "ตั้งค่า",
@@ -63,6 +94,7 @@ export function Sidebar() {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   // Load saved state
   useEffect(() => {
@@ -81,6 +113,18 @@ export function Sidebar() {
     const newState = !isExpanded;
     setIsExpanded(newState);
     localStorage.setItem("sidebar-expanded", String(newState));
+  };
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -176,38 +220,59 @@ export function Sidebar() {
 
           {/* Menu */}
           <nav className="space-y-6">
-            {menuStructure.map((section) => (
-              <div key={section.section}>
-                {isExpanded && (
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase mb-2 px-3 light:text-gray-600">
-                    {section.section}
-                  </h3>
-                )}
-                <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
-                        !isExpanded && "justify-center",
-                        pathname === item.href
-                          ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30 light:from-purple-100 light:to-pink-100 light:text-black light:border-purple-300"
-                          : "text-gray-400 hover:text-white hover:bg-white/5 light:text-gray-600 light:hover:text-black light:hover:bg-black/5"
+            {menuStructure.map((section) => {
+              const isCollapsed = collapsedSections.has(section.section);
+
+              return (
+                <div key={section.section}>
+                  {isExpanded && (
+                    <div className="flex items-center justify-between mb-2 px-3">
+                      <h3 className="text-xs font-semibold text-gray-400 uppercase light:text-gray-600">
+                        {section.section}
+                      </h3>
+                      {section.collapsible && (
+                        <button
+                          onClick={() => toggleSection(section.section)}
+                          className="p-1 hover:bg-white/10 rounded light:hover:bg-black/10"
+                        >
+                          {isCollapsed ? (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
                       )}
-                      title={!isExpanded ? item.label : undefined}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      {isExpanded && (
-                        <span className="text-sm font-medium">
-                          {item.label}
-                        </span>
-                      )}
-                    </Link>
-                  ))}
+                    </div>
+                  )}
+
+                  {(!section.collapsible || !isCollapsed || !isExpanded) && (
+                    <div className="space-y-1">
+                      {section.items.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                            !isExpanded && "justify-center",
+                            pathname === item.href
+                              ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30 light:from-purple-100 light:to-pink-100 light:text-black light:border-purple-300"
+                              : "text-gray-400 hover:text-white hover:bg-white/5 light:text-gray-600 light:hover:text-black light:hover:bg-black/5"
+                          )}
+                          title={!isExpanded ? item.label : undefined}
+                        >
+                          <item.icon className="w-5 h-5 flex-shrink-0" />
+                          {isExpanded && (
+                            <span className="text-sm font-medium">
+                              {item.label}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </nav>
         </div>
       </aside>
