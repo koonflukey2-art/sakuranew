@@ -17,10 +17,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Search,
   Edit,
@@ -30,6 +32,7 @@ import {
   Calendar,
   ShoppingCart,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 interface Order {
@@ -68,8 +71,11 @@ export default function OrdersPage() {
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [confirmEditOpen, setConfirmEditOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   const { toast } = useToast();
 
@@ -160,10 +166,19 @@ export default function OrdersPage() {
     if (!selectedOrder) return;
 
     try {
+      setSubmitting(true);
       const res = await fetch("/api/orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(selectedOrder),
+        body: JSON.stringify({
+          id: selectedOrder.id,
+          customerName: selectedOrder.customer.name,
+          customerPhone: selectedOrder.customer.phone,
+          customerAddress: selectedOrder.customer.address,
+          amount: selectedOrder.amount,
+          status: selectedOrder.status,
+          notes: selectedOrder.notes,
+        }),
       });
 
       if (res.ok) {
@@ -171,6 +186,7 @@ export default function OrdersPage() {
           title: "✅ บันทึกสำเร็จ",
           description: "อัพเดทข้อมูลออเดอร์แล้ว",
         });
+        setConfirmEditOpen(false);
         setEditDialogOpen(false);
         fetchOrders();
       } else {
@@ -187,6 +203,44 @@ export default function OrdersPage() {
         description: "ไม่สามารถอัพเดทข้อมูลได้",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`/api/orders?id=${selectedOrder.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast({
+          title: "✅ ลบสำเร็จ",
+          description: "ลบออเดอร์เรียบร้อยแล้ว",
+        });
+        setDeleteDialogOpen(false);
+        setSelectedOrder(null);
+        fetchOrders();
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถลบได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบออเดอร์ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -420,20 +474,40 @@ export default function OrdersPage() {
                     </div>
 
                     {/* Actions */}
-                    {userRole === "ADMIN" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setEditDialogOpen(true);
-                        }}
-                        className="border-purple-400 text-purple-100 hover:bg-purple-500/10"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        แก้ไข
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {userRole === "ADMIN" ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setEditDialogOpen(true);
+                            }}
+                            className="border-purple-400 text-purple-100 hover:bg-purple-500/10"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            แก้ไข
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="border-red-400 text-red-100 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            ลบ
+                          </Button>
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          ดูอย่างเดียว
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -477,7 +551,7 @@ export default function OrdersPage() {
 
       {/* Edit Dialog (ADMIN Only) */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               แก้ไขออเดอร์ #
@@ -487,24 +561,95 @@ export default function OrdersPage() {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>ชื่อลูกค้า</Label>
+                  <Input
+                    value={selectedOrder.customer.name}
+                    onChange={(e) =>
+                      setSelectedOrder({
+                        ...selectedOrder,
+                        customer: {
+                          ...selectedOrder.customer,
+                          name: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="ชื่อลูกค้า"
+                  />
+                </div>
+
+                <div>
+                  <Label>เบอร์โทรศัพท์</Label>
+                  <Input
+                    value={selectedOrder.customer.phone}
+                    onChange={(e) =>
+                      setSelectedOrder({
+                        ...selectedOrder,
+                        customer: {
+                          ...selectedOrder.customer,
+                          phone: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="เบอร์โทร"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label>สถานะ</Label>
-                <Select
-                  value={selectedOrder.status}
-                  onValueChange={(value) =>
-                    setSelectedOrder({ ...selectedOrder, status: value })
+                <Label>ที่อยู่จัดส่ง</Label>
+                <Textarea
+                  value={selectedOrder.customer.address || ""}
+                  onChange={(e) =>
+                    setSelectedOrder({
+                      ...selectedOrder,
+                      customer: {
+                        ...selectedOrder.customer,
+                        address: e.target.value,
+                      },
+                    })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
-                    <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
-                    <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
-                    <SelectItem value="CANCELLED">ยกเลิก</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="ที่อยู่จัดส่ง"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>ยอดเงิน (฿)</Label>
+                  <Input
+                    type="number"
+                    value={selectedOrder.amount}
+                    onChange={(e) =>
+                      setSelectedOrder({
+                        ...selectedOrder,
+                        amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="ยอดเงิน"
+                  />
+                </div>
+
+                <div>
+                  <Label>สถานะ</Label>
+                  <Select
+                    value={selectedOrder.status}
+                    onValueChange={(value) =>
+                      setSelectedOrder({ ...selectedOrder, status: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
+                      <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
+                      <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
+                      <SelectItem value="CANCELLED">ยกเลิก</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -518,17 +663,54 @@ export default function OrdersPage() {
                     })
                   }
                   placeholder="เพิ่มหมายเหตุ..."
-                  rows={3}
+                  rows={2}
                 />
               </div>
 
-              <Button onClick={handleUpdateOrder} className="w-full">
-                บันทึก
-              </Button>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                  disabled={submitting}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  onClick={() => setConfirmEditOpen(true)}
+                  disabled={submitting}
+                >
+                  บันทึก
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Edit Dialog */}
+      <ConfirmDialog
+        open={confirmEditOpen}
+        onOpenChange={setConfirmEditOpen}
+        title="ยืนยันการแก้ไข"
+        description={`คุณแน่ใจหรือไม่ที่จะแก้ไขข้อมูลออเดอร์ "${selectedOrder?.customer.name}"?`}
+        onConfirm={handleUpdateOrder}
+        confirmText="ยืนยัน"
+        cancelText="ยกเลิก"
+        loading={submitting}
+      />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="⚠️ ยืนยันการลบ"
+        description={`คุณแน่ใจหรือไม่ที่จะลบออเดอร์ "${selectedOrder?.customer.name}"? การกระทำนี้ไม่สามารถย้อนกลับได้!`}
+        onConfirm={handleDeleteOrder}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        variant="destructive"
+        loading={submitting}
+      />
     </div>
   );
 }
