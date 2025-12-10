@@ -34,7 +34,7 @@ export async function GET() {
           canAccessBudget: false,
           canAccessBudgetRequests: true,
           canAccessAnalytics: true,
-          canAccessAI: false, // NO AI access for EMPLOYEE
+          canAccessAI: true,
           canAccessSettings: false,
           canAccessAutomation: false,
           canAccessWorkflows: false,

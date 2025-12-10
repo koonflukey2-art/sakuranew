@@ -64,47 +64,13 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // RBAC Check - Only ADMIN and STOCK can access AI
   useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        const response = await fetch("/api/rbac/check-access");
-        if (!response.ok) {
-          setIsAuthorized(false);
-          return;
-        }
-
-        const data = await response.json();
-        if (!data.permissions?.canAccessAI) {
-          setIsAuthorized(false);
-          toast({
-            title: "ไม่มีสิทธิ์เข้าถึง",
-            description: "คุณไม่มีสิทธิ์ใช้งาน AI Chat (เฉพาะ Admin และ Stock เท่านั้น)",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        setIsAuthorized(true);
-      } catch (error) {
-        console.error("RBAC check failed:", error);
-        setIsAuthorized(false);
-      }
-    };
-
-    checkAccess();
-  }, [toast]);
-
-  useEffect(() => {
-    if (isAuthorized) {
-      fetchConfigs();
-      fetchSessions();
-    }
-  }, [isAuthorized]);
+    fetchConfigs();
+    fetchSessions();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -328,40 +294,6 @@ export default function AIChatPage() {
       return "";
     }
   };
-
-  // Loading state
-  if (isAuthorized === null) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-      </div>
-    );
-  }
-
-  // Not authorized
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-400">
-              <AlertCircle className="w-6 h-6" />
-              ไม่มีสิทธิ์เข้าถึง
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-300">
-              คุณไม่มีสิทธิ์ใช้งาน AI Chat
-              ฟีเจอร์นี้สำหรับ Admin และ Stock Staff เท่านั้น
-            </p>
-            <p className="text-sm text-gray-400 mt-3">
-              หากคุณต้องการเข้าถึงฟีเจอร์นี้ กรุณาติดต่อผู้ดูแลระบบเพื่อขอเปลี่ยนสิทธิ์
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6">

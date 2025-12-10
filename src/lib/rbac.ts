@@ -128,7 +128,7 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     canAccessBudget: false, // No budget access
     canAccessBudgetRequests: true, // Can request budgets
     canAccessAnalytics: true,
-    canAccessAI: false, // NO AI access for EMPLOYEE
+    canAccessAI: true, // Can use AI features
     canAccessSettings: false, // No settings
     canAccessAutomation: false, // No automation
     canAccessWorkflows: false, // No workflows
