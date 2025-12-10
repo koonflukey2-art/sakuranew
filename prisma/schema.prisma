@@ -670,3 +670,57 @@ model ProfitTarget {
   @@index([organizationId])
   @@index([organizationId, productType])
 }
+
+// ============================
+// DAILY SUMMARY & SETTINGS
+// ============================
+
+model DailySummary {
+  id              String   @id @default(cuid())
+  date            DateTime // Start of day
+  organizationId  String
+
+  // Sales metrics
+  totalRevenue    Float    @default(0)
+  totalCost       Float    @default(0)
+  totalProfit     Float    @default(0)
+  totalOrders     Int      @default(0)
+
+  // Product breakdown - JSON array of products sold
+  productsSold    Json     // [{productType, productName, quantity, revenue, cost, profit}]
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  cutOffTime      DateTime // When cut-off happened
+
+  @@index([organizationId, date])
+  @@index([date])
+}
+
+model SystemSettings {
+  id                      String   @id @default(cuid())
+  organizationId          String   @unique
+
+  // Daily cut-off settings
+  dailyCutOffHour         Int      @default(23)
+  dailyCutOffMinute       Int      @default(59)
+
+  // LINE Integration (stored in database, NOT env vars)
+  lineNotifyToken         String?  // Admin pastes this in Settings page
+  lineChannelAccessToken  String?  // Admin pastes this in Settings page
+  lineChannelSecret       String?  // Admin pastes this in Settings page
+  lineWebhookUrl          String?  // Auto-generated or editable
+
+  // Admin settings
+  adminEmails             String?  // Comma-separated list
+
+  // Notification preferences
+  notifyOnOrder           Boolean  @default(true)
+  notifyOnLowStock        Boolean  @default(true)
+  notifyDailySummary      Boolean  @default(true)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([organizationId])
+}

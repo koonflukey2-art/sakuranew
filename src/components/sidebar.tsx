@@ -26,6 +26,7 @@ import {
   Bot,
   MessageSquare,
   Users,
+  Calendar,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 
@@ -51,6 +52,7 @@ const menuStructure: MenuSection[] = [
     items: [
       { label: "สต็อกสินค้า", href: "/stock", icon: Package },
       { label: "คำสั่งซื้อ", href: "/orders", icon: ShoppingCart },
+      { label: "สรุปยอดรายวัน", href: "/daily-summary", icon: Calendar },
     ],
   },
   {
@@ -85,7 +87,10 @@ const menuStructure: MenuSection[] = [
   },
   {
     section: "ตั้งค่า",
-    items: [{ label: "ตั้งค่าระบบ", href: "/settings", icon: Settings }],
+    items: [
+      { label: "System Settings", href: "/system-settings", icon: Settings },
+      { label: "AI & Platforms", href: "/settings", icon: Bot },
+    ],
   },
 ];
 
