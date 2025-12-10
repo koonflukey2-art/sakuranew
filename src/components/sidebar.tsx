@@ -27,6 +27,9 @@ import {
   MessageSquare,
   Users,
   Calendar,
+  QrCode,
+  Facebook,
+  Music,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 
@@ -71,6 +74,15 @@ const menuStructure: MenuSection[] = [
       { label: "ต้นทุนและกำไร", href: "/analysis", icon: BarChart3 },
       { label: "KPI Dashboard", href: "/kpi", icon: Target },
       { label: "Work Flow", href: "/workflow", icon: GitBranch },
+    ],
+  },
+  {
+    section: "โฆษณา",
+    collapsible: true,
+    items: [
+      { label: "สแกน QR Code", href: "/qr-scanner", icon: QrCode },
+      { label: "Facebook Ads", href: "/facebook-ads", icon: Facebook },
+      { label: "TikTok Ads", href: "/tiktok-ads", icon: Music },
     ],
   },
   {

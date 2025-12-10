@@ -719,8 +719,56 @@ model SystemSettings {
   notifyOnLowStock        Boolean  @default(true)
   notifyDailySummary      Boolean  @default(true)
 
+  // Ad Platform APIs (for advertisement management)
+  facebookApiKey          String?
+  facebookApiSecret       String?
+  tiktokApiKey            String?
+  tiktokApiSecret         String?
+  lazadaApiKey            String?
+  lazadaApiSecret         String?
+  shopeeApiKey            String?
+  shopeeApiSecret         String?
+
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
   @@index([organizationId])
+}
+
+// ============================
+// ADVERTISEMENT REVENUE TRACKING
+// ============================
+
+model AdRevenue {
+  id              String   @id @default(cuid())
+  organizationId  String
+  platform        Platform // FACEBOOK, TIKTOK, LAZADA, SHOPEE
+  amount          Float
+  qrCodeData      String?  // Raw QR code data
+  scannedBy       String   // User ID who scanned
+  scannedAt       DateTime @default(now())
+  notes           String?
+
+  @@index([organizationId])
+  @@index([platform])
+  @@index([scannedAt])
+}
+
+// ============================
+// PRODUCT TYPE MANAGEMENT (for LINE Integration)
+// ============================
+
+model ProductType {
+  id              String   @id @default(cuid())
+  organizationId  String
+  typeNumber      Int      // 1, 2, 3, 4, 5, etc.
+  typeName        String   // "ครีมนวด", "เซรั่ม", etc.
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, typeNumber])
+  @@index([organizationId])
+  @@index([isActive])
 }
