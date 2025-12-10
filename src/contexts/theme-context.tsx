@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 type Theme = "dark" | "light";
 
@@ -11,28 +11,38 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle("light", savedTheme === "light");
+
+    // Read from localStorage
+    try {
+      const savedTheme = localStorage.getItem("theme") as Theme | null;
+      if (savedTheme === "light" || savedTheme === "dark") {
+        setTheme(savedTheme);
+        document.documentElement.classList.toggle("light", savedTheme === "light");
+      }
+    } catch (error) {
+      console.error("Failed to read theme from localStorage:", error);
     }
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("light", newTheme === "light");
+
+    try {
+      localStorage.setItem("theme", newTheme);
+      document.documentElement.classList.toggle("light", newTheme === "light");
+    } catch (error) {
+      console.error("Failed to save theme:", error);
+    }
   };
 
-  // หมายเหตุ: การ return children เฉยๆ ตอน !mounted ทำให้ Context หายไปชั่วขณะ
-  // แต่เราแก้ที่ useTheme แล้ว ปัญหานี้จึงไม่ทำให้ Build พัง
+  // Prevent flash of wrong theme
   if (!mounted) {
     return <>{children}</>;
   }
@@ -46,16 +56,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-  
-  // --- จุดที่แก้ไข (Fix for Build Error) ---
   if (!context) {
-    // แทนที่จะ throw Error เราจะ return ค่าหลอกๆ (Mock) กลับไป
-    // เพื่อให้ Next.js สามารถ Build หน้าเว็บจนเสร็จได้โดยไม่พัง
+    // Fallback for build time / SSR
     return {
-      theme: "dark",      // ค่า Default
-      toggleTheme: () => {}, // ฟังก์ชันว่างๆ ไม่ต้องทำอะไร
-    } as ThemeContextType;
+      theme: "dark" as Theme,
+      toggleTheme: () => {},
+    };
   }
-  
   return context;
 }
