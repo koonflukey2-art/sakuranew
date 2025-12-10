@@ -86,7 +86,91 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const {
+      id,
+      customerName,
+      customerPhone,
+      customerAddress,
+      amount,
+      status,
+      notes,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Order ID required" }, { status: 400 });
+    }
+
+    // Verify ownership
+    const existing = await prisma.order.findFirst({
+      where: { id, organizationId: orgId },
+      include: { customer: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Update customer information
+    if (customerName || customerPhone || customerAddress !== undefined) {
+      await prisma.customer.update({
+        where: { id: existing.customerId },
+        data: {
+          ...(customerName && { name: customerName }),
+          ...(customerPhone && { phone: customerPhone }),
+          ...(customerAddress !== undefined && { address: customerAddress }),
+        },
+      });
+    }
+
+    // Update order
+    const order = await prisma.order.update({
+      where: { id },
+      data: {
+        ...(amount !== undefined && { amount: parseFloat(amount.toString()) }),
+        ...(status && { status }),
+        ...(notes !== undefined && { notes }),
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    return NextResponse.json(order);
+  } catch (error: any) {
+    console.error("PUT /api/orders error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to update order" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is ADMIN
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Only ADMIN can delete orders" },
+        { status: 403 }
+      );
+    }
+
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json({ error: "Order ID required" }, { status: 400 });
@@ -101,23 +185,16 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Update order
-    const order = await prisma.order.update({
+    // Delete order
+    await prisma.order.delete({
       where: { id },
-      data: {
-        status: updateData.status,
-        notes: updateData.notes,
-      },
-      include: {
-        customer: true,
-      },
     });
 
-    return NextResponse.json(order);
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("PUT /api/orders error:", error);
+    console.error("DELETE /api/orders error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to update order" },
+      { error: error.message || "Failed to delete order" },
       { status: 500 }
     );
   }
