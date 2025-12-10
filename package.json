@@ -58,6 +58,7 @@
     "genkit": "^1.14.1",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.475.0",
     "next": "15.3.3",
     "next-auth": "^5.0.0-beta.30",
