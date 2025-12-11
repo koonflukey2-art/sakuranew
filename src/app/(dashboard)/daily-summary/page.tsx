@@ -30,6 +30,7 @@ import {
   Loader2,
   RefreshCw,
   Download,
+  Trash2,
 } from "lucide-react";
 
 interface DailySummary {
@@ -64,6 +65,7 @@ export default function DailySummaryPage() {
     null
   );
   const [creatingCutoff, setCreatingCutoff] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSummaries();
@@ -90,7 +92,7 @@ export default function DailySummaryPage() {
 
       const response = await fetch(url, {
         method: "GET",
-        credentials: "include", // เผื่อ cookie auth ไม่ถูกส่ง
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -106,7 +108,6 @@ export default function DailySummaryPage() {
 
       const raw = await response.json();
 
-      // รองรับทั้ง [] และ { summaries: [] }
       const arr: DailySummary[] = Array.isArray(raw)
         ? raw
         : Array.isArray(raw?.summaries)
@@ -124,8 +125,7 @@ export default function DailySummaryPage() {
       console.error("fetchSummaries error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description:
-          error?.message || "ไม่สามารถโหลดข้อมูลสรุปยอดได้",
+        description: error?.message || "ไม่สามารถโหลดข้อมูลสรุปยอดได้",
         variant: "destructive",
       });
     } finally {
@@ -166,6 +166,60 @@ export default function DailySummaryPage() {
     }
   };
 
+  const handleDeleteSummary = async (id: string) => {
+    const target = summaries.find((s) => s.id === id);
+    const dateText = target
+      ? new Date(target.date).toLocaleDateString("th-TH", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "";
+
+    if (
+      !window.confirm(
+        `ยืนยันลบสรุปยอดวันที่ ${dateText || ""} ?\nข้อมูลสรุปนี้จะถูกลบออกจากระบบจริง ๆ`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+
+      const res = await fetch(`/api/daily-cutoff/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(
+          error?.error || error?.message || "ลบสรุปยอดไม่สำเร็จ"
+        );
+      }
+
+      setSummaries((prev) => prev.filter((s) => s.id !== id));
+      if (selectedSummary?.id === id) {
+        setSelectedSummary(null);
+      }
+
+      toast({
+        title: "ลบสำเร็จ",
+        description: "ลบสรุปยอดรายวันนี้เรียบร้อยแล้ว",
+      });
+    } catch (error: any) {
+      console.error("handleDeleteSummary error:", error);
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: error?.message || "ไม่สามารถลบสรุปยอดได้",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -195,6 +249,27 @@ export default function DailySummaryPage() {
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช
           </Button>
+
+          {selectedSummary && timeRange === "today" && (
+            <Button
+              variant="destructive"
+              disabled={deletingId === selectedSummary.id}
+              onClick={() => handleDeleteSummary(selectedSummary.id)}
+            >
+              {deletingId === selectedSummary.id ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  กำลังลบ...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  ลบสรุปวันนี้
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             onClick={triggerCutOff}
             disabled={creatingCutoff}
@@ -450,7 +525,7 @@ export default function DailySummaryPage() {
                       <TableCell className="text-right text-white">
                         {summary.totalOrders}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -466,6 +541,19 @@ export default function DailySummaryPage() {
                         >
                           ดูรายละเอียด
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-400 hover:text-red-300"
+                          disabled={deletingId === summary.id}
+                          onClick={() => handleDeleteSummary(summary.id)}
+                        >
+                          {deletingId === summary.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -480,7 +568,7 @@ export default function DailySummaryPage() {
         </Card>
       )}
 
-      {/* No Data (สำหรับกรณีไหน ๆ ที่ไม่มี summary เลย) */}
+      {/* No Data */}
       {summaries.length === 0 && (
         <Card className="bg-white/5 border border-white/10 backdrop-blur">
           <CardContent className="py-12 text-center text-gray-400">
