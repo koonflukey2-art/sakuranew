@@ -58,9 +58,36 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    // --- แปลงค่าทั้งหมดให้เป็น number ---
+    const rawCostPrice = body.costPrice ?? 0;
+    const rawSellPrice = body.sellPrice ?? undefined;
+    const rawQuantity = body.quantity ?? 0;
+    const rawMinStockLevel = body.minStockLevel ?? 10;
+
+    const costPrice = Number(rawCostPrice) || 0;
+    const quantity = parseInt(String(rawQuantity), 10) || 0;
+    const minStockLevel = parseInt(String(rawMinStockLevel), 10) || 10;
+
+    // ถ้าไม่ได้ส่ง sellPrice มา ให้ใช้ costPrice แทน (กัน Prisma ฟ้อง)
+    const sellPrice =
+      rawSellPrice !== undefined && rawSellPrice !== null
+        ? Number(rawSellPrice) || 0
+        : costPrice;
+
+    console.log("🚀 Creating product with:", {
+      name: body.name,
+      category: body.category,
+      productType: body.productType ?? 1,
+      productTypeName: body.productTypeName,
+      quantity,
+      minStockLevel,
+      costPrice,
+      sellPrice, // << ดูได้ตรงนี้
+      organizationId: user.organizationId,
+    });
+
     // Calculate total cost for budget deduction
-    const totalCost =
-      parseFloat(body.costPrice || 0) * parseInt(body.quantity || 0, 10);
+    const totalCost = costPrice * quantity;
 
     // Create product
     const product = await prisma.product.create({
@@ -69,11 +96,10 @@ export async function POST(request: Request) {
         category: body.category || null,
         productType: body.productType ?? 1,
         productTypeName: body.productTypeName || null,
-        quantity: body.quantity ?? 0,
-        minStockLevel: body.minStockLevel ?? 10,
-        costPrice: body.costPrice,
-        sellPrice: body.sellPrice,
-        // ✅ ผูกกับ organization ตาม schema ใหม่
+        quantity,
+        minStockLevel,
+        costPrice,
+        sellPrice, // ✅ ส่งค่าแน่นอน
         organizationId: user.organizationId,
       },
     });
@@ -100,7 +126,7 @@ export async function POST(request: Request) {
             budgetId: budget.id,
             type: "DEDUCT",
             amount: totalCost,
-            description: `ซื้อสินค้า: ${body.name} (${body.quantity} ชิ้น)`,
+            description: `ซื้อสินค้า: ${body.name} (${quantity} ชิ้น)`,
             productId: product.id,
             createdBy: user.id,
             organizationId: user.organizationId,
@@ -108,12 +134,16 @@ export async function POST(request: Request) {
         });
 
         console.log(`💰 Budget deducted: ฿${totalCost.toLocaleString()}`);
-        console.log(`   Product: ${body.name} (${body.quantity} units @ ฿${body.costPrice} each)`);
-        console.log(`   Remaining: ฿${(budget.remaining - totalCost).toLocaleString()}`);
+        console.log(
+          `   Product: ${body.name} (${quantity} units @ ฿${costPrice} each)`
+        );
+        console.log(
+          `   Remaining: ฿${(budget.remaining - totalCost).toLocaleString()}`
+        );
       }
     } catch (budgetError) {
       console.error("Failed to deduct budget:", budgetError);
-      // Don't fail the product creation if budget deduction fails
+      // ไม่ต้อง throw ต่อ ปล่อยให้ product ถูกสร้างสำเร็จ
     }
 
     return NextResponse.json(product, { status: 201 });
@@ -150,7 +180,20 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
 
-    // (ถ้าจะกัน cross-org จริง ๆ ควร check ว่า product นี้ belong กับ org เดียวกันก่อน)
+    const rawCostPrice = body.costPrice ?? 0;
+    const rawSellPrice = body.sellPrice ?? undefined;
+    const rawQuantity = body.quantity ?? 0;
+    const rawMinStockLevel = body.minStockLevel ?? 10;
+
+    const costPrice = Number(rawCostPrice) || 0;
+    const quantity = parseInt(String(rawQuantity), 10) || 0;
+    const minStockLevel = parseInt(String(rawMinStockLevel), 10) || 10;
+
+    const sellPrice =
+      rawSellPrice !== undefined && rawSellPrice !== null
+        ? Number(rawSellPrice) || 0
+        : costPrice;
+
     const product = await prisma.product.update({
       where: { id: body.id },
       data: {
@@ -158,10 +201,10 @@ export async function PUT(request: Request) {
         category: body.category || null,
         productType: body.productType ?? 1,
         productTypeName: body.productTypeName || null,
-        quantity: body.quantity,
-        minStockLevel: body.minStockLevel,
-        costPrice: body.costPrice,
-        sellPrice: body.sellPrice,
+        quantity,
+        minStockLevel,
+        costPrice,
+        sellPrice,
       },
     });
 
