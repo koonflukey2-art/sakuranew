@@ -11,7 +11,6 @@ function maskToken(token: string | null | undefined): string | null {
   return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
 }
 
-// GET - Fetch system settings
 export async function GET(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -24,7 +23,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 400 });
     }
 
-    // Get or create default settings
     let settings = await prisma.systemSettings.findUnique({
       where: { organizationId: orgId },
     });
@@ -43,7 +41,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Mask sensitive tokens when returning to client
+    // Return with masked tokens
     const safeSettings = {
       ...settings,
       lineNotifyToken: maskToken(settings.lineNotifyToken),
@@ -61,7 +59,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Update system settings (admin only)
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -69,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is ADMIN
+    // Check if user is admin
     const dbUser = await prisma.user.findUnique({
       where: { clerkId: user.id },
     });
@@ -88,57 +85,66 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Update or create settings
+    // Build update data object
+    const updateData: any = {};
+
+    // Daily cut-off settings
+    if (body.dailyCutOffHour !== undefined) {
+      updateData.dailyCutOffHour = parseInt(body.dailyCutOffHour);
+    }
+    if (body.dailyCutOffMinute !== undefined) {
+      updateData.dailyCutOffMinute = parseInt(body.dailyCutOffMinute);
+    }
+
+    // LINE settings
+    if (body.lineWebhookUrl !== undefined) {
+      updateData.lineWebhookUrl = body.lineWebhookUrl;
+    }
+
+    // Only update tokens if new values provided
+    if (typeof body.lineNotifyToken === "string" && body.lineNotifyToken.trim()) {
+      updateData.lineNotifyToken = body.lineNotifyToken.trim();
+    }
+    if (
+      typeof body.lineChannelAccessToken === "string" &&
+      body.lineChannelAccessToken.trim()
+    ) {
+      updateData.lineChannelAccessToken = body.lineChannelAccessToken.trim();
+    }
+    if (
+      typeof body.lineChannelSecret === "string" &&
+      body.lineChannelSecret.trim()
+    ) {
+      updateData.lineChannelSecret = body.lineChannelSecret.trim();
+    }
+
+    // Notification settings
+    if (body.notifyOnOrder !== undefined) {
+      updateData.notifyOnOrder = body.notifyOnOrder;
+    }
+    if (body.notifyOnLowStock !== undefined) {
+      updateData.notifyOnLowStock = body.notifyOnLowStock;
+    }
+    if (body.notifyDailySummary !== undefined) {
+      updateData.notifyDailySummary = body.notifyDailySummary;
+    }
+
+    // Admin settings
+    if (body.adminEmails !== undefined) {
+      updateData.adminEmails = body.adminEmails;
+    }
+
+    // Upsert settings
     const settings = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
-      update: {
-        ...(body.dailyCutOffHour !== undefined && {
-          dailyCutOffHour: parseInt(body.dailyCutOffHour),
-        }),
-        ...(body.dailyCutOffMinute !== undefined && {
-          dailyCutOffMinute: parseInt(body.dailyCutOffMinute),
-        }),
-        ...(body.lineNotifyToken !== undefined && {
-          lineNotifyToken: body.lineNotifyToken || null,
-        }),
-        ...(body.lineChannelAccessToken !== undefined && {
-          lineChannelAccessToken: body.lineChannelAccessToken || null,
-        }),
-        ...(body.lineChannelSecret !== undefined && {
-          lineChannelSecret: body.lineChannelSecret || null,
-        }),
-        ...(body.lineWebhookUrl !== undefined && {
-          lineWebhookUrl: body.lineWebhookUrl || null,
-        }),
-        ...(body.adminEmails !== undefined && {
-          adminEmails: body.adminEmails || null,
-        }),
-        ...(body.notifyOnOrder !== undefined && {
-          notifyOnOrder: body.notifyOnOrder,
-        }),
-        ...(body.notifyOnLowStock !== undefined && {
-          notifyOnLowStock: body.notifyOnLowStock,
-        }),
-        ...(body.notifyDailySummary !== undefined && {
-          notifyDailySummary: body.notifyDailySummary,
-        }),
-      },
+      update: updateData,
       create: {
         organizationId: orgId,
-        dailyCutOffHour: parseInt(body.dailyCutOffHour) || 23,
-        dailyCutOffMinute: parseInt(body.dailyCutOffMinute) || 59,
-        lineNotifyToken: body.lineNotifyToken || null,
-        lineChannelAccessToken: body.lineChannelAccessToken || null,
-        lineChannelSecret: body.lineChannelSecret || null,
-        lineWebhookUrl: body.lineWebhookUrl || null,
-        adminEmails: body.adminEmails || null,
-        notifyOnOrder: body.notifyOnOrder ?? true,
-        notifyOnLowStock: body.notifyOnLowStock ?? true,
-        notifyDailySummary: body.notifyDailySummary ?? true,
+        ...updateData,
       },
     });
 
-    // Return masked tokens
+    // Return with masked tokens
     const safeSettings = {
       ...settings,
       lineNotifyToken: maskToken(settings.lineNotifyToken),
