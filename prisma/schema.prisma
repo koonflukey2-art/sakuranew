@@ -109,6 +109,7 @@ model Organization {
   orders              Order[]
   productTypes        ProductType[]
   lineSettings        LINESettings?
+  promotions          Promotion[] // ✅ เพิ่ม relation กลับมาจาก Promotion
 }
 
 // ============================
@@ -152,17 +153,17 @@ model User {
 // ============================
 
 model Product {
-  id            String   @id @default(cuid())
-  name          String
-  category      String?
-  productType   Int
+  id              String   @id @default(cuid())
+  name            String
+  category        String?
+  productType     Int
   productTypeName String?
-  quantity      Int      @default(0)
-  minStockLevel Int      @default(10)
-  costPrice     Float
-  sellPrice     Float
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  quantity        Int      @default(0)
+  minStockLevel   Int      @default(10)
+  costPrice       Float
+  sellPrice       Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // ✅ ใช้ organization แทน user
   organizationId String
@@ -177,10 +178,10 @@ model Product {
 }
 
 model Promotion {
-  id              String   @id @default(cuid())
-  organizationId  String
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id             String  @id @default(cuid())
+  organizationId String
+  productId      String
+  product        Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   name        String
   description String?
@@ -190,7 +191,7 @@ model Promotion {
 
   startDate DateTime?
   endDate   DateTime?
-  isActive  Boolean  @default(true)
+  isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -250,17 +251,17 @@ model Budget {
 // Capital Budget (ใหม่ - สำหรับจัดการงบประมาณสินค้า)
 model CapitalBudget {
   id             String   @id @default(cuid())
-  amount         Float    // งบประมาณทั้งหมด
-  remaining      Float    // งบคงเหลือ
+  amount         Float // งบประมาณทั้งหมด
+  remaining      Float // งบคงเหลือ
   minThreshold   Float    @default(5000) // ขั้นต่ำที่ต้องเตือน
   description    String?
   organizationId String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  createdBy      String   // User ID ที่สร้าง
+  createdBy      String // User ID ที่สร้าง
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  transactions   CapitalBudgetTransaction[]
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions CapitalBudgetTransaction[]
 
   @@index([organizationId])
 }
@@ -268,7 +269,7 @@ model CapitalBudget {
 model CapitalBudgetTransaction {
   id             String   @id @default(cuid())
   budgetId       String
-  type           String   // "ADD" | "DEDUCT"
+  type           String // "ADD" | "DEDUCT"
   amount         Float
   description    String?
   productId      String?
@@ -277,7 +278,7 @@ model CapitalBudgetTransaction {
   organizationId String
   createdAt      DateTime @default(now())
 
-  budget         CapitalBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budget CapitalBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
   @@index([budgetId])
   @@index([organizationId])
@@ -589,8 +590,8 @@ model PlatformCredential {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId])
   @@unique([organizationId, platform])
+  @@index([organizationId])
 }
 
 // ============================
@@ -598,44 +599,44 @@ model PlatformCredential {
 // ============================
 
 model Customer {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
   phone          String
   address        String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   orders         Order[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
   @@index([phone])
 }
 
 model Order {
-  id             String      @id @default(cuid())
-  orderNumber    String?     // From LINE message (12, 13, etc)
-  customerId     String
-  customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  orderNumber String? // From LINE message (12, 13, etc)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   // Product info
-  productType    Int?        // 1-4 from LINE message
-  productName    String?
-  quantity       Int         @default(1)
+  productType Int? // 1-4 from LINE message
+  productName String?
+  quantity    Int     @default(1)
 
   // Pricing
-  amount         Float       // ยอดเก็บ
-  unitPrice      Float       @default(0)  // ราคาต่อชิ้นจากไลน์
+  amount    Float // ยอดเก็บ
+  unitPrice Float @default(0) // ราคาต่อชิ้นจากไลน์
 
   // Order details
-  orderDate      DateTime    @default(now())
-  status         OrderStatus @default(PENDING)
+  orderDate      DateTime     @default(now())
+  status         OrderStatus  @default(PENDING)
   notes          String?
-  rawMessage     String?     // Original LINE message
+  rawMessage     String? // Original LINE message
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
   @@index([orderDate])
@@ -656,15 +657,15 @@ enum OrderStatus {
 // ============================
 
 model LINESettings {
-  id                 String   @id @default(cuid())
+  id                 String       @id @default(cuid())
   channelAccessToken String?
   channelSecret      String?
   webhookUrl         String?
-  isActive           Boolean  @default(false)
-  organizationId     String   @unique
+  isActive           Boolean      @default(false)
+  organizationId     String       @unique
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 }
 
 // ============================
@@ -672,42 +673,42 @@ model LINESettings {
 // ============================
 
 model KPI {
-  id                String   @id @default(cuid())
-  organizationId    String
-  period            String   // "daily", "weekly", "monthly"
-  date              DateTime
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "daily", "weekly", "monthly"
+  date           DateTime
 
   // Revenue metrics
-  totalRevenue      Float    @default(0)
-  totalCost         Float    @default(0)
-  totalProfit       Float    @default(0)
-  profitMargin      Float    @default(0)
+  totalRevenue Float @default(0)
+  totalCost    Float @default(0)
+  totalProfit  Float @default(0)
+  profitMargin Float @default(0)
 
   // Product metrics
-  productsSold      Int      @default(0)
-  avgOrderValue     Float    @default(0)
+  productsSold  Int   @default(0)
+  avgOrderValue Float @default(0)
 
   // Efficiency metrics
-  stockTurnover     Float    @default(0)
-  costEfficiency    Float    @default(0)
+  stockTurnover  Float @default(0)
+  costEfficiency Float @default(0)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId, date])
   @@index([organizationId, period])
 }
 
 model ProfitTarget {
-  id                String   @id @default(cuid())
-  organizationId    String
-  productType       Int?     // null = overall target
-  targetMargin      Float    // Target profit margin %
-  minMargin         Float    // Minimum acceptable margin %
-  alertThreshold    Float    // Alert when below this %
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  productType    Int? // null = overall target
+  targetMargin   Float // Target profit margin %
+  minMargin      Float // Minimum acceptable margin %
+  alertThreshold Float // Alert when below this %
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([organizationId])
   @@index([organizationId, productType])
@@ -718,51 +719,51 @@ model ProfitTarget {
 // ============================
 
 model DailySummary {
-  id              String   @id @default(cuid())
-  date            DateTime // Start of day
-  organizationId  String
+  id             String   @id @default(cuid())
+  date           DateTime // Start of day
+  organizationId String
 
   // Sales metrics
-  totalRevenue    Float    @default(0)
-  totalCost       Float    @default(0)
-  totalProfit     Float    @default(0)
-  totalOrders     Int      @default(0)
+  totalRevenue Float @default(0)
+  totalCost    Float @default(0)
+  totalProfit  Float @default(0)
+  totalOrders  Int   @default(0)
 
   // Product breakdown - JSON array of products sold
-  productsSold    Json     // [{productType, productName, quantity, revenue, cost, profit}]
+  productsSold Json // [{productType, productName, quantity, revenue, cost, profit}]
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  cutOffTime      DateTime // When cut-off happened
+  createdAt  DateTime @default(now())
+  cutOffTime DateTime // When cut-off happened
 
   @@index([organizationId, date])
   @@index([date])
 }
 
 model SystemSettings {
-  id                      String   @id @default(cuid())
-  organizationId          String   @unique
+  id             String @id @default(cuid())
+  organizationId String @unique
 
   // Daily cut-off settings
-  dailyCutOffHour         Int      @default(23)
-  dailyCutOffMinute       Int      @default(59)
+  dailyCutOffHour   Int @default(23)
+  dailyCutOffMinute Int @default(59)
 
   // LINE Integration (stored in database, NOT env vars)
-  lineNotifyToken         String?  // Admin pastes this in Settings page
-  lineChannelAccessToken  String?  // Admin pastes this in Settings page
-  lineChannelSecret       String?  // Admin pastes this in Settings page
-  lineWebhookUrl          String?  // Auto-generated or editable
+  lineNotifyToken        String? // Admin pastes this in Settings page
+  lineChannelAccessToken String? // Admin pastes this in Settings page
+  lineChannelSecret      String? // Admin pastes this in Settings page
+  lineWebhookUrl         String? // Auto-generated or editable
 
   // Admin settings
-  adminEmails             String?  // Comma-separated list
+  adminEmails String? // Comma-separated list
 
   // Notification preferences
-  notifyOnOrder           Boolean  @default(true)
-  notifyOnLowStock        Boolean  @default(true)
-  notifyDailySummary      Boolean  @default(true)
+  notifyOnOrder      Boolean @default(true)
+  notifyOnLowStock   Boolean @default(true)
+  notifyDailySummary Boolean @default(true)
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
 }
