@@ -60,6 +60,7 @@ type StatsResponse = {
     orders: number;
     profit: number;
     expense: number;
+    margin?: number;
     byType: Record<string, TypeBreakdown>;
   };
   week: {
@@ -67,8 +68,14 @@ type StatsResponse = {
     orders: number;
     profit: number;
     expense: number;
+    margin?: number;
     byType: Record<string, TypeBreakdown>;
     daily: DailyStat[];
+  };
+  budget?: {
+    total: number;
+    used: number;
+    remaining: number;
   };
 };
 
@@ -175,10 +182,11 @@ export default function DashboardPage() {
   const profitMargin =
     todayRevenue > 0 ? (todayProfit / todayRevenue) * 100 : 0;
 
-  const totalBudget = budget?.amount ?? 0;
-  const remainingBudget = budget?.remaining ?? 0;
-  const spentBudget = Math.max(totalBudget - remainingBudget, 0);
+  const totalBudget = stats?.budget?.total ?? budget?.amount ?? 0;
+  const remainingBudget = stats?.budget?.remaining ?? budget?.remaining ?? 0;
+  const spentBudget = stats?.budget?.used ?? Math.max(totalBudget - remainingBudget, 0);
   const roas = spentBudget > 0 ? todayRevenue / spentBudget : 0;
+  const netProfitToday = todayProfit - spentBudget;
 
   const chartData = useMemo(() => {
     return (
@@ -313,9 +321,9 @@ export default function DashboardPage() {
       {/* การ์ด metric ด้านบน */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
-          title="กำไรรวม"
-          value={formatCurrency(todayProfit)}
-          subtitle={`~${profitMargin.toFixed(1)}% margin`}
+          title="กำไรสุทธิ (หลังหักงบ)"
+          value={formatCurrency(netProfitToday)}
+          subtitle={`กำไรก่อนหักงบ ${formatCurrency(todayProfit)} • Margin ${profitMargin.toFixed(1)}%`}
           change={profitChange}
           icon={<DollarSign className="w-5 h-5 text-green-300" />}
           tone="green"

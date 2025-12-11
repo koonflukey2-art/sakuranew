@@ -59,14 +59,16 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Calculate total cost for budget deduction
-    const totalCost = parseFloat(body.costPrice || 0) * parseInt(body.quantity || 0, 10);
+    const totalCost =
+      parseFloat(body.costPrice || 0) * parseInt(body.quantity || 0, 10);
 
     // Create product
     const product = await prisma.product.create({
       data: {
         name: body.name,
-        category: body.category,
-        productType: body.productType ?? null,
+        category: body.category || null,
+        productType: body.productType ?? 1,
+        productTypeName: body.productTypeName || null,
         quantity: body.quantity ?? 0,
         minStockLevel: body.minStockLevel ?? 10,
         costPrice: body.costPrice,
@@ -153,8 +155,9 @@ export async function PUT(request: Request) {
       where: { id: body.id },
       data: {
         name: body.name,
-        category: body.category,
-        productType: body.productType ?? null,
+        category: body.category || null,
+        productType: body.productType ?? 1,
+        productTypeName: body.productTypeName || null,
         quantity: body.quantity,
         minStockLevel: body.minStockLevel,
         costPrice: body.costPrice,

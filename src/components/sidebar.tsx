@@ -27,6 +27,8 @@ import {
   MessageSquare,
   Users,
   Calendar,
+  Box,
+  Gift,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 
@@ -48,11 +50,14 @@ const menuStructure: MenuSection[] = [
     items: [{ label: "แดชบอร์ด", href: "/", icon: LayoutDashboard }],
   },
   {
-    section: "จัดการสินค้า",
+    section: "จัดการสต๊อกสินค้า",
+    collapsible: true,
     items: [
       { label: "สต็อกสินค้า", href: "/stock", icon: Package },
       { label: "คำสั่งซื้อ", href: "/orders", icon: ShoppingCart },
       { label: "สรุปยอดรายวัน", href: "/daily-summary", icon: Calendar },
+      { label: "จัดการสินค้า", href: "/products", icon: Box },
+      { label: "โปรโมชั่น", href: "/promotions", icon: Gift },
     ],
   },
   {

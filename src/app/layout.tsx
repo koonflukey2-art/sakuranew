@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/contexts/theme-context"; // <--- ต้องมี
+import { AccountMenu } from "@/components/account-menu";
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ["latin", "thai"],
@@ -34,7 +35,10 @@ export default function RootLayout({
         >
           {/* ต้องมี ThemeProvider ครอบตรงนี้ */}
           <ThemeProvider>
-            {children}
+            <AccountMenu />
+            <main className="content-with-menu transition-all duration-300">
+              {children}
+            </main>
             <Toaster />
           </ThemeProvider>
         </body>
