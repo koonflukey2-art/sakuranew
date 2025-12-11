@@ -3,7 +3,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingDown, DollarSign, AlertTriangle, RefreshCw } from "lucide-react";
+import {
+  Package,
+  TrendingDown,
+  DollarSign,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   BarChart,
@@ -45,8 +51,8 @@ export default function StockPage() {
       const ordersData = await ordersRes.json();
       const budgetData = await budgetRes.json();
 
-      setProducts(productsData);
-      setOrders(ordersData);
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
       setBudget(budgetData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -55,26 +61,31 @@ export default function StockPage() {
     }
   };
 
-  // Calculate today's date for filtering
+  // Calculate today's date for filtering (local time)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // LINE orders stats - ALL time
-  const lineOrderStats = orders
-    .filter((o) => o.source === "LINE")
-    .reduce(
-      (acc, order) => {
-        acc.total += 1;
-        acc.revenue += order.amount || 0;
-        return acc;
-      },
-      { total: 0, revenue: 0 }
-    );
+  // ✅ นิยามว่า "ออเดอร์จาก LINE" = มี rawMessage (ยิงมาจาก LINE webhook) หรือมี productType
+  const lineOrdersAll = orders.filter(
+    (o) =>
+      (typeof o.rawMessage === "string" && o.rawMessage.trim() !== "") ||
+      o.productType !== null
+  );
 
-  // LINE orders stats - TODAY only
-  const lineOrdersToday = orders
+  // LINE orders stats - ALL time
+  const lineOrderStats = lineOrdersAll.reduce(
+    (acc, order) => {
+      acc.total += 1;
+      acc.revenue += order.amount || 0;
+      return acc;
+    },
+    { total: 0, revenue: 0 }
+  );
+
+  // LINE orders stats - TODAY only (ใช้ orderDate เทียบวัน)
+  const lineOrdersToday = lineOrdersAll
     .filter((o) => {
-      if (o.source !== "LINE") return false;
+      if (!o.orderDate) return false;
       const orderDate = new Date(o.orderDate);
       orderDate.setHours(0, 0, 0, 0);
       return orderDate.getTime() === today.getTime();
@@ -88,13 +99,20 @@ export default function StockPage() {
       { total: 0, revenue: 0 }
     );
 
-  const ordersByType = products.map((product) => ({
-    name: product.name,
-    orders: orders.filter((o) => o.productType === product.productType).length,
-    revenue: orders
-      .filter((o) => o.productType === product.productType)
-      .reduce((sum, o) => sum + (o.amount || 0), 0),
-  }));
+  // สถิติออเดอร์แยกตามสินค้า (ใช้ทุก order ไม่ได้จำกัดเฉพาะ LINE)
+  const ordersByType = products.map((product) => {
+    const relatedOrders = orders.filter(
+      (o) => o.productType === product.productType
+    );
+    return {
+      name: product.name,
+      orders: relatedOrders.length,
+      revenue: relatedOrders.reduce(
+        (sum, o) => sum + (o.amount || 0),
+        0
+      ),
+    };
+  });
 
   const COLORS = ["#8b5cf6", "#ec4899", "#3b82f6", "#10b981"];
 
@@ -111,7 +129,9 @@ export default function StockPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
-          <p className="text-gray-400 mt-1">ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ (อัพเดทอัตโนมัติทุก 30 วินาที)</p>
+          <p className="text-gray-400 mt-1">
+            ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ (อัพเดทอัตโนมัติทุก 30 วินาที)
+          </p>
         </div>
         <Button
           onClick={fetchData}
@@ -119,12 +139,16 @@ export default function StockPage() {
           variant="outline"
           className="border-purple-400 text-purple-200"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
           รีเฟรช
         </Button>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Total Products */}
         <Card className="bg-gradient-to-br from-purple-900/30 to-purple-950/30 border-purple-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-purple-300 flex items-center gap-2">
@@ -133,10 +157,13 @@ export default function StockPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-400">{products.length}</div>
+            <div className="text-3xl font-bold text-purple-400">
+              {products.length}
+            </div>
           </CardContent>
         </Card>
 
+        {/* LINE Orders Today */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-blue-300 flex items-center gap-2">
@@ -145,13 +172,16 @@ export default function StockPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-400">{lineOrdersToday.total}</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {lineOrdersToday.total}
+            </div>
             <p className="text-xs text-blue-300 mt-1">
               ทั้งหมด: {lineOrderStats.total} ออเดอร์
             </p>
           </CardContent>
         </Card>
 
+        {/* LINE Revenue Today */}
         <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-green-300 flex items-center gap-2">
@@ -169,6 +199,7 @@ export default function StockPage() {
           </CardContent>
         </Card>
 
+        {/* Budget Remaining */}
         <Card className="bg-gradient-to-br from-pink-900/30 to-pink-950/30 border-pink-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-pink-300 flex items-center gap-2">
@@ -184,6 +215,7 @@ export default function StockPage() {
         </Card>
       </div>
 
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -193,7 +225,10 @@ export default function StockPage() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ordersByType}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
                   <XAxis dataKey="name" stroke="#9ca3af" />
                   <YAxis stroke="#9ca3af" />
                   <Tooltip
@@ -228,7 +263,10 @@ export default function StockPage() {
                     label
                   >
                     {ordersByType.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
@@ -245,6 +283,7 @@ export default function StockPage() {
         </Card>
       </div>
 
+      {/* Products List */}
       <Card>
         <CardHeader>
           <CardTitle>รายการสินค้าในสต็อก</CardTitle>
@@ -263,7 +302,8 @@ export default function StockPage() {
                   <div>
                     <p className="font-semibold text-white">{product.name}</p>
                     <p className="text-sm text-gray-400">
-                      ประเภท: {product.productType ?? "-"} | ต้นทุน: ฿{product.costPrice}
+                      ประเภท: {product.productType ?? "-"} | ต้นทุน: ฿
+                      {product.costPrice}
                     </p>
                   </div>
                 </div>
@@ -271,11 +311,16 @@ export default function StockPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-sm text-gray-400">สต็อก</p>
-                    <p className="text-xl font-bold text-white">{product.quantity}</p>
+                    <p className="text-xl font-bold text-white">
+                      {product.quantity}
+                    </p>
                   </div>
 
                   {product.quantity < product.minStockLevel && (
-                    <Badge variant="destructive" className="flex items-center gap-1">
+                    <Badge
+                      variant="destructive"
+                      className="flex items-center gap-1"
+                    >
                       <AlertTriangle className="w-3 h-3" />
                       ต่ำ
                     </Badge>
