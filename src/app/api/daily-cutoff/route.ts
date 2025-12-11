@@ -1,11 +1,13 @@
+// app/api/daily-cutoff/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
+import { createDailySummaryForOrg } from "@/lib/dailyCutoff";
 
 export const runtime = "nodejs";
 
-// POST - Trigger manual cut-off (creates daily summary)
+// POST - Trigger manual cut-off (creates daily summary “วันนี้” ของ org ปัจจุบัน)
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -18,92 +20,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 400 });
     }
 
-    // Get today's date range
+    // ตัดยอดประจำวันที่วันนี้ (ตามเวลา server)
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
-    // Check if summary already exists for today
-    const existingSummary = await prisma.dailySummary.findFirst({
-      where: {
-        organizationId: orgId,
-        date: startOfDay,
-      },
-    });
+    const { summary, created } = await createDailySummaryForOrg(
+      orgId,
+      startOfDay
+    );
 
-    if (existingSummary) {
+    if (!created) {
       return NextResponse.json(
         { error: "Daily summary already exists for today" },
         { status: 400 }
       );
     }
 
-    // Fetch all orders for today
-    const orders = await prisma.order.findMany({
-      where: {
-        organizationId: orgId,
-        orderDate: {
-          gte: startOfDay,
-          lt: endOfDay,
-        },
-      },
-    });
-
-    // Fetch all products for cost calculation
-    const products = await prisma.product.findMany({
-      where: { organizationId: orgId },
-    });
-
-    // Calculate metrics
-    let totalRevenue = 0;
-    let totalCost = 0;
-    let totalProfit = 0;
-    const productBreakdown: Record<string, any> = {};
-
-    orders.forEach((order) => {
-      totalRevenue += order.amount;
-
-      // Find product to get cost
-      const product = products.find((p) => p.productType === order.productType);
-      const costPrice = product ? product.costPrice : 0;
-      const cost = costPrice * order.quantity;
-      totalCost += cost;
-      totalProfit += order.amount - cost;
-
-      // Build product breakdown
-      const key = order.productType?.toString() || "unknown";
-      if (!productBreakdown[key]) {
-        productBreakdown[key] = {
-          productType: order.productType,
-          productName: product?.name || order.productName || `สินค้าหมายเลข ${order.productType}`,
-          quantity: 0,
-          revenue: 0,
-          cost: 0,
-          profit: 0,
-        };
-      }
-
-      productBreakdown[key].quantity += order.quantity;
-      productBreakdown[key].revenue += order.amount;
-      productBreakdown[key].cost += cost;
-      productBreakdown[key].profit += order.amount - cost;
-    });
-
-    // Create daily summary
-    const summary = await prisma.dailySummary.create({
-      data: {
-        date: startOfDay,
-        organizationId: orgId,
-        totalRevenue,
-        totalCost,
-        totalProfit,
-        totalOrders: orders.length,
-        productsSold: Object.values(productBreakdown),
-        cutOffTime: now,
-      },
-    });
-
+    // summary ถูกสร้าง + ส่ง LINE ให้แล้วใน helper
     return NextResponse.json(summary);
   } catch (error: any) {
     console.error("Daily cut-off error:", error);
@@ -114,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Fetch daily summaries with filters
+// GET - Fetch daily summaries with filters (เหมือนเดิม)
 export async function GET(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -148,7 +85,7 @@ export async function GET(request: NextRequest) {
     const summaries = await prisma.dailySummary.findMany({
       where,
       orderBy: { date: "desc" },
-      take: 100, // Limit to 100 most recent
+      take: 100,
     });
 
     return NextResponse.json(summaries);
