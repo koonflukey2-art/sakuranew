@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit, Package } from "lucide-react";
+import { Plus, Edit, Package, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProductsPage() {
@@ -23,9 +23,11 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
 
   const [openCreateProduct, setOpenCreateProduct] = useState(false);
+  const [openEditProduct, setOpenEditProduct] = useState(false);
   const [openManageTypes, setOpenManageTypes] = useState(false);
   const [openEditType, setOpenEditType] = useState(false);
   const [editingType, setEditingType] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -140,6 +142,48 @@ export default function ProductsPage() {
     }
   };
 
+  const handleUpdateProduct = async () => {
+    try {
+      const response = await fetch("/api/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingProduct),
+      });
+
+      if (!response.ok) throw new Error("Failed to update");
+
+      toast({ title: "✅ อัพเดทสินค้าสำเร็จ" });
+      setOpenEditProduct(false);
+      setEditingProduct(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteProduct = async (id: string, name: string) => {
+    if (!confirm(`ยืนยันการลบสินค้า "${name}"?`)) return;
+
+    try {
+      const response = await fetch(`/api/products?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete");
+
+      toast({ title: "✅ ลบสินค้าสำเร็จ" });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -238,6 +282,26 @@ export default function ProductsPage() {
                   <div className="text-right">
                     <p className="text-sm text-gray-400">สต็อก</p>
                     <p className="font-bold text-white">{product.quantity}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingProduct({ ...product });
+                        setOpenEditProduct(true);
+                      }}
+                      className="border-purple-400 text-purple-200"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteProduct(product.id, product.name)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -415,6 +479,83 @@ export default function ProductsPage() {
           )}
           <DialogFooter>
             <Button onClick={updateProductType}>บันทึก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditProduct} onOpenChange={setOpenEditProduct}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขสินค้า</DialogTitle>
+          </DialogHeader>
+          {editingProduct && (
+            <div className="space-y-4">
+              <div>
+                <Label>ชื่อสินค้า</Label>
+                <Input
+                  value={editingProduct.name}
+                  onChange={(e) =>
+                    setEditingProduct({ ...editingProduct, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>หมวดหมู่</Label>
+                <Input
+                  value={editingProduct.category || ""}
+                  onChange={(e) =>
+                    setEditingProduct({ ...editingProduct, category: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>ต้นทุน (บาท)</Label>
+                  <Input
+                    type="number"
+                    value={editingProduct.costPrice}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        costPrice: parseFloat(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>จำนวนในสต็อก</Label>
+                  <Input
+                    type="number"
+                    value={editingProduct.quantity}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        quantity: parseInt(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>สต็อกขั้นต่ำ</Label>
+                <Input
+                  type="number"
+                  value={editingProduct.minStockLevel}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      minStockLevel: parseInt(e.target.value),
+                    })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleUpdateProduct}>บันทึกการแก้ไข</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
