@@ -40,7 +40,7 @@ interface DailySummary {
   totalProfit: number;
   totalOrders: number;
   productsSold: Array<{
-    productType: number;
+    productType: number | null;
     productName: string;
     quantity: number;
     revenue: number;
@@ -88,21 +88,44 @@ export default function DailySummaryPage() {
         url += "days=30";
       }
 
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch summaries");
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include", // เผื่อ cookie auth ไม่ถูกส่ง
+      });
 
-      const data = await response.json();
-      setSummaries(data);
+      if (!response.ok) {
+        let msg = `Failed to fetch summaries (status ${response.status})`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.error || errBody?.message) {
+            msg = errBody.error || errBody.message;
+          }
+        } catch (_) {}
+        throw new Error(msg);
+      }
 
-      if (data.length > 0 && timeRange === "today") {
-        setSelectedSummary(data[0]);
+      const raw = await response.json();
+
+      // รองรับทั้ง [] และ { summaries: [] }
+      const arr: DailySummary[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.summaries)
+        ? raw.summaries
+        : [];
+
+      setSummaries(arr);
+
+      if (arr.length > 0 && timeRange === "today") {
+        setSelectedSummary(arr[0]);
       } else {
         setSelectedSummary(null);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("fetchSummaries error:", error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถโหลดข้อมูลสรุปยอดได้",
+        description:
+          error?.message || "ไม่สามารถโหลดข้อมูลสรุปยอดได้",
         variant: "destructive",
       });
     } finally {
@@ -115,11 +138,14 @@ export default function DailySummaryPage() {
       setCreatingCutoff(true);
       const response = await fetch("/api/daily-cutoff", {
         method: "POST",
+        credentials: "include",
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to trigger cut-off");
+        const error = await response.json().catch(() => null);
+        throw new Error(
+          error?.error || error?.message || "Failed to trigger cut-off"
+        );
       }
 
       toast({
@@ -129,9 +155,10 @@ export default function DailySummaryPage() {
 
       fetchSummaries();
     } catch (error: any) {
+      console.error("triggerCutOff error:", error);
       toast({
         title: "❌ เกิดข้อผิดพลาด",
-        description: error.message || "ไม่สามารถตัดยอดได้",
+        description: error?.message || "ไม่สามารถตัดยอดได้",
         variant: "destructive",
       });
     } finally {
@@ -291,7 +318,8 @@ export default function DailySummaryPage() {
                 ฿
                 {selectedSummary.totalOrders > 0
                   ? (
-                      selectedSummary.totalRevenue / selectedSummary.totalOrders
+                      selectedSummary.totalRevenue /
+                      selectedSummary.totalOrders
                     ).toLocaleString()
                   : 0}{" "}
                 / ออเดอร์
@@ -452,13 +480,15 @@ export default function DailySummaryPage() {
         </Card>
       )}
 
-      {/* No Data */}
+      {/* No Data (สำหรับกรณีไหน ๆ ที่ไม่มี summary เลย) */}
       {summaries.length === 0 && (
         <Card className="bg-white/5 border border-white/10 backdrop-blur">
           <CardContent className="py-12 text-center text-gray-400">
             <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
             <p className="text-lg mb-2">ยังไม่มีข้อมูลสรุปยอดสำหรับช่วงเวลานี้</p>
-            <p className="text-sm">กดปุ่ม "ตัดยอดทันที" เพื่อสร้างสรุปยอดวันนี้</p>
+            <p className="text-sm">
+              กดปุ่ม "ตัดยอดทันที" เพื่อสร้างสรุปยอดวันนี้
+            </p>
           </CardContent>
         </Card>
       )}
