@@ -89,7 +89,6 @@ const menuStructure: MenuSection[] = [
     section: "ตั้งค่า",
     items: [
       { label: "System Settings", href: "/system-settings", icon: Settings },
-      { label: "AI & Platforms", href: "/settings", icon: Bot },
     ],
   },
 ];
