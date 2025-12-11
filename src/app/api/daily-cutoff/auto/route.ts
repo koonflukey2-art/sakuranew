@@ -36,19 +36,28 @@ async function handleAutoCutoff(req: NextRequest) {
 
   const orgId = settings.organizationId;
 
-  // 3) เอาเวลาตัดยอดจาก settings (default 23:59)
+  // 3) เอาเวลาตัดยอดจาก settings (ตีความเป็น "เวลาไทย")
   const hour = settings.dailyCutOffHour ?? 23;
   const minute = settings.dailyCutOffMinute ?? 59;
 
   const now = new Date();
+
+  // 🇹🇭 แปลง "เวลาไทย (UTC+7)" → UTC ก่อนเอาไป set ใน Date
+  const TH_OFFSET = 7;
   const cutoff = new Date(now);
-  cutoff.setHours(hour, minute, 0, 0);
+
+  // hour ที่เก็บใน DB = ชั่วโมงตามเวลาไทย
+  // แปลงเป็นชั่วโมง UTC (ลบ 7 ชั่วโมง แล้ว modulo 24 กันติดลบ)
+  const cutoffUtcHour = (hour - TH_OFFSET + 24) % 24;
+  cutoff.setUTCHours(cutoffUtcHour, minute, 0, 0);
 
   // ถ้ายังไม่ถึงเวลาตัดยอด → ข้าม
   if (now.getTime() < cutoff.getTime()) {
     console.log("⏭️ Skip auto cutoff: before cutoff time", {
       now: now.toISOString(),
       cutoff: cutoff.toISOString(),
+      configuredHourTH: hour,
+      configuredMinuteTH: minute,
     });
 
     return NextResponse.json(
