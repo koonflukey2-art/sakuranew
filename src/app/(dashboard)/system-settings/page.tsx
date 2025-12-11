@@ -174,8 +174,8 @@ export default function SystemSettingsPage() {
   // Auto-generate webhook URL
   const webhookUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/webhooks/line`
-      : settings.lineWebhookUrl || "https://your-domain.com/api/webhooks/line";
+      ? `${window.location.origin}/api/line/webhook`
+      : settings.lineWebhookUrl || "https://your-domain.com/api/line/webhook";
 
   // ========== AUTHORIZATION CHECK ==========
 

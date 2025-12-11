@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseLineMessage } from "@/lib/line-parser";
+import {
+  getLineSettings,
+  replyLineMessage,
+  sendLineNotify,
+  formatOrderConfirmation,
+  checkAndNotifyLowStock,
+} from "@/lib/line-integration";
 
 export const runtime = "nodejs";
 
@@ -33,8 +40,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    const settings = await getActiveLineSettings();
-    const organizationId = settings?.organizationId;
+    const lineSettings = await getActiveLineSettings();
+    const organizationId = lineSettings?.organizationId;
 
     if (!organizationId) {
       console.warn("⚠️ No organizationId on active LINE settings – skip saving");
@@ -44,11 +51,16 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Organization ID: ${organizationId}`);
 
+    // Get system settings for notifications and tokens
+    const systemSettings = await getLineSettings(organizationId);
+
     // loop ทุก event
     for (const event of data.events) {
       if (event.type !== "message" || event.message?.type !== "text") continue;
 
       const text: string = event.message.text?.trim() ?? "";
+      const replyToken = event.replyToken;
+
       if (!text) continue;
 
       console.log("───────────────────────────────────────────");
@@ -66,6 +78,16 @@ export async function POST(req: NextRequest) {
 
       if (!parsed) {
          console.log("🚫 Failed to parse message, skipping.");
+
+         // Send help message if parsing fails
+         if (systemSettings?.lineChannelAccessToken && replyToken) {
+           await replyLineMessage(
+             replyToken,
+             systemSettings.lineChannelAccessToken,
+             "รูปแบบข้อความไม่ถูกต้อง\n\nตัวอย่างที่ถูกต้อง:\n1 5 100\n(ประเภท จำนวน ราคา)"
+           );
+         }
+
          continue;
       }
 
@@ -74,6 +96,16 @@ export async function POST(req: NextRequest) {
       // ต้องมียอดเก็บและประเภทสินค้า
       if (!parsed.amount || !parsed.productType) {
         console.log("🚫 Missing amount or productType, skip");
+
+        // Send error message
+        if (systemSettings?.lineChannelAccessToken && replyToken) {
+          await replyLineMessage(
+            replyToken,
+            systemSettings.lineChannelAccessToken,
+            "ข้อมูลไม่ครบถ้วน กรุณาระบุประเภทสินค้าและยอดเงิน"
+          );
+        }
+
         continue;
       }
 
@@ -109,8 +141,8 @@ export async function POST(req: NextRequest) {
         await prisma.customer.update({
           where: { id: customer.id },
           data: {
-            name: customer.name === "ลูกค้าไม่ระบุชื่อ" ? name : customer.name, // ถ้าของเดิมไม่มีชื่อ ให้ใช้ชื่อใหม่
-            address: address || customer.address, // ถ้ามีที่อยู่ใหม่ ให้ทับของเดิม (หรือจะแก้ logic ตามต้องการ)
+            name: customer.name === "ลูกค้าไม่ระบุชื่อ" ? name : customer.name,
+            address: address || customer.address,
           },
         });
         console.log(`  ✅ Customer found: ${customer.id}`);
@@ -133,21 +165,29 @@ export async function POST(req: NextRequest) {
 
       if (!productType) {
         console.log(`⚠️ Product type ${parsed.productType} not found for organization ${organizationId}`);
+
+        // Send error message
+        if (systemSettings?.lineChannelAccessToken && replyToken) {
+          await replyLineMessage(
+            replyToken,
+            systemSettings.lineChannelAccessToken,
+            `ไม่พบประเภทสินค้าหมายเลข ${parsed.productType} ในระบบ`
+          );
+        }
+
         continue;
       }
 
       const order = await prisma.order.create({
         data: {
-          amount: parsed.amount,       // ยอดเงินรวม (Quantity * UnitPrice)
-          quantity: parsed.quantity,   // จำนวนสินค้า
+          amount: parsed.amount,
+          quantity: parsed.quantity,
           productType: parsed.productType,
           productName: parsed.productName ?? productType.typeName ?? null,
           rawMessage: text,
           status: "CONFIRMED",
           customerId: customer.id,
           organizationId,
-          // ⚠️ IMPORTANT: เอา unitPrice ออก เพราะใน Database ไม่มี column นี้
-          // unitPrice: parsed.unitPrice, <--- สาเหตุที่ Error คือบรรทัดนี้
         },
       });
 
@@ -162,7 +202,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (product) {
-        await prisma.product.update({
+        const updatedProduct = await prisma.product.update({
           where: { id: product.id },
           data: {
             quantity: {
@@ -171,8 +211,37 @@ export async function POST(req: NextRequest) {
           },
         });
         console.log(`📉 Stock updated for product ${product.id} (-${parsed.quantity})`);
+
+        // 5. Check and notify low stock
+        await checkAndNotifyLowStock(updatedProduct, systemSettings || {});
       } else {
          console.log(`⚠️ Product type ${parsed.productType} not found in stock system - skipping stock decrement`);
+      }
+
+      // 6. Send reply to customer (confirmation)
+      if (systemSettings?.lineChannelAccessToken && replyToken) {
+        const confirmationMessage = formatOrderConfirmation(order);
+        await replyLineMessage(
+          replyToken,
+          systemSettings.lineChannelAccessToken,
+          confirmationMessage
+        );
+      }
+
+      // 7. Send LINE Notify to admin (if enabled)
+      if (systemSettings?.notifyOnOrder && systemSettings?.lineNotifyToken) {
+        const notifyMessage = (
+          `🔔 ออเดอร์ใหม่!\n` +
+          `\n` +
+          `📦 เลขที่: ${order.id.slice(0, 8).toUpperCase()}\n` +
+          `🛍️ สินค้า: ${order.productName || `หมายเลข ${order.productType}`}\n` +
+          `📊 จำนวน: ${order.quantity} ชิ้น\n` +
+          `💰 ยอดเงิน: ฿${order.amount.toLocaleString()}\n` +
+          `👤 ลูกค้า: ${customer.name}\n` +
+          `📱 เบอร์: ${customer.phone}`
+        );
+
+        await sendLineNotify(systemSettings.lineNotifyToken, notifyMessage);
       }
     }
 
@@ -183,7 +252,7 @@ export async function POST(req: NextRequest) {
     console.error("Error:", err);
     console.error("Raw body:", rawBody);
     console.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌");
-    
+
     // ตอบ 200 ให้ LINE เสมอ เพื่อไม่ให้ Webhook พัง
     return NextResponse.json({ ok: true }, { status: 200 });
   }

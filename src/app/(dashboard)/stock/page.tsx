@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingDown, DollarSign, AlertTriangle } from "lucide-react";
+import { Package, TrendingDown, DollarSign, AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   BarChart,
   Bar,
@@ -25,6 +26,11 @@ export default function StockPage() {
 
   useEffect(() => {
     fetchData();
+
+    // Auto-refresh every 30 seconds for real-time updates
+    const interval = setInterval(fetchData, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchData = async () => {
@@ -49,8 +55,30 @@ export default function StockPage() {
     }
   };
 
+  // Calculate today's date for filtering
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // LINE orders stats - ALL time
   const lineOrderStats = orders
     .filter((o) => o.source === "LINE")
+    .reduce(
+      (acc, order) => {
+        acc.total += 1;
+        acc.revenue += order.amount || 0;
+        return acc;
+      },
+      { total: 0, revenue: 0 }
+    );
+
+  // LINE orders stats - TODAY only
+  const lineOrdersToday = orders
+    .filter((o) => {
+      if (o.source !== "LINE") return false;
+      const orderDate = new Date(o.orderDate);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    })
     .reduce(
       (acc, order) => {
         acc.total += 1;
@@ -80,9 +108,20 @@ export default function StockPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
-        <p className="text-gray-400 mt-1">ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
+          <p className="text-gray-400 mt-1">ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ (อัพเดทอัตโนมัติทุก 30 วินาที)</p>
+        </div>
+        <Button
+          onClick={fetchData}
+          disabled={loading}
+          variant="outline"
+          className="border-purple-400 text-purple-200"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          รีเฟรช
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -102,11 +141,14 @@ export default function StockPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-blue-300 flex items-center gap-2">
               <TrendingDown className="w-4 h-4" />
-              ออเดอร์จาก LINE
+              ออเดอร์ LINE วันนี้
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-400">{lineOrderStats.total}</div>
+            <div className="text-3xl font-bold text-blue-400">{lineOrdersToday.total}</div>
+            <p className="text-xs text-blue-300 mt-1">
+              ทั้งหมด: {lineOrderStats.total} ออเดอร์
+            </p>
           </CardContent>
         </Card>
 
@@ -114,13 +156,16 @@ export default function StockPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-green-300 flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              รายได้จาก LINE
+              รายได้ LINE วันนี้
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-400">
-              ฿{lineOrderStats.revenue.toLocaleString()}
+              ฿{lineOrdersToday.revenue.toLocaleString()}
             </div>
+            <p className="text-xs text-green-300 mt-1">
+              ทั้งหมด: ฿{lineOrderStats.revenue.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
 

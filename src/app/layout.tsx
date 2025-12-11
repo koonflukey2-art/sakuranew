@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs";
-import { ThemeProvider } from "@/contexts/theme-context"; // <--- ต้องมี
-import { AccountMenu } from "@/components/account-menu";
-
-const notoSansThai = Noto_Sans_Thai({
-  subsets: ["latin", "thai"],
-  variable: "--font-noto-sans-thai",
-});
+import { ThemeProvider } from "@/contexts/theme-context";
 
 export const metadata: Metadata = {
   title: "Shearer (S1) Profit Pilot",
@@ -30,15 +23,9 @@ export default function RootLayout({
       }}
     >
       <html lang="en" suppressHydrationWarning>
-        <body
-          className={`${notoSansThai.variable} font-headline antialiased bg-slate-950`}
-        >
-          {/* ต้องมี ThemeProvider ครอบตรงนี้ */}
+        <body className="font-sans antialiased bg-slate-950">
           <ThemeProvider>
-            <AccountMenu />
-            <main className="content-with-menu transition-all duration-300">
-              {children}
-            </main>
+            {children}
             <Toaster />
           </ThemeProvider>
         </body>
@@ -46,5 +33,3 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
-
-// update for build (เพิ่มบรรทัดนี้เพื่อให้ Git เห็นว่ามีการแก้ไข)
