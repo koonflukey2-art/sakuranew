@@ -43,10 +43,8 @@ import {
   Bell,
   Shield,
   Info,
-  Bot,
   Globe2,
   Facebook,
-  Plus,
   Trash2,
   TestTube2,
   Check,
@@ -225,14 +223,20 @@ export default function SystemSettingsPage() {
       }
 
       const data = await res.json();
-      
-      // ถ้า token เป็น masked (มี ...) ให้ใช้ค่าว่างแทน
+
+      // ถ้า token เป็น masked (มี "...") ให้ใช้ค่าว่างแทน
       setSettings({
         dailyCutOffHour: data.dailyCutOffHour ?? 23,
         dailyCutOffMinute: data.dailyCutOffMinute ?? 59,
-        lineNotifyToken: data.lineNotifyToken?.includes("...") ? "" : data.lineNotifyToken || "",
-        lineChannelAccessToken: data.lineChannelAccessToken?.includes("...") ? "" : data.lineChannelAccessToken || "",
-        lineChannelSecret: data.lineChannelSecret?.includes("...") ? "" : data.lineChannelSecret || "",
+        lineNotifyToken: data.lineNotifyToken?.includes("...")
+          ? ""
+          : data.lineNotifyToken || "",
+        lineChannelAccessToken: data.lineChannelAccessToken?.includes("...")
+          ? ""
+          : data.lineChannelAccessToken || "",
+        lineChannelSecret: data.lineChannelSecret?.includes("...")
+          ? ""
+          : data.lineChannelSecret || "",
         lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
         adminEmails: data.adminEmails || "",
         notifyOnOrder: data.notifyOnOrder ?? true,
@@ -254,8 +258,8 @@ export default function SystemSettingsPage() {
   const handleSaveSettings = async () => {
     try {
       setSaving(true);
-      
-      // สร้าง payload โดยส่งเฉพาะค่าที่มีการเปลี่ยนแปลง
+
+      // payload ส่งเฉพาะค่าที่จำเป็น + token ที่กรอกใหม่
       const payload: any = {
         dailyCutOffHour: settings.dailyCutOffHour,
         dailyCutOffMinute: settings.dailyCutOffMinute,
@@ -266,12 +270,12 @@ export default function SystemSettingsPage() {
         notifyDailySummary: settings.notifyDailySummary,
       };
 
-      // ส่ง token เฉพาะเมื่อมีการกรอกใหม่ (ไม่ใช่ค่าว่าง)
       if (settings.lineNotifyToken.trim()) {
         payload.lineNotifyToken = settings.lineNotifyToken.trim();
       }
       if (settings.lineChannelAccessToken.trim()) {
-        payload.lineChannelAccessToken = settings.lineChannelAccessToken.trim();
+        payload.lineChannelAccessToken =
+          settings.lineChannelAccessToken.trim();
       }
       if (settings.lineChannelSecret.trim()) {
         payload.lineChannelSecret = settings.lineChannelSecret.trim();
@@ -283,18 +287,42 @@ export default function SystemSettingsPage() {
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to save settings");
+        throw new Error(data.error || "Failed to save settings");
       }
+
+      // อัปเดต state ด้วยค่าที่มาจากเซิร์ฟเวอร์ทันที (แสดงค่าที่บันทึกแล้ว)
+      setSettings((prev) => ({
+        ...prev,
+        dailyCutOffHour: data.dailyCutOffHour ?? prev.dailyCutOffHour,
+        dailyCutOffMinute: data.dailyCutOffMinute ?? prev.dailyCutOffMinute,
+        lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
+        adminEmails: data.adminEmails ?? "",
+        notifyOnOrder:
+          typeof data.notifyOnOrder === "boolean"
+            ? data.notifyOnOrder
+            : prev.notifyOnOrder,
+        notifyOnLowStock:
+          typeof data.notifyOnLowStock === "boolean"
+            ? data.notifyOnLowStock
+            : prev.notifyOnLowStock,
+        notifyDailySummary:
+          typeof data.notifyDailySummary === "boolean"
+            ? data.notifyDailySummary
+            : prev.notifyDailySummary,
+        // token จาก API จะเป็น masked/null เพื่อความปลอดภัย
+        // ฝั่ง UI ให้เคลียร์ไว้รอกรอกใหม่เวลาจะเปลี่ยน
+        lineNotifyToken: "",
+        lineChannelAccessToken: "",
+        lineChannelSecret: "",
+      }));
 
       toast({
         title: "✅ บันทึกสำเร็จ",
         description: "บันทึกการตั้งค่าระบบเรียบร้อยแล้ว",
       });
-
-      // Refresh settings
-      fetchSettings();
     } catch (error: any) {
       toast({
         title: "❌ เกิดข้อผิดพลาด",
@@ -837,10 +865,17 @@ export default function SystemSettingsPage() {
                     variant="outline"
                     size="icon"
                     onClick={() =>
-                      setShowTokens({ ...showTokens, notify: !showTokens.notify })
+                      setShowTokens({
+                        ...showTokens,
+                        notify: !showTokens.notify,
+                      })
                     }
                   >
-                    {showTokens.notify ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showTokens.notify ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -869,7 +904,11 @@ export default function SystemSettingsPage() {
                       })
                     }
                   >
-                    {showTokens.channelAccess ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showTokens.channelAccess ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -898,7 +937,11 @@ export default function SystemSettingsPage() {
                       })
                     }
                   >
-                    {showTokens.channelSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showTokens.channelSecret ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -972,15 +1015,18 @@ export default function SystemSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* AI Tab - คงเดิม */}
+        {/* AI Tab */}
         <TabsContent value="ai">
           <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>เพิ่ม AI Provider</CardTitle>
+                <CardDescription>
+                  เลือก Provider และใส่ API Key / Webhook URL
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>AI Provider</Label>
                     <Select
@@ -991,9 +1037,24 @@ export default function SystemSettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="GEMINI">Google Gemini</SelectItem>
-                        <SelectItem value="OPENAI">OpenAI GPT</SelectItem>
-                        <SelectItem value="N8N">n8n Workflow</SelectItem>
+                        <SelectItem value="GEMINI">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            Google Gemini
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="OPENAI">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            OpenAI GPT
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="N8N">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            n8n Workflow
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1022,10 +1083,42 @@ export default function SystemSettingsPage() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedProvider === "GEMINI" && (
+                      <>
+                        Get API key from{" "}
+                        <a
+                          href="https://makersuite.google.com/app/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-500 underline"
+                        >
+                          Google AI Studio
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === "OPENAI" && (
+                      <>
+                        Get API key from{" "}
+                        <a
+                          href="https://platform.openai.com/api-keys"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-500 underline"
+                        >
+                          OpenAI Platform
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === "N8N" &&
+                      "ใส่ Webhook URL จาก workflow n8n ของคุณ"}
+                  </p>
                 </div>
 
                 <Button onClick={handleSaveAI} disabled={savingAI}>
-                  {savingAI && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {savingAI && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
                   บันทึก AI Provider
                 </Button>
               </CardContent>
@@ -1045,7 +1138,7 @@ export default function SystemSettingsPage() {
                     {providers.map((provider) => (
                       <div
                         key={provider.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-4 border rounded-lg"
                       >
                         <div>
                           <div className="flex items-center gap-2">
@@ -1054,24 +1147,38 @@ export default function SystemSettingsPage() {
                               {provider.provider === "OPENAI" && "OpenAI GPT"}
                               {provider.provider === "N8N" && "n8n Workflow"}
                             </h3>
-                            {provider.isDefault && (
-                              <Badge>ค่าเริ่มต้น</Badge>
-                            )}
+                            {provider.isDefault && <Badge>ค่าเริ่มต้น</Badge>}
                             {provider.isValid ? (
-                              <Badge variant="default" className="bg-green-500">
+                              <Badge
+                                variant="default"
+                                className="bg-green-500"
+                              >
                                 <Check className="w-3 h-3 mr-1" />
                                 ใช้งานได้
                               </Badge>
-                            ) : (
+                            ) : provider.lastTested ? (
                               <Badge variant="destructive">
                                 <X className="w-3 h-3 mr-1" />
                                 ใช้งานไม่ได้
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                <X className="w-3 h-3 mr-1" />
+                                ยังไม่ทดสอบ
                               </Badge>
                             )}
                           </div>
                           {provider.modelName && (
                             <p className="text-sm text-muted-foreground">
                               Model: {provider.modelName}
+                            </p>
+                          )}
+                          {provider.lastTested && (
+                            <p className="text-xs text-muted-foreground">
+                              ทดสอบล่าสุด:{" "}
+                              {new Date(
+                                provider.lastTested
+                              ).toLocaleString("th-TH")}
                             </p>
                           )}
                         </div>
@@ -1116,7 +1223,7 @@ export default function SystemSettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Platform APIs Tab - แสดงแบบย่อ */}
+        {/* Platform APIs Tab - แบบย่อ (Coming soon) */}
         <TabsContent value="platforms">
           <Card>
             <CardHeader>
@@ -1124,17 +1231,85 @@ export default function SystemSettingsPage() {
                 <Globe2 className="w-5 h-5" />
                 Platform API Settings
               </CardTitle>
+              <CardDescription>
+                ตั้งค่า API Key / Token สำหรับแพลตฟอร์มโฆษณา / มาร์เก็ตเพลส
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                ฟีเจอร์นี้กำลังพัฒนา - ใช้งานได้ในเร็วๆ นี้
+                ฟีเจอร์ UI เต็ม ๆ สำหรับจัดการ Platform APIs กำลังพัฒนา
+                แต่ระบบหลังบ้าน (API) พร้อมใช้งานแล้ว
               </p>
-              {/* เพิ่มฟีเจอร์เต็มรูปแบบในภายหลัง */}
+
+              {loadingPlatformCreds ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              ) : platformCreds.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  ยังไม่มี Platform API ที่บันทึกไว้
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {platformCreds.map((cred) => (
+                    <div
+                      key={cred.id}
+                      className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{cred.platform}</p>
+                        {cred.lastTested && (
+                          <p className="text-xs text-muted-foreground">
+                            ทดสอบล่าสุด{" "}
+                            {new Date(
+                              cred.lastTested
+                            ).toLocaleString("th-TH")}
+                          </p>
+                        )}
+                        {cred.testMessage && (
+                          <p className="text-xs text-muted-foreground">
+                            {cred.testMessage}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          className={
+                            cred.isValid ? "bg-green-500" : "bg-red-500"
+                          }
+                        >
+                          {cred.isValid ? "ใช้งานได้" : "เชื่อมต่อไม่สำเร็จ"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestPlatformCred(cred.id)}
+                          disabled={testingPlatformId === cred.id}
+                        >
+                          {testingPlatformId === cred.id ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <TestTube2 className="w-4 h-4 mr-1" />
+                          )}
+                          ทดสอบ
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeletePlatformCred(cred.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Ad Accounts Tab - แสดงแบบย่อ */}
+        {/* Ad Accounts Tab - แบบย่อ (Coming soon) */}
         <TabsContent value="adaccounts">
           <Card>
             <CardHeader>
@@ -1142,10 +1317,107 @@ export default function SystemSettingsPage() {
                 <Facebook className="w-5 h-5" />
                 Ad Accounts
               </CardTitle>
+              <CardDescription>
+                จัดการบัญชีโฆษณาสำหรับ Facebook / TikTok / Google / LINE
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                ฟีเจอร์นี้กำลังพัฒนา - ใช้งานได้ในเร็วๆ นี้
+              {loadingAdAccounts ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              ) : adAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  ยังไม่มี Ad Account เชื่อมต่อ
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {adAccounts.map((acc) => (
+                    <div
+                      key={acc.id}
+                      className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-3 border rounded-lg"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">
+                            {acc.accountName || acc.accountId || "Unnamed"}
+                          </p>
+                          <Badge variant="outline" className="text-xs">
+                            {acc.platform}
+                          </Badge>
+                          {acc.isDefault && (
+                            <Badge className="bg-blue-500 text-xs">
+                              Default
+                            </Badge>
+                          )}
+                        </div>
+                        {acc.accountId && (
+                          <p className="text-xs text-muted-foreground">
+                            Account ID: {acc.accountId}
+                          </p>
+                        )}
+                        {acc.lastTested && (
+                          <p className="text-xs text-muted-foreground">
+                            ทดสอบล่าสุด{" "}
+                            {new Date(
+                              acc.lastTested
+                            ).toLocaleString("th-TH")}
+                          </p>
+                        )}
+                        {acc.testMessage && (
+                          <p className="text-xs text-muted-foreground">
+                            ผลการทดสอบ: {acc.testMessage}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          className={
+                            acc.isValid ? "bg-green-500" : "bg-red-500"
+                          }
+                        >
+                          {acc.isValid ? "ใช้งานได้" : "มีปัญหา"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestAdAccount(acc.id)}
+                          disabled={testingAdAccount === acc.id}
+                        >
+                          {testingAdAccount === acc.id ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <TestTube2 className="w-4 h-4 mr-1" />
+                          )}
+                          ทดสอบ
+                        </Button>
+                        {!acc.isDefault && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleSetDefaultAdAccount(acc.id, acc.platform)
+                            }
+                          >
+                            ตั้งเป็น Default
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteAdAccount(acc.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground mt-4">
+                UI สำหรับเพิ่ม / แก้ไข Ad Account แบบเต็มกำลังปรับปรุง
+                แต่คุณสามารถเพิ่มผ่าน API ได้แล้ว
               </p>
             </CardContent>
           </Card>
@@ -1159,6 +1431,9 @@ export default function SystemSettingsPage() {
                 <Shield className="w-5 h-5" />
                 ผู้ดูแลระบบ
               </CardTitle>
+              <CardDescription>
+                กำหนดอีเมลของผู้ดูแลระบบ (ADMIN) ที่สามารถแก้ไขการตั้งค่าระบบได้
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -1179,6 +1454,7 @@ export default function SystemSettingsPage() {
                 <Info className="w-4 h-4" />
                 <AlertDescription>
                   ⚠️ ระวัง: ผู้ดูแลระบบสามารถแก้ไข/ลบข้อมูลสำคัญได้
+                  ให้เพิ่มเฉพาะคนที่เชื่อถือได้เท่านั้น
                 </AlertDescription>
               </Alert>
             </CardContent>
