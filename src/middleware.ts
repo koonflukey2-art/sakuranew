@@ -8,33 +8,37 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/webhooks(.*)",        // webhook ของ Clerk
-  "/api/line/webhook(.*)",    // ✅ webhook ของ LINE ต้อง public
+  "/api/webhooks(.*)",          // webhook ของ Clerk
+  "/api/line/webhook(.*)",      // ✅ webhook ของ LINE ต้อง public
+  "/api/daily-cutoff/auto(.*)", // ✅ ให้ cron-job เรียกได้โดยไม่ต้อง login
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
+  const pathname = request.nextUrl.pathname;
+  const publicRoute = isPublicRoute(request);
 
-  // If user is logged in and tries to access root, redirect to dashboard
-  if (userId && request.nextUrl.pathname === "/") {
+  // ถ้า login แล้วและอยู่ที่ "/" → เด้งไป dashboard
+  if (userId && pathname === "/") {
     const dashboardUrl = new URL("/dashboard", request.url);
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // Protect dashboard routes
-  if (!userId && !isPublicRoute(request)) {
+  // ถ้าไม่ใช่ public route และยังไม่ login → เด้งไปหน้า login ("/")
+  if (!userId && !publicRoute) {
     const loginUrl = new URL("/", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
+  // public route หรือ user login แล้ว → ปล่อยผ่าน
   return NextResponse.next();
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and static files
+    // ข้ามไฟล์ static ต่าง ๆ
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
+    // ให้ middleware ทำงานกับทุก API route
     "/(api|trpc)(.*)",
   ],
 };

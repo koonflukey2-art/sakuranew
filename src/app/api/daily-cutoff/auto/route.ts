@@ -5,6 +5,20 @@ import { createDailySummaryForOrg } from "@/lib/dailyCutoff";
 
 export const runtime = "nodejs";
 
+// หา organizationId จาก systemSettings แถวแรก (แบบเดียวกับ webhook LINE)
+async function getActiveOrganizationFromSystemSettings() {
+  const settings = await prisma.systemSettings.findFirst();
+
+  if (!settings || !settings.organizationId) {
+    console.error(
+      "❌ No systemSettings or organizationId is null – please open System Settings page and click save once."
+    );
+    return null;
+  }
+
+  return settings.organizationId;
+}
+
 async function handleAutoCutoff(req: NextRequest) {
   // 1) เช็ค CRON_SECRET จาก header
   const headerSecret = req.headers.get("x-cron-secret");
@@ -19,66 +33,50 @@ async function handleAutoCutoff(req: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // 2) ดึง systemSettings ทั้งหมด (ส่วนใหญ่คุณจะมีแค่ 1 แถว)
-  const settingsList = await prisma.systemSettings.findMany();
-
-  if (!settingsList.length) {
-    console.warn("No systemSettings rows found – ยังไม่เคยบันทึกหน้า System Settings");
+  // 2) หา orgId จาก systemSettings (ไม่ต้องใช้ Clerk/currentUser)
+  const orgId = await getActiveOrganizationFromSystemSettings();
+  if (!orgId) {
     return NextResponse.json(
-      { ok: true, skipped: true, reason: "no system settings" },
-      { status: 200 }
+      { ok: false, error: "No active organizationId in systemSettings" },
+      { status: 500 }
     );
   }
 
+  // 3) อ่านเวลาตัดยอดจาก systemSettings
+  const settings = await prisma.systemSettings.findUnique({
+    where: { organizationId: orgId },
+  });
+
+  const hour = settings?.dailyCutOffHour ?? 23;
+  const minute = settings?.dailyCutOffMinute ?? 59;
+
   const now = new Date();
-  const results: any[] = [];
+  const cutoff = new Date(now);
+  cutoff.setHours(hour, minute, 0, 0);
 
-  for (const settings of settingsList) {
-    if (!settings.organizationId) {
-      console.warn("systemSettings row has no organizationId, skip");
-      results.push({
-        organizationId: null,
-        skipped: true,
-        reason: "no organizationId in systemSettings",
-      });
-      continue;
-    }
-
-    const hour = settings.dailyCutOffHour ?? 23;
-    const minute = settings.dailyCutOffMinute ?? 59;
-
-    const cutoff = new Date(now);
-    cutoff.setHours(hour, minute, 0, 0);
-
-    // ถ้ายังไม่ถึงเวลาตัดยอด → ข้าม org นี้ไป
-    if (now.getTime() < cutoff.getTime()) {
-      results.push({
-        organizationId: settings.organizationId,
-        skipped: true,
-        reason: "before cutoff time",
-        now: now.toISOString(),
-        cutoff: cutoff.toISOString(),
-      });
-      continue;
-    }
-
-    // ถึงเวลาแล้ว → สร้าง summary (ฟังก์ชันกันซ้ำให้แล้ว)
-    const { summary, created } = await createDailySummaryForOrg(
-      settings.organizationId
-    );
-
-    results.push({
-      organizationId: settings.organizationId,
-      skipped: false,
-      created,
-      summaryId: summary.id,
+  // 4) ถ้ายังไม่ถึงเวลาตัดยอด → ข้าม
+  if (now.getTime() < cutoff.getTime()) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "before cutoff time",
+      now: now.toISOString(),
+      cutoff: cutoff.toISOString(),
     });
   }
 
-  return NextResponse.json({ ok: true, results }, { status: 200 });
+  // 5) ถึงเวลาแล้ว → สร้าง summary (ฟังก์ชันกันซ้ำอยู่แล้ว)
+  const { summary, created } = await createDailySummaryForOrg(orgId);
+
+  return NextResponse.json({
+    ok: true,
+    skipped: false,
+    created,
+    summaryId: summary.id,
+  });
 }
 
-// รองรับทั้ง GET และ POST เพื่อกันพลาดจาก cron-job
+// รองรับทั้ง GET และ POST
 export async function GET(req: NextRequest) {
   return handleAutoCutoff(req);
 }
