@@ -1,3 +1,4 @@
+// app/api/system-settings/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -5,13 +6,12 @@ import { getOrganizationId } from "@/lib/organization";
 
 export const runtime = "nodejs";
 
-// ===== Helper: mask sensitive tokens =====
+// ใช้สำหรับ mask token ใน response (ไม่ให้ frontend เห็นเต็ม ๆ)
 function maskToken(token: string | null | undefined): string | null {
   if (!token || token.length < 10) return null;
   return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
 }
 
-// ===== GET /api/system-settings =====
 export async function GET(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       where: { organizationId: orgId },
     });
 
-    // ถ้ายังไม่มี settings สำหรับ org นี้ ให้สร้าง default ให้เลย
     if (!settings) {
+      // ถ้ายังไม่มี settings ของ org นี้ ให้สร้างค่า default
       settings = await prisma.systemSettings.create({
         data: {
           organizationId: orgId,
@@ -59,7 +59,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ===== POST /api/system-settings =====
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is admin
+    // ตรวจ role แอดมิน
     const dbUser = await prisma.user.findUnique({
       where: { clerkId: user.id },
     });
@@ -88,29 +87,20 @@ export async function POST(request: NextRequest) {
 
     const updateData: any = {};
 
-    // ---- Daily cut-off settings ----
-    if (body.dailyCutOffHour !== undefined && body.dailyCutOffHour !== null) {
-      const hour = parseInt(body.dailyCutOffHour);
-      if (!Number.isNaN(hour)) {
-        updateData.dailyCutOffHour = hour;
-      }
+    // Cut-off time
+    if (body.dailyCutOffHour !== undefined) {
+      updateData.dailyCutOffHour = parseInt(body.dailyCutOffHour);
     }
-    if (
-      body.dailyCutOffMinute !== undefined &&
-      body.dailyCutOffMinute !== null
-    ) {
-      const minute = parseInt(body.dailyCutOffMinute);
-      if (!Number.isNaN(minute)) {
-        updateData.dailyCutOffMinute = minute;
-      }
+    if (body.dailyCutOffMinute !== undefined) {
+      updateData.dailyCutOffMinute = parseInt(body.dailyCutOffMinute);
     }
 
-    // ---- LINE settings ----
+    // LINE webhook URL
     if (body.lineWebhookUrl !== undefined) {
       updateData.lineWebhookUrl = body.lineWebhookUrl;
     }
 
-    // อัปเดต token เฉพาะตอนที่มีค่าใหม่ส่งมาจริง ๆ (ไม่ใช่ค่าว่าง)
+    // update token เฉพาะตอนที่มีการกรอกค่าใหม่ (ไม่ใช่ค่าว่าง)
     if (typeof body.lineNotifyToken === "string" && body.lineNotifyToken.trim()) {
       updateData.lineNotifyToken = body.lineNotifyToken.trim();
     }
@@ -127,38 +117,32 @@ export async function POST(request: NextRequest) {
       updateData.lineChannelSecret = body.lineChannelSecret.trim();
     }
 
-    // ---- Notification settings ----
-    if (typeof body.notifyOnOrder === "boolean") {
-      updateData.notifyOnOrder = body.notifyOnOrder;
+    // Notification flags
+    if (body.notifyOnOrder !== undefined) {
+      updateData.notifyOnOrder = !!body.notifyOnOrder;
     }
-    if (typeof body.notifyOnLowStock === "boolean") {
-      updateData.notifyOnLowStock = body.notifyOnLowStock;
+    if (body.notifyOnLowStock !== undefined) {
+      updateData.notifyOnLowStock = !!body.notifyOnLowStock;
     }
-    if (typeof body.notifyDailySummary === "boolean") {
-      updateData.notifyDailySummary = body.notifyDailySummary;
+    if (body.notifyDailySummary !== undefined) {
+      updateData.notifyDailySummary = !!body.notifyDailySummary;
     }
 
-    // ---- Admin settings ----
+    // Admin emails
     if (body.adminEmails !== undefined) {
       updateData.adminEmails = body.adminEmails;
     }
 
-    // ---- Upsert settings (ผูกกับ organizationId เสมอ) ----
+    // upsert ตาม organizationId (สำคัญมาก เพราะ webhook จะใช้ organizationId นี้)
     const settings = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
       update: updateData,
       create: {
         organizationId: orgId,
-        dailyCutOffHour: 23,
-        dailyCutOffMinute: 59,
-        notifyOnOrder: true,
-        notifyOnLowStock: true,
-        notifyDailySummary: true,
         ...updateData,
       },
     });
 
-    // รีเทิร์นค่าใหม่ที่บันทึกแล้ว (mask token)
     const safeSettings = {
       ...settings,
       lineNotifyToken: maskToken(settings.lineNotifyToken),

@@ -11,15 +11,21 @@ import {
 
 export const runtime = "nodejs";
 
-// โหลด LINE settings ที่ active เพื่อหา organization
-async function getActiveLineSettings() {
-  const settings = await prisma.lINESettings.findFirst({
-    where: { isActive: true },
-    include: { organization: true },
+// โหลด SystemSettings ที่มี organization และใช้เป็นแหล่ง LINE settings หลัก
+async function getActiveSystemSettings() {
+  const settings = await prisma.systemSettings.findFirst({
+    where: {
+      organizationId: { not: null },
+    },
   });
 
   if (!settings) {
-    console.warn("⚠️ No active LINE settings found");
+    console.warn("⚠️ No systemSettings row found – you must save settings at least once from System Settings page");
+    return null;
+  }
+
+  if (!settings.lineChannelAccessToken && !settings.lineNotifyToken) {
+    console.warn("⚠️ SystemSettings found but no LINE tokens configured yet");
   }
 
   return settings;
@@ -30,29 +36,45 @@ export async function POST(req: NextRequest) {
 
   try {
     rawBody = await req.text();
-    const data = JSON.parse(rawBody);
+
+    let data: any;
+    try {
+      data = JSON.parse(rawBody);
+    } catch (e) {
+      console.error("❌ Invalid JSON from LINE webhook:", e);
+      // ต้องตอบ 200 กลับไปหา LINE เสมอ
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
 
     console.log("🔥 LINE WEBHOOK - NEW REQUEST");
-    // console.log("Body:", JSON.stringify(data, null, 2));
 
     if (!Array.isArray(data.events) || data.events.length === 0) {
       console.log("⚠️ No events in webhook payload");
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    const lineSettings = await getActiveLineSettings();
-    const organizationId = lineSettings?.organizationId;
+    // ดึง settings จาก systemSettings (ของ organization แรกที่มีในระบบ)
+    const activeSystemSettings = await getActiveSystemSettings();
+    const organizationId = activeSystemSettings?.organizationId || null;
 
     if (!organizationId) {
-      console.warn("⚠️ No organizationId on active LINE settings – skip saving");
-      // ถึงไม่มี Org ก็ต้องตอบ 200 กลับไปหา LINE
+      console.warn("⚠️ No organizationId on systemSettings – skip saving orders");
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     console.log(`✅ Organization ID: ${organizationId}`);
 
-    // Get system settings for notifications and tokens
+    // ดึง LINE settings (token + flags) จาก SystemSettings (ผ่าน helper)
     const systemSettings = await getLineSettings(organizationId);
+    // systemSettings อันนี้จะมีประมาณ:
+    // {
+    //   lineNotifyToken,
+    //   lineChannelAccessToken,
+    //   lineChannelSecret,
+    //   lineWebhookUrl,
+    //   notifyOnOrder,
+    //   notifyOnLowStock
+    // }
 
     // loop ทุก event
     for (const event of data.events) {
@@ -67,37 +89,36 @@ export async function POST(req: NextRequest) {
       console.log("📨 Processing event type: message");
       console.log("💬 Message text:", text);
 
-      // ถ้าเป็นข้อความสรุปรายวัน (ข้ามไปก่อน)
+      // ข้ามข้อความสรุปยอด (กัน parse ผิด)
       if (text.includes("ยอดตามทั้งหมด") || text.includes("จำนวนออเดอร์")) {
         console.log("📊 Summary message detected - skipping order creation");
         continue;
       }
 
-      // 1. แปลงข้อความเป็นข้อมูล (ใช้ฟังก์ชันใหม่ที่แก้แล้ว)
+      // 1) แปลงข้อความเป็นออเดอร์
       const parsed = parseLineMessage(text);
 
       if (!parsed) {
-         console.log("🚫 Failed to parse message, skipping.");
+        console.log("🚫 Failed to parse message, skipping.");
 
-         // Send help message if parsing fails
-         if (systemSettings?.lineChannelAccessToken && replyToken) {
-           await replyLineMessage(
-             replyToken,
-             systemSettings.lineChannelAccessToken,
-             "รูปแบบข้อความไม่ถูกต้อง\n\nตัวอย่างที่ถูกต้อง:\n1 5 100\n(ประเภท จำนวน ราคา)"
-           );
-         }
+        // ถ้า parse ไม่ได้ → ส่งข้อความช่วยเหลือกลับ
+        if (systemSettings?.lineChannelAccessToken && replyToken) {
+          await replyLineMessage(
+            replyToken,
+            systemSettings.lineChannelAccessToken,
+            "รูปแบบข้อความไม่ถูกต้อง\n\nตัวอย่างที่ถูกต้อง:\n1 5 100\n(ประเภท จำนวน ราคา)"
+          );
+        }
 
-         continue;
+        continue;
       }
 
       console.log("📦 Parsed result:", JSON.stringify(parsed, null, 2));
 
-      // ต้องมียอดเก็บและประเภทสินค้า
+      // ต้องมี amount และ productType
       if (!parsed.amount || !parsed.productType) {
         console.log("🚫 Missing amount or productType, skip");
 
-        // Send error message
         if (systemSettings?.lineChannelAccessToken && replyToken) {
           await replyLineMessage(
             replyToken,
@@ -109,7 +130,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. จัดการ Customer (ลูกค้า)
+      // 2) จัดการ Customer
       console.log("\n👤 Processing customer...");
       const phone = parsed.phone?.trim() || "";
       const name = parsed.customerName?.trim() || "ลูกค้าไม่ระบุชื่อ";
@@ -119,7 +140,6 @@ export async function POST(req: NextRequest) {
       console.log(`  Name: ${name}`);
       console.log(`  Address: ${address}`);
 
-      // หา customer เดิมจากเบอร์ + org
       let customer = phone
         ? await prisma.customer.findFirst({
             where: { organizationId, phone },
@@ -137,7 +157,6 @@ export async function POST(req: NextRequest) {
         });
         console.log(`  ✅ Customer created: ${customer.id}`);
       } else {
-        // อัปเดตชื่อ/ที่อยู่ถ้าข้อมูลใหม่ดีกว่าเดิม
         await prisma.customer.update({
           where: { id: customer.id },
           data: {
@@ -149,7 +168,7 @@ export async function POST(req: NextRequest) {
         console.log(`  ✅ Customer updated`);
       }
 
-      // 3. สร้าง Order (บันทึกลงฐานข้อมูล)
+      // 3) หา ProductType
       console.log("\n📦 Creating order...");
       console.log(`  Product Type: ${parsed.productType}`);
       console.log(`  Quantity: ${parsed.quantity}`);
@@ -164,9 +183,10 @@ export async function POST(req: NextRequest) {
       });
 
       if (!productType) {
-        console.log(`⚠️ Product type ${parsed.productType} not found for organization ${organizationId}`);
+        console.log(
+          `⚠️ Product type ${parsed.productType} not found for organization ${organizationId}`
+        );
 
-        // Send error message
         if (systemSettings?.lineChannelAccessToken && replyToken) {
           await replyLineMessage(
             replyToken,
@@ -178,6 +198,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // 4) สร้าง Order
       const order = await prisma.order.create({
         data: {
           amount: parsed.amount,
@@ -193,7 +214,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`✅ Order created successfully: ${order.id}`);
 
-      // 4. ตัด Stock
+      // 5) ตัดสต็อก
       const product = await prisma.product.findFirst({
         where: {
           organizationId,
@@ -210,15 +231,20 @@ export async function POST(req: NextRequest) {
             },
           },
         });
-        console.log(`📉 Stock updated for product ${product.id} (-${parsed.quantity})`);
 
-        // 5. Check and notify low stock
+        console.log(
+          `📉 Stock updated for product ${product.id} (-${parsed.quantity})`
+        );
+
+        // 6) เช็คและแจ้งเตือนสต็อกต่ำ (ใช้ LINE Notify ถ้าตั้งค่าไว้)
         await checkAndNotifyLowStock(updatedProduct, systemSettings || {});
       } else {
-         console.log(`⚠️ Product type ${parsed.productType} not found in stock system - skipping stock decrement`);
+        console.log(
+          `⚠️ Product type ${parsed.productType} not found in stock system - skipping stock decrement`
+        );
       }
 
-      // 6. Send reply to customer (confirmation)
+      // 7) ส่งข้อความยืนยันกลับหาลูกค้า (ใช้ Channel Access Token)
       if (systemSettings?.lineChannelAccessToken && replyToken) {
         const confirmationMessage = formatOrderConfirmation(order);
         await replyLineMessage(
@@ -228,25 +254,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 7. Send LINE Notify to admin (if enabled)
+      // 8) ส่ง LINE Notify ให้แอดมิน (ถ้ามีตั้งค่า token และเปิด notifyOnOrder)
       if (systemSettings?.notifyOnOrder && systemSettings?.lineNotifyToken) {
-        const notifyMessage = (
+        const notifyMessage =
           `🔔 ออเดอร์ใหม่!\n` +
           `\n` +
           `📦 เลขที่: ${order.id.slice(0, 8).toUpperCase()}\n` +
-          `🛍️ สินค้า: ${order.productName || `หมายเลข ${order.productType}`}\n` +
+          `🛍️ สินค้า: ${
+            order.productName || `หมายเลข ${order.productType}`
+          }\n` +
           `📊 จำนวน: ${order.quantity} ชิ้น\n` +
           `💰 ยอดเงิน: ฿${order.amount.toLocaleString()}\n` +
           `👤 ลูกค้า: ${customer.name}\n` +
-          `📱 เบอร์: ${customer.phone}`
-        );
+          `📱 เบอร์: ${customer.phone}`;
 
         await sendLineNotify(systemSettings.lineNotifyToken, notifyMessage);
       }
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-
   } catch (err: any) {
     console.error("\n❌❌❌ LINE WEBHOOK ERROR ❌❌❌");
     console.error("Error:", err);
