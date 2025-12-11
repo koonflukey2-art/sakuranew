@@ -5,12 +5,13 @@ import { getOrganizationId } from "@/lib/organization";
 
 export const runtime = "nodejs";
 
-// Mask sensitive tokens for security
+// ===== Helper: mask sensitive tokens =====
 function maskToken(token: string | null | undefined): string | null {
   if (!token || token.length < 10) return null;
   return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
 }
 
+// ===== GET /api/system-settings =====
 export async function GET(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -27,8 +28,8 @@ export async function GET(request: NextRequest) {
       where: { organizationId: orgId },
     });
 
+    // ถ้ายังไม่มี settings สำหรับ org นี้ ให้สร้าง default ให้เลย
     if (!settings) {
-      // Create default settings
       settings = await prisma.systemSettings.create({
         data: {
           organizationId: orgId,
@@ -41,7 +42,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Return with masked tokens
     const safeSettings = {
       ...settings,
       lineNotifyToken: maskToken(settings.lineNotifyToken),
@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ===== POST /api/system-settings =====
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -85,23 +86,31 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Build update data object
     const updateData: any = {};
 
-    // Daily cut-off settings
-    if (body.dailyCutOffHour !== undefined) {
-      updateData.dailyCutOffHour = parseInt(body.dailyCutOffHour);
+    // ---- Daily cut-off settings ----
+    if (body.dailyCutOffHour !== undefined && body.dailyCutOffHour !== null) {
+      const hour = parseInt(body.dailyCutOffHour);
+      if (!Number.isNaN(hour)) {
+        updateData.dailyCutOffHour = hour;
+      }
     }
-    if (body.dailyCutOffMinute !== undefined) {
-      updateData.dailyCutOffMinute = parseInt(body.dailyCutOffMinute);
+    if (
+      body.dailyCutOffMinute !== undefined &&
+      body.dailyCutOffMinute !== null
+    ) {
+      const minute = parseInt(body.dailyCutOffMinute);
+      if (!Number.isNaN(minute)) {
+        updateData.dailyCutOffMinute = minute;
+      }
     }
 
-    // LINE settings
+    // ---- LINE settings ----
     if (body.lineWebhookUrl !== undefined) {
       updateData.lineWebhookUrl = body.lineWebhookUrl;
     }
 
-    // Only update tokens if new values provided
+    // อัปเดต token เฉพาะตอนที่มีค่าใหม่ส่งมาจริง ๆ (ไม่ใช่ค่าว่าง)
     if (typeof body.lineNotifyToken === "string" && body.lineNotifyToken.trim()) {
       updateData.lineNotifyToken = body.lineNotifyToken.trim();
     }
@@ -118,33 +127,38 @@ export async function POST(request: NextRequest) {
       updateData.lineChannelSecret = body.lineChannelSecret.trim();
     }
 
-    // Notification settings
-    if (body.notifyOnOrder !== undefined) {
+    // ---- Notification settings ----
+    if (typeof body.notifyOnOrder === "boolean") {
       updateData.notifyOnOrder = body.notifyOnOrder;
     }
-    if (body.notifyOnLowStock !== undefined) {
+    if (typeof body.notifyOnLowStock === "boolean") {
       updateData.notifyOnLowStock = body.notifyOnLowStock;
     }
-    if (body.notifyDailySummary !== undefined) {
+    if (typeof body.notifyDailySummary === "boolean") {
       updateData.notifyDailySummary = body.notifyDailySummary;
     }
 
-    // Admin settings
+    // ---- Admin settings ----
     if (body.adminEmails !== undefined) {
       updateData.adminEmails = body.adminEmails;
     }
 
-    // Upsert settings
+    // ---- Upsert settings (ผูกกับ organizationId เสมอ) ----
     const settings = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
       update: updateData,
       create: {
         organizationId: orgId,
+        dailyCutOffHour: 23,
+        dailyCutOffMinute: 59,
+        notifyOnOrder: true,
+        notifyOnLowStock: true,
+        notifyDailySummary: true,
         ...updateData,
       },
     });
 
-    // Return with masked tokens
+    // รีเทิร์นค่าใหม่ที่บันทึกแล้ว (mask token)
     const safeSettings = {
       ...settings,
       lineNotifyToken: maskToken(settings.lineNotifyToken),
