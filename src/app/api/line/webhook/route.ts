@@ -13,7 +13,6 @@ export const runtime = "nodejs";
 
 /**
  * ✅ ใช้ SystemSettings แถวแรกในการหา organizationId
- * หมายเหตุ: ถ้ามีหลายองค์กร ในอนาคตค่อยเปลี่ยน mapping ตาม LINE destination / channel id ได้
  */
 async function getActiveOrganizationFromSystemSettings() {
   const settings = await prisma.systemSettings.findFirst();
@@ -76,16 +75,6 @@ export async function POST(req: NextRequest) {
 
     // 📥 ดึง config LINE (token / flags) จาก SystemSettings ผ่าน helper
     const systemSettings = await getLineSettings(organizationId);
-    // systemSettings จะหน้าตาประมาณ:
-    // {
-    //   lineNotifyToken,
-    //   lineChannelAccessToken,
-    //   lineChannelSecret,
-    //   lineWebhookUrl,
-    //   notifyOnOrder,
-    //   notifyOnLowStock,
-    //   notifyDailySummary?
-    // }
 
     // 🔁 loop ทุก event
     for (const event of data.events) {
@@ -142,7 +131,8 @@ export async function POST(req: NextRequest) {
       }
 
       // 👉 คำนวณ unitPrice ให้ชัด: ถ้ามีจำนวน > 0 ให้เอา amount / quantity
-      const safeQuantity = parsed.quantity && parsed.quantity > 0 ? parsed.quantity : 1;
+      const safeQuantity =
+        parsed.quantity && parsed.quantity > 0 ? parsed.quantity : 1;
       const unitPrice =
         parsed.unitPrice && parsed.unitPrice > 0
           ? parsed.unitPrice
@@ -178,7 +168,8 @@ export async function POST(req: NextRequest) {
         await prisma.customer.update({
           where: { id: customer.id },
           data: {
-            name: customer.name === "ลูกค้าไม่ระบุชื่อ" ? name : customer.name,
+            name:
+              customer.name === "ลูกค้าไม่ระบุชื่อ" ? name : customer.name,
             address: address || customer.address,
           },
         });
@@ -226,7 +217,7 @@ export async function POST(req: NextRequest) {
           productType: parsed.productType,
           productName: parsed.productName ?? productType.typeName ?? null,
           rawMessage: text,
-          status: "CONFIRMED", // หรือจะเปลี่ยนเป็น "PENDING" ก็ได้ตามที่ใช้ใน dashboard
+          status: "COMPLETED", // 🔴 เปลี่ยนเป็น COMPLETED เพื่อให้ไปเข้า metric หน้า stock
           customerId: customer.id,
           organizationId,
           // orderDate: new Date(), // ไม่ใส่ก็ได้ ใช้ default(now())
@@ -257,7 +248,7 @@ export async function POST(req: NextRequest) {
           `📉 Stock updated for product ${product.id} (-${safeQuantity})`
         );
 
-        // 6) เช็คและแจ้งเตือนสต็อกต่ำ (ใช้ settings.notifyOnLowStock + lineNotifyToken)
+        // 6) เช็คและแจ้งเตือนสต็อกต่ำ
         await checkAndNotifyLowStock(updatedProduct, systemSettings || {});
       } else {
         console.log(
@@ -265,7 +256,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 7) ส่งข้อความยืนยันกลับหาลูกค้า (ใช้ Channel Access Token)
+      // 7) ส่งข้อความยืนยันกลับหาลูกค้า
       if (systemSettings?.lineChannelAccessToken && replyToken) {
         const confirmationMessage = formatOrderConfirmation(order);
         await replyLineMessage(
