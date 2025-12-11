@@ -485,21 +485,29 @@ export default function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-2 mt-4">
-                  {pieData.map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-gray-300">{entry.name}</span>
-                        <span className="text-gray-500">({entry.count} ชิ้น)</span>
+                  {pieData.map((entry, index) => {
+                    const total = pieData.reduce((sum, item) => sum + item.value, 0);
+                    const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
+
+                    return (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          />
+                          <span className="text-gray-300">{entry.name}</span>
+                          <span className="text-gray-500">({entry.count} ชิ้น)</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-400 text-xs">{percentage}%</span>
+                          <span className="font-semibold text-white min-w-[80px] text-right">
+                            ฿{entry.value.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-semibold text-white">
-                        ฿{entry.value.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (
