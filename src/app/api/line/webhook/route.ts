@@ -123,12 +123,25 @@ export async function POST(req: NextRequest) {
       console.log(`  Quantity: ${parsed.quantity}`);
       console.log(`  Total Amount: ${parsed.amount}`);
 
+      const productType = await prisma.productType.findFirst({
+        where: {
+          organizationId,
+          typeNumber: parsed.productType,
+          isActive: true,
+        },
+      });
+
+      if (!productType) {
+        console.log(`⚠️ Product type ${parsed.productType} not found for organization ${organizationId}`);
+        continue;
+      }
+
       const order = await prisma.order.create({
         data: {
           amount: parsed.amount,       // ยอดเงินรวม (Quantity * UnitPrice)
           quantity: parsed.quantity,   // จำนวนสินค้า
           productType: parsed.productType,
-          productName: parsed.productName ?? null,
+          productName: parsed.productName ?? productType.typeName ?? null,
           rawMessage: text,
           status: "CONFIRMED",
           customerId: customer.id,

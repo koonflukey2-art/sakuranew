@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
 import { getProductTypeName } from "@/lib/line-parser";
+import { calculateTotalProfit } from "@/lib/profit-calculator";
 
 export const runtime = "nodejs";
 
@@ -20,11 +21,6 @@ export async function GET() {
         week: { revenue: 0, orders: 0, profit: 0, expense: 0, byType: {}, daily: [] },
       });
     }
-
-    // Fetch products for cost calculation
-    const products = await prisma.product.findMany({
-      where: { organizationId: orgId },
-    });
 
     // Today's stats
     const today = new Date();
@@ -52,35 +48,28 @@ export async function GET() {
       },
     });
 
-    // Calculate profit and expense
-    const calculateStats = (orders: any[]) => {
-      let revenue = 0;
-      let expense = 0;
-      let profit = 0;
+    // Calculate profit and expense with promotion-aware cost
+    const calculateStats = async (orders: any[]) => {
+      const profitCalc = await calculateTotalProfit(
+        orders.map((order) => ({
+          productType: order.productType,
+          quantity: order.quantity,
+          amount: order.amount,
+        })),
+        orgId
+      );
 
-      orders.forEach((order) => {
-        revenue += order.amount;
-
-        // Find product cost
-        const product = products.find((p) => p.productType === order.productType);
-
-        if (product) {
-          const orderExpense = product.costPrice * order.quantity;
-          expense += orderExpense;
-          // Calculate profit: (unitPrice or amount/quantity) * quantity - expense
-          const unitPrice = order.unitPrice || order.amount / (order.quantity || 1);
-          profit += unitPrice * order.quantity - orderExpense;
-        }
-      });
-
-      return { revenue, expense, profit, orders: orders.length };
+      return {
+        revenue: profitCalc.revenue,
+        expense: profitCalc.cost,
+        profit: profitCalc.profit,
+        margin: profitCalc.margin,
+        orders: orders.length,
+      };
     };
 
-    // Today stats
-    const todayStats = calculateStats(todayOrders);
-
-    // Week stats
-    const weekStats = calculateStats(weekOrders);
+    const todayStats = await calculateStats(todayOrders);
+    const weekStats = await calculateStats(weekOrders);
 
     // Daily breakdown for chart (last 7 days)
     const dailyStats = [];
@@ -97,7 +86,7 @@ export async function GET() {
         (o) => o.orderDate >= date && o.orderDate < nextDate
       );
 
-      const dayStats = calculateStats(dayOrders);
+      const dayStats = await calculateStats(dayOrders);
 
       dailyStats.push({
         date: date.toLocaleDateString("th-TH", { day: "2-digit", month: "short" }),
@@ -135,12 +124,18 @@ export async function GET() {
       weekByType[typeName].revenue += order.amount;
     });
 
+    const budget = await prisma.capitalBudget.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+    });
+
     return NextResponse.json({
       today: {
         revenue: todayStats.revenue,
         orders: todayStats.orders,
         profit: todayStats.profit,
         expense: todayStats.expense,
+        margin: todayStats.margin,
         byType: todayByType,
       },
       week: {
@@ -148,8 +143,14 @@ export async function GET() {
         orders: weekStats.orders,
         profit: weekStats.profit,
         expense: weekStats.expense,
+        margin: weekStats.margin,
         byType: weekByType,
         daily: dailyStats,
+      },
+      budget: {
+        total: budget?.amount || 0,
+        used: budget ? budget.amount - budget.remaining : 0,
+        remaining: budget?.remaining || 0,
       },
     });
   } catch (error: any) {

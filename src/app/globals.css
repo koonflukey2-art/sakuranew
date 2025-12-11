@@ -123,11 +123,24 @@
     background-clip: text;
   }
 
-  .text-gradient-pink {
+.text-gradient-pink {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* Smooth content shift when account menu collapses */
+  .menu-wrapper + .content-with-menu {
+    transition: margin-top 300ms ease-in-out;
+  }
+
+  .menu-expanded + .content-with-menu {
+    margin-top: 0;
+  }
+
+  .menu-collapsed + .content-with-menu {
+    margin-top: -40px;
   }
 }
 

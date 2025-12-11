@@ -107,6 +107,7 @@ model Organization {
   platformCredentials PlatformCredential[]
   customers           Customer[]
   orders              Order[]
+  productTypes        ProductType[]
   lineSettings        LINESettings?
 }
 
@@ -153,14 +154,13 @@ model User {
 model Product {
   id            String   @id @default(cuid())
   name          String
-  category      String
+  category      String?
+  productType   Int
+  productTypeName String?
   quantity      Int      @default(0)
   minStockLevel Int      @default(10)
   costPrice     Float
   sellPrice     Float
-
-  // NEW: Product type code for LINE integration
-  productType   Int?     // 1=ครีมอาบน้ำ, 2=ยาสีฟัน, 3=..., 4=...
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -170,9 +170,51 @@ model Product {
 
   stockHistory  StockHistory[]
   aiSuggestions AIProductSuggestion[]
+  promotions    Promotion[]
 
   @@index([organizationId])
   @@index([productType])
+}
+
+model Promotion {
+  id              String   @id @default(cuid())
+  organizationId  String
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  buyQuantity  Int
+  freeQuantity Int
+
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([productId])
+  @@index([isActive])
+}
+
+model ProductType {
+  id             String   @id @default(cuid())
+  organizationId String
+  typeNumber     Int
+  typeName       String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, typeNumber])
+  @@index([organizationId])
 }
 
 model StockHistory {
