@@ -21,11 +21,8 @@ async function handleAutoCutoff(req: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // 2) หา organization จาก SystemSettings แถวแรก (ตัวเดียวกับที่หน้าเว็บใช้)
+  // 2) หา organization จาก SystemSettings แถวแรก
   const settings = await prisma.systemSettings.findFirst({
-    where: {
-      organizationId: { not: null },
-    },
     orderBy: { createdAt: "asc" },
   });
 
