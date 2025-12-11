@@ -107,10 +107,7 @@ export default function StockPage() {
     return {
       name: product.name,
       orders: relatedOrders.length,
-      revenue: relatedOrders.reduce(
-        (sum, o) => sum + (o.amount || 0),
-        0
-      ),
+      revenue: relatedOrders.reduce((sum, o) => sum + (o.amount || 0), 0),
     };
   });
 
@@ -238,7 +235,15 @@ export default function StockPage() {
                       borderRadius: "8px",
                     }}
                   />
-                  <Bar dataKey="orders" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                  {/* ✅ ใช้สีเดียวกับ COLORS / PieChart */}
+                  <Bar dataKey="orders" radius={[8, 8, 0, 0]}>
+                    {ordersByType.map((entry, index) => (
+                      <Cell
+                        key={`bar-cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
