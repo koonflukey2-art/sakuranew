@@ -7,8 +7,9 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
-    "start": "npm run migrate:deploy && next start",
+    "start": "npm run migrate:retry && next start",
     "migrate:deploy": "prisma migrate deploy",
+    "migrate:retry": "npm run migrate:deploy || (echo 'Retrying migration in 10s...' && sleep 10 && npm run migrate:deploy) || (echo 'Retrying migration in 20s...' && sleep 20 && npm run migrate:deploy) || (echo 'Skipping migration and starting server...' && exit 0)",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate"
