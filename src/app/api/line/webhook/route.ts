@@ -258,14 +258,14 @@ export async function POST(req: NextRequest) {
 
       // 7) ส่งข้อความยืนยันกลับหาลูกค้า
       if (systemSettings?.lineChannelAccessToken && replyToken) {
-        const confirmationMessage = formatOrderConfirmation(order);
+        // cast เป็น any แก้ปัญหา TS เรื่อง orderNumber: string | null
+        const confirmationMessage = formatOrderConfirmation(order as any);
         await replyLineMessage(
           replyToken,
           systemSettings.lineChannelAccessToken,
           confirmationMessage
         );
       }
-
       // 8) ส่ง LINE Notify ให้แอดมิน (ถ้ามี token + เปิด notifyOnOrder)
       if (systemSettings?.notifyOnOrder && systemSettings?.lineNotifyToken) {
         const notifyMessage =
