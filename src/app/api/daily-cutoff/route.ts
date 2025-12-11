@@ -1,51 +1,60 @@
-// app/api/daily-cutoff/route.ts  หรือ  src/app/api/daily-cutoff/route.ts
+// src/app/api/daily-cutoff/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
 import { getOrganizationId } from "@/lib/organization";
+import { prisma } from "@/lib/prisma";
 import { createDailySummaryForOrg } from "@/lib/dailyCutoff";
 
 export const runtime = "nodejs";
 
-// GET: ดึง summary ตามช่วงวันที่ / จำนวนวัน
+// 🔹 GET: ใช้โหลด summary ในหน้า /daily-summary
 export async function GET(req: NextRequest) {
   try {
-    const orgId = await getOrganizationId();
+    const user = await currentUser();
+    if (!user) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "No organization for current user" },
-        { status: 401 }
-      );
+    const organizationId = await getOrganizationId();
+    if (!organizationId) {
+      return new NextResponse("No organization", { status: 400 });
     }
 
     const { searchParams } = new URL(req.url);
-    const fromStr = searchParams.get("from");
-    const toStr = searchParams.get("to");
-    const daysStr = searchParams.get("days");
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const daysParam = searchParams.get("days");
 
-    const where: any = {
-      organizationId: orgId,
-    };
+    const where: any = { organizationId };
 
-    if (fromStr && toStr) {
-      // เคสหน้า "วันนี้" – ส่ง from / to มาเป็นช่วงของวันนั้น
-      const from = new Date(fromStr);
-      const to = new Date(toStr);
+    if (from && to) {
+      // เคสเลือกวันเฉพาะ
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+
+      const startOfFrom = new Date(
+        fromDate.getFullYear(),
+        fromDate.getMonth(),
+        fromDate.getDate()
+      );
+      const endOfTo = new Date(
+        toDate.getFullYear(),
+        toDate.getMonth(),
+        toDate.getDate()
+      );
+
       where.date = {
-        gte: from,
-        lte: to,
+        gte: startOfFrom,
+        lte: endOfTo,
       };
-    } else if (daysStr) {
-      // เคส 7 วัน / 30 วัน ล่าสุด
-      const days = Number(daysStr) || 7;
-      const now = new Date();
+    } else if (daysParam) {
+      // เคส ?days=7 หรือ 30
+      const days = Number(daysParam) || 7;
+      const end = new Date();
+      end.setHours(0, 0, 0, 0);
 
-      const start = new Date(now);
+      const start = new Date(end);
       start.setDate(start.getDate() - (days - 1));
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date(now);
-      end.setHours(23, 59, 59, 999);
 
       where.date = {
         gte: start,
@@ -58,29 +67,53 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" },
     });
 
-    return NextResponse.json(summaries, { status: 200 });
+    const result = summaries.map((s) => ({
+      id: s.id,
+      date: s.date.toISOString(),
+      organizationId: s.organizationId,
+      totalRevenue: s.totalRevenue,
+      totalCost: s.totalCost,
+      totalProfit: s.totalProfit,
+      totalOrders: s.totalOrders,
+      productsSold: (s.productsSold ?? []) as any,
+      cutOffTime: s.cutOffTime ? s.cutOffTime.toISOString() : null,
+    }));
+
+    return NextResponse.json(result);
   } catch (err) {
     console.error("GET /api/daily-cutoff error:", err);
-    return NextResponse.json(
-      { error: "Failed to load daily summaries" },
-      { status: 500 }
-    );
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
 
-// POST: ตัดยอดวันนี้ด้วยมือ
-export async function POST(_req: NextRequest) {
+// 🔹 POST: ปุ่ม "ตัดยอดทันที" ในหน้าเว็บ
+export async function POST(req: NextRequest) {
   try {
-    const orgId = await getOrganizationId();
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "No organization for current user" },
-        { status: 401 }
-      );
+    const user = await currentUser();
+    if (!user) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { summary, created } = await createDailySummaryForOrg(orgId);
+    const organizationId = await getOrganizationId();
+    if (!organizationId) {
+      return new NextResponse("No organization", { status: 400 });
+    }
+
+    // เผื่ออนาคตอยากส่งวันที่มาจาก body (ตอนนี้ถ้าไม่ส่งก็คือวันนี้)
+    let targetDate: Date | undefined;
+    try {
+      const body = await req.json().catch(() => null);
+      if (body?.date) {
+        targetDate = new Date(body.date);
+      }
+    } catch {
+      // ถ้า parse body ไม่ได้ก็ไม่เป็นไร ใช้วันนี้แทน
+    }
+
+    const { summary, created } = await createDailySummaryForOrg(
+      organizationId,
+      targetDate
+    );
 
     return NextResponse.json(
       {
