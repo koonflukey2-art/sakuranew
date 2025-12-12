@@ -752,9 +752,7 @@ model SystemSettings {
   lineChannelAccessToken String?
   lineChannelSecret      String?
   lineWebhookUrl         String?
-
-  // ✅ เพิ่มใหม่: เอาไว้เก็บ userId/groupId/roomId สำหรับ Messaging API push
-  lineTargetId String?
+  lineTargetId String? // ✅ เพิ่มบรรทัดนี้
 
   adminEmails String?
 

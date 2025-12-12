@@ -1,3 +1,4 @@
+// src/app/api/cron/daily-summary/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendLineNotify, pushLineMessage } from "@/lib/line-integration";
@@ -6,6 +7,7 @@ import { calculateOrderProfit } from "@/lib/profit-calculator";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** แปลงเป็นหน้าวันนี้ตาม Asia/Bangkok แล้วคืนช่วงเวลาแบบ UTC สำหรับ query DB */
 function todayWindowBangkok() {
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -22,12 +24,14 @@ function todayWindowBangkok() {
 
   return { startUtc, endUtc, dateLabel: toThaiDateLabel(bkkNow) };
 }
+
 function toThaiDateLabel(d: Date) {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 }
+
 const fmtTHB = (n: number) => n.toLocaleString("th-TH");
 
 function formatMessage(p: {
@@ -55,6 +59,7 @@ export async function GET(req: Request) {
     !!secret &&
     (req.headers.get("authorization") === `Bearer ${secret}` ||
       req.headers.get("x-cron-secret") === secret);
+
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // --- องค์กรที่เปิดส่งสรุปรายวัน
@@ -62,9 +67,9 @@ export async function GET(req: Request) {
     where: { notifyDailySummary: true },
     select: {
       organizationId: true,
-      lineChannelAccessToken: true, // สำหรับ push (Messaging API)
+      lineChannelAccessToken: true, // สำหรับ push
       lineTargetId: true,           // ✅ userId/groupId/roomId
-      lineNotifyToken: true,        // fallback (LINE Notify)
+      lineNotifyToken: true,        // fallback notify
     },
   });
 
@@ -73,10 +78,12 @@ export async function GET(req: Request) {
 
   for (const s of settings) {
     try {
+      // ✅ ถ้า productType เป็น nullable ให้กรองทิ้ง (ไม่งั้น calculateOrderProfit ใช้ไม่ได้)
       const orders = await prisma.order.findMany({
         where: {
           organizationId: s.organizationId,
           orderDate: { gte: startUtc, lte: endUtc },
+          productType: { not: null },
         },
         select: { productType: true, quantity: true, amount: true },
       });
@@ -86,14 +93,16 @@ export async function GET(req: Request) {
 
       for (const o of orders) {
         totalRevenue += o.amount;
+
         const calc = await calculateOrderProfit(
           {
-            productType: o.productType!, // ใน schema เป็น Int? เลยใช้ !
+            productType: o.productType!, // safe เพราะกรอง not null แล้ว
             quantity: o.quantity,
             amount: o.amount,
           },
           s.organizationId
         );
+
         totalCost += calc.cost;
       }
 
@@ -115,9 +124,14 @@ export async function GET(req: Request) {
       let via: "push" | "notify" | "none" = "none";
 
       if (s.lineChannelAccessToken && s.lineTargetId) {
-        sent = await pushLineMessage(s.lineTargetId, s.lineChannelAccessToken, message);
+        sent = await pushLineMessage(
+          s.lineTargetId,
+          s.lineChannelAccessToken,
+          message
+        );
         via = "push";
       }
+
       if (!sent && s.lineNotifyToken) {
         sent = await sendLineNotify(s.lineNotifyToken, message);
         if (sent) via = "notify";
