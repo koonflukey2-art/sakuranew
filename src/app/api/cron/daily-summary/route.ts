@@ -34,42 +34,85 @@ function toThaiDateLabel(d: Date) {
 
 const fmtTHB = (n: number) => n.toLocaleString("th-TH");
 
-function formatMessage(p: {
+type SummaryParams = {
   dateLabel: string;
   orderCount: number;
   totalRevenue: number;
   totalCost: number;
   totalProfit: number;
   margin: number;
-}) {
+  breakdownLines: string[]; // ✅ เพิ่ม
+};
+
+function formatMessage(p: SummaryParams) {
+  const breakdown =
+    p.breakdownLines.length > 0
+      ? `\n\n🧾 รายการสินค้า:\n${p.breakdownLines.join("\n")}`
+      : "";
+
   return (
     `📊 สรุปยอดประจำวัน ${p.dateLabel}\n\n` +
     `📦 ออเดอร์: ${p.orderCount} รายการ\n` +
     `💰 รายได้: ฿${fmtTHB(p.totalRevenue)}\n` +
     `💵 ต้นทุน: ฿${fmtTHB(p.totalCost)}\n` +
     `✨ กำไรสุทธิ: ฿${fmtTHB(p.totalProfit)}\n` +
-    `📈 Margin: ${p.margin.toFixed(2)}%`
+    `📈 Margin: ${p.margin.toFixed(2)}%` +
+    breakdown
   );
 }
 
+function buildBreakdownLines(
+  orders: Array<{
+    productType: number | null;
+    productName: string | null;
+    quantity: number;
+  }>
+): string[] {
+  // key = ชื่อสินค้า (ถ้ามี) ไม่งั้นใช้ productType
+  const map = new Map<string, number>();
+
+  for (const o of orders) {
+    const name =
+      (o.productName && o.productName.trim()) ||
+      (o.productType != null ? `ประเภท ${o.productType}` : "ไม่ระบุสินค้า");
+
+    map.set(name, (map.get(name) ?? 0) + (o.quantity || 0));
+  }
+
+  // เรียงจากมากไปน้อย
+  return Array.from(map.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, qty]) => `• ${name}: ${fmtTHB(qty)} ชิ้น`);
+}
+
 export async function GET(req: Request) {
-  // --- Auth (รองรับ Authorization และ X-Cron-Secret)
+  // --- Auth: รองรับทั้ง Authorization: Bearer <secret> และ X-Cron-Secret ---
   const secret = process.env.CRON_SECRET;
-  const ok =
+  const auth = req.headers.get("authorization");
+  const xcron = req.headers.get("x-cron-secret");
+
+  const authorized =
     !!secret &&
-    (req.headers.get("authorization") === `Bearer ${secret}` ||
-      req.headers.get("x-cron-secret") === secret);
+    ((auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret));
 
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  // --- องค์กรที่เปิดส่งสรุปรายวัน
+  // --- ดึง org ที่เปิดส่งสรุป + มีช่องทางส่ง (push หรือ notify อย่างใดอย่างหนึ่ง) ---
   const settings = await prisma.systemSettings.findMany({
-    where: { notifyDailySummary: true },
+    where: {
+      notifyDailySummary: true,
+      OR: [
+        { lineChannelAccessToken: { not: null }, lineTargetId: { not: null } },
+        { lineNotifyToken: { not: null } },
+      ],
+    },
     select: {
       organizationId: true,
-      lineChannelAccessToken: true, // สำหรับ push
-      lineTargetId: true,           // ✅ userId/groupId/roomId
-      lineNotifyToken: true,        // fallback notify
+      lineChannelAccessToken: true,
+      lineTargetId: true,
+      lineNotifyToken: true,
     },
   });
 
@@ -78,16 +121,24 @@ export async function GET(req: Request) {
 
   for (const s of settings) {
     try {
-      // ✅ ถ้า productType เป็น nullable ให้กรองทิ้ง (ไม่งั้น calculateOrderProfit ใช้ไม่ได้)
+      // --- ออเดอร์วันนี้ของ org นี้ ---
       const orders = await prisma.order.findMany({
         where: {
           organizationId: s.organizationId,
           orderDate: { gte: startUtc, lte: endUtc },
-          productType: { not: null },
         },
-        select: { productType: true, quantity: true, amount: true },
+        select: {
+          productType: true,
+          productName: true,
+          quantity: true,
+          amount: true,
+        },
       });
 
+      // ✅ breakdown ต่อสินค้า
+      const breakdownLines = buildBreakdownLines(orders);
+
+      // --- รวมยอดแบบคิดโปรโมชันต่อออเดอร์ ---
       let totalRevenue = 0;
       let totalCost = 0;
 
@@ -96,7 +147,7 @@ export async function GET(req: Request) {
 
         const calc = await calculateOrderProfit(
           {
-            productType: o.productType!, // safe เพราะกรอง not null แล้ว
+            productType: o.productType ?? 0, // ถ้า null ให้กันพัง
             quantity: o.quantity,
             amount: o.amount,
           },
@@ -117,18 +168,15 @@ export async function GET(req: Request) {
         totalCost,
         totalProfit,
         margin,
+        breakdownLines,
       });
 
-      // --- ส่ง: push ก่อน, ถ้าไม่ได้ค่อย fallback ไป Notify
+      // --- ส่ง LINE: push ก่อน ถ้าไม่ได้ค่อย fallback notify ---
       let sent = false;
       let via: "push" | "notify" | "none" = "none";
 
       if (s.lineChannelAccessToken && s.lineTargetId) {
-        sent = await pushLineMessage(
-          s.lineTargetId,
-          s.lineChannelAccessToken,
-          message
-        );
+        sent = await pushLineMessage(s.lineTargetId, s.lineChannelAccessToken, message);
         via = "push";
       }
 
@@ -144,6 +192,7 @@ export async function GET(req: Request) {
         totalCost,
         totalProfit,
         margin,
+        breakdownCount: breakdownLines.length,
         via,
         sent,
       });
