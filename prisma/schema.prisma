@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
 }
 
 // ============================
@@ -82,8 +83,15 @@ enum ExternalPlatform {
   SHOPEE
 }
 
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 // ============================
-// ORGANIZATION (ใหม่)
+// ORGANIZATION
 // ============================
 
 model Organization {
@@ -109,11 +117,11 @@ model Organization {
   orders              Order[]
   productTypes        ProductType[]
   lineSettings        LINESettings?
-  promotions          Promotion[] // ✅ เพิ่ม relation กลับมาจาก Promotion
+  promotions          Promotion[]
 }
 
 // ============================
-// USER (เพิ่ม organization)
+// USER
 // ============================
 
 model User {
@@ -132,24 +140,24 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  // Relations ที่ยังผูกกับ User เหมือนเดิม
+  // Relations
   notifications        Notification[]
   stockHistory         StockHistory[]
-  automationRules      AutomationRule[]
-  metricsPlans         MetricsPlan[]
   chatSessions         ChatSession[]
   aiConversations      AIConversation[]
   facebookAdInsights   FacebookAdInsight[]
   aiProductSuggestions AIProductSuggestion[]
 
   // BudgetRequest เป็นฝั่ง requester
-  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
+  budgetRequests BudgetRequest[]  @relation("BudgetRequestRequester")
+  AutomationRule AutomationRule[]
+  MetricsPlan    MetricsPlan[]
 
   @@index([organizationId])
 }
 
 // ============================
-// PRODUCT (เปลี่ยน userId -> organizationId)
+// PRODUCT / PROMOTION / TYPE
 // ============================
 
 model Product {
@@ -165,7 +173,6 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // ✅ ใช้ organization แทน user
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -229,9 +236,15 @@ model StockHistory {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([userId])
 }
 
-// Campaign Budget (เดิม)
+// ============================
+// BUDGET
+// ============================
+
 model Budget {
   id        String   @id @default(cuid())
   amount    Float
@@ -241,24 +254,22 @@ model Budget {
   endDate   DateTime
   createdAt DateTime @default(now())
 
-  // ✅ ใช้ organization แทน user
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
 }
 
-// Capital Budget (ใหม่ - สำหรับจัดการงบประมาณสินค้า)
 model CapitalBudget {
   id             String   @id @default(cuid())
-  amount         Float // งบประมาณทั้งหมด
-  remaining      Float // งบคงเหลือ
-  minThreshold   Float    @default(5000) // ขั้นต่ำที่ต้องเตือน
+  amount         Float
+  remaining      Float
+  minThreshold   Float    @default(5000)
   description    String?
   organizationId String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  createdBy      String // User ID ที่สร้าง
+  createdBy      String
 
   organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   transactions CapitalBudgetTransaction[]
@@ -290,21 +301,17 @@ model BudgetRequest {
   amount  Float
   purpose String
 
-  // เดิมใช้ reason ตอนนี้ใช้ description ตามโค้ดใหม่
   description String?
   status      BudgetRequestStatus @default(PENDING)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
-  // ✅ ผูกกับ Organization
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // ✅ ผู้ขอ (requester) ผูกกับ User
   requesterId String
   requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
 
-  // ฟิลด์เดิม ยังเก็บไว้
   reviewedBy String?
   reviewedAt DateTime?
   reviewNote String?
@@ -312,6 +319,10 @@ model BudgetRequest {
   @@index([organizationId])
   @@index([requesterId])
 }
+
+// ============================
+// ADS
+// ============================
 
 model AdCampaign {
   id           String         @id @default(cuid())
@@ -329,7 +340,6 @@ model AdCampaign {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  // ✅ เปลี่ยนจาก userId เป็น organizationId
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -339,122 +349,6 @@ model AdCampaign {
   @@index([organizationId])
   @@index([adAccountId])
 }
-
-model Profit {
-  id        String   @id @default(cuid())
-  date      DateTime @unique
-  revenue   Float
-  costs     Float
-  netProfit Float
-  createdAt DateTime @default(now())
-}
-
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  title     String
-  message   String
-  link      String?
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// ============================
-// AIProvider (เปลี่ยน userId -> organizationId)
-// ============================
-
-model AIProvider {
-  id          String       @id @default(cuid())
-  provider    ProviderType
-  apiKey      String // Encrypted
-  modelName   String?
-  isActive    Boolean      @default(false)
-  isDefault   Boolean      @default(false)
-  isValid     Boolean      @default(false)
-  lastTested  DateTime?
-  testMessage String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  // ✅ เปลี่ยนมาใช้ organization
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, provider])
-  @@index([organizationId])
-  @@index([isDefault])
-}
-
-model ChatSession {
-  id        String       @id @default(cuid())
-  userId    String
-  title     String       @default("New Chat")
-  provider  ProviderType
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages ChatMessage[]
-}
-
-model ChatMessage {
-  id        String      @id @default(cuid())
-  sessionId String
-  role      MessageRole
-  content   String      @db.Text
-  metadata  Json?
-  createdAt DateTime    @default(now())
-
-  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-model AutomationRule {
-  id          String   @id @default(cuid())
-  platform    String // Facebook Ads, Google Ads, TikTok Ads, X Ads, Other
-  tool        String // Revealbot, AdEspresso, Madgicx, Custom (n8n webhook)
-  ruleName    String
-  condition   Json // { metric: "CPA", operator: ">", value: 200 }
-  action      Json // { type: "pauseCampaign", value: "" }
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  adAccountId String?
-
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([adAccountId])
-}
-
-model WorkflowTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  template    Json // n8n workflow JSON
-  category    String // Profit, Lead Gen, E-commerce
-  createdAt   DateTime @default(now())
-}
-
-model MetricsPlan {
-  id           String   @id @default(cuid())
-  templateName String
-  targets      Json // { revenue: 100000, cac: 500, ... }
-  actual       Json? // ค่าจริง (อัพเดททีหลัง)
-  period       String // monthly, daily
-  createdAt    DateTime @default(now())
-  userId       String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// ============================
-// AdAccount (เปลี่ยน userId -> organizationId)
-// ============================
 
 model AdAccount {
   id String @id @default(cuid())
@@ -479,17 +373,211 @@ model AdAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ✅ ใช้ organization แทน user
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   campaigns        AdCampaign[]
-  automationRules  AutomationRule[]
   facebookInsights FacebookAdInsight[]
+  AutomationRule   AutomationRule[]
 
   @@unique([organizationId, platform, accountId])
   @@index([organizationId])
   @@index([platform, isDefault])
+}
+
+model PlatformCredential {
+  id String @id @default(cuid())
+
+  platform     ExternalPlatform
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, platform])
+  @@index([organizationId])
+}
+
+// ============================
+// PROFIT / KPI
+// ============================
+
+model Profit {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  revenue   Float
+  costs     Float
+  netProfit Float
+  createdAt DateTime @default(now())
+}
+
+model KPI {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "daily", "weekly", "monthly"
+  date           DateTime
+
+  totalRevenue Float @default(0)
+  totalCost    Float @default(0)
+  totalProfit  Float @default(0)
+  profitMargin Float @default(0)
+
+  productsSold  Int   @default(0)
+  avgOrderValue Float @default(0)
+
+  stockTurnover  Float @default(0)
+  costEfficiency Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, date])
+  @@index([organizationId, period])
+}
+
+model ProfitTarget {
+  id             String   @id @default(cuid())
+  organizationId String
+  productType    Int?
+  targetMargin   Float
+  minMargin      Float
+  alertThreshold Float
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, productType])
+}
+
+// ============================
+// NOTIFICATION
+// ============================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================
+// AI
+// ============================
+
+model AIProvider {
+  id          String       @id @default(cuid())
+  provider    ProviderType
+  apiKey      String
+  modelName   String?
+  isActive    Boolean      @default(false)
+  isDefault   Boolean      @default(false)
+  isValid     Boolean      @default(false)
+  lastTested  DateTime?
+  testMessage String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([isDefault])
+}
+
+model ChatSession {
+  id        String       @id @default(cuid())
+  userId    String
+  title     String       @default("New Chat")
+  provider  ProviderType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  role      MessageRole
+  content   String      @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// ✅ (แก้ P1012) AutomationRule
+model AutomationRule {
+  id        String   @id @default(cuid())
+  platform  String
+  tool      String
+  ruleName  String
+  condition Json
+  action    Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId      String
+  adAccountId String?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([adAccountId])
+}
+
+model WorkflowTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  template    Json
+  category    String
+  createdAt   DateTime @default(now())
+}
+
+// ✅ (แก้ P1012) MetricsPlan
+model MetricsPlan {
+  id           String   @id @default(cuid())
+  templateName String
+  targets      Json
+  actual       Json?
+  period       String
+  createdAt    DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model AIConversation {
@@ -498,10 +586,9 @@ model AIConversation {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   title    String @default("New Conversation")
-  provider String // "GEMINI", "CHATGPT", "CLAUDE", "GROK"
-  messages Json // Array of {role, content, timestamp}
-
-  context Json? // Business context (products, campaigns, etc.)
+  provider String
+  messages Json
+  context  Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -521,7 +608,6 @@ model FacebookAdInsight {
   campaignId   String
   campaignName String
 
-  // Metrics
   impressions Int   @default(0)
   clicks      Int   @default(0)
   spend       Float @default(0)
@@ -532,7 +618,6 @@ model FacebookAdInsight {
   cpm         Float @default(0)
   roas        Float @default(0)
 
-  // AI Analysis
   aiRecommendation  String?
   optimizationScore Float?
 
@@ -555,8 +640,8 @@ model AIProductSuggestion {
 
   aiProvider String
   confidence Float
+  isApplied  Boolean @default(false)
 
-  isApplied Boolean  @default(false)
   productId String?
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
@@ -566,36 +651,7 @@ model AIProductSuggestion {
 }
 
 // ============================
-// PlatformCredential (เปลี่ยน userId -> organizationId)
-// ============================
-
-model PlatformCredential {
-  id String @id @default(cuid())
-
-  // ใช้ ExternalPlatform enum เดิม
-  platform     ExternalPlatform
-  apiKey       String?
-  apiSecret    String?
-  accessToken  String?
-  refreshToken String?
-
-  isValid     Boolean   @default(false)
-  lastTested  DateTime?
-  testMessage String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // ✅ ผูกกับ Organization
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, platform])
-  @@index([organizationId])
-}
-
-// ============================
-// CUSTOMER & ORDER (ใหม่)
+// CUSTOMER & ORDER
 // ============================
 
 model Customer {
@@ -615,24 +671,21 @@ model Customer {
 
 model Order {
   id          String   @id @default(cuid())
-  orderNumber String? // From LINE message (12, 13, etc)
+  orderNumber String?
   customerId  String
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  // Product info
-  productType Int? // 1-4 from LINE message
+  productType Int?
   productName String?
   quantity    Int     @default(1)
 
-  // Pricing
-  amount    Float // ยอดเก็บ
-  unitPrice Float @default(0) // ราคาต่อชิ้นจากไลน์
+  amount    Float
+  unitPrice Float @default(0)
 
-  // Order details
   orderDate      DateTime     @default(now())
   status         OrderStatus  @default(PENDING)
   notes          String?
-  rawMessage     String? // Original LINE message
+  rawMessage     String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -643,13 +696,6 @@ model Order {
   @@index([customerId])
   @@index([productType])
   @@index([status])
-}
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
 }
 
 // ============================
@@ -669,53 +715,7 @@ model LINESettings {
 }
 
 // ============================
-// KPI & ANALYTICS
-// ============================
-
-model KPI {
-  id             String   @id @default(cuid())
-  organizationId String
-  period         String // "daily", "weekly", "monthly"
-  date           DateTime
-
-  // Revenue metrics
-  totalRevenue Float @default(0)
-  totalCost    Float @default(0)
-  totalProfit  Float @default(0)
-  profitMargin Float @default(0)
-
-  // Product metrics
-  productsSold  Int   @default(0)
-  avgOrderValue Float @default(0)
-
-  // Efficiency metrics
-  stockTurnover  Float @default(0)
-  costEfficiency Float @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([organizationId, date])
-  @@index([organizationId, period])
-}
-
-model ProfitTarget {
-  id             String   @id @default(cuid())
-  organizationId String
-  productType    Int? // null = overall target
-  targetMargin   Float // Target profit margin %
-  minMargin      Float // Minimum acceptable margin %
-  alertThreshold Float // Alert when below this %
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([organizationId])
-  @@index([organizationId, productType])
-}
-
-// ============================
-// DAILY SUMMARY & SETTINGS
+// DAILY SUMMARY
 // ============================
 
 model DailySummary {
@@ -723,41 +723,41 @@ model DailySummary {
   date           DateTime // Start of day
   organizationId String
 
-  // Sales metrics
   totalRevenue Float @default(0)
   totalCost    Float @default(0)
   totalProfit  Float @default(0)
   totalOrders  Int   @default(0)
 
-  // Product breakdown - JSON array of products sold
   productsSold Json // [{productType, productName, quantity, revenue, cost, profit}]
 
-  // Timestamps
   createdAt  DateTime @default(now())
-  cutOffTime DateTime // When cut-off happened
+  cutOffTime DateTime
 
   @@index([organizationId, date])
   @@index([date])
 }
 
+// ============================
+// SYSTEM SETTINGS
+// ============================
+
 model SystemSettings {
   id             String @id @default(cuid())
   organizationId String @unique
 
-  // Daily cut-off settings
   dailyCutOffHour   Int @default(23)
   dailyCutOffMinute Int @default(59)
 
-  // LINE Integration (stored in database, NOT env vars)
-  lineNotifyToken        String? // Admin pastes this in Settings page
-  lineChannelAccessToken String? // Admin pastes this in Settings page
-  lineChannelSecret      String? // Admin pastes this in Settings page
-  lineWebhookUrl         String? // Auto-generated or editable
+  lineNotifyToken        String?
+  lineChannelAccessToken String?
+  lineChannelSecret      String?
+  lineWebhookUrl         String?
 
-  // Admin settings
-  adminEmails String? // Comma-separated list
+  // ✅ เพิ่มใหม่: เอาไว้เก็บ userId/groupId/roomId สำหรับ Messaging API push
+  lineTargetId String?
 
-  // Notification preferences
+  adminEmails String?
+
   notifyOnOrder      Boolean @default(true)
   notifyOnLowStock   Boolean @default(true)
   notifyDailySummary Boolean @default(true)
