@@ -1,44 +1,53 @@
 // src/middleware.ts
-
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// กำหนด route ที่ "ไม่ต้อง" login
+// เส้นทางที่ "ไม่ต้อง" login (public)
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/webhooks(.*)",          // webhook ของ Clerk
-  "/api/line/webhook(.*)",      // ✅ webhook ของ LINE ต้อง public
-  "/api/daily-cutoff/auto(.*)", // ✅ ให้ cron-job เรียกได้โดยไม่ต้อง login
+  // webhooks
+  "/api/webhooks(.*)",
+  "/api/line/webhook(.*)",
+  // เดิมคุณเปิดไว้แล้ว
+  "/api/daily-cutoff/auto(.*)",
+  // ✅ เพิ่ม cron endpoint ให้ public
+  "/api/cron/daily-summary(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
   const pathname = request.nextUrl.pathname;
-  const publicRoute = isPublicRoute(request);
 
-  // ถ้า login แล้วและอยู่ที่ "/" → เด้งไป dashboard
+  const publicRoute = isPublicRoute(request);
+  const isApiPath = pathname.startsWith("/api");
+
+  // ถ้าล็อกอินแล้วและกำลังจะเข้า "/" → เด้งไป dashboard
   if (userId && pathname === "/") {
-    const dashboardUrl = new URL("/dashboard", request.url);
-    return NextResponse.redirect(dashboardUrl);
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // ถ้าไม่ใช่ public route และยังไม่ login → เด้งไปหน้า login ("/")
+  // ยังไม่ล็อกอิน และไม่ใช่ public route
   if (!userId && !publicRoute) {
-    const loginUrl = new URL("/", request.url);
-    return NextResponse.redirect(loginUrl);
+    if (isApiPath) {
+      // ✅ ถ้าเป็น API → ตอบ 401 JSON (ไม่ redirect ไปหน้า /)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // หน้าเว็บทั่วไปยัง redirect ไปหน้า login เหมือนเดิม
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // public route หรือ user login แล้ว → ปล่อยผ่าน
   return NextResponse.next();
 });
 
+// ให้ middleware ทำงานกับทุกเส้นทางยกเว้นไฟล์ static/system
 export const config = {
   matcher: [
-    // ข้ามไฟล์ static ต่าง ๆ
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // ให้ middleware ทำงานกับทุก API route
+    // ข้าม _next, ไฟล์ static และไฟล์มีนามสกุล
+    "/((?!_next|.*\\..*|favicon.ico).*)",
+    // รวมถึง API/TRPC (จะถูกเช็ค public/401 ตามด้านบน)
     "/(api|trpc)(.*)",
   ],
 };
