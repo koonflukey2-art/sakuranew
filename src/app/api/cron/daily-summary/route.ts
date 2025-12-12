@@ -7,10 +7,30 @@ import { calculateOrderProfit } from "@/lib/profit-calculator";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** ===== Time helpers (Asia/Bangkok) ===== */
-function toBkk(date = new Date()) {
+const BKK_OFFSET_HOURS = 7;
+const MS_HOUR = 3600 * 1000;
+
+function toBangkok(date = new Date()) {
+  // แปลงเป็นเวลา Bangkok (ทำเป็น Date object ใหม่)
   const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-  return new Date(utcMs + 7 * 60 * 60000);
+  return new Date(utcMs + BKK_OFFSET_HOURS * MS_HOUR);
+}
+
+/** คืน start/end ของ "วันนี้" ตาม Bangkok แต่เป็น UTC สำหรับ query DB */
+function todayWindowBangkok() {
+  const bkkNow = toBangkok(new Date());
+
+  const startLocal = new Date(bkkNow);
+  startLocal.setHours(0, 0, 0, 0);
+
+  const endLocal = new Date(bkkNow);
+  endLocal.setHours(23, 59, 59, 999);
+
+  // กลับเป็น UTC สำหรับ query
+  const startUtc = new Date(startLocal.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+  const endUtc = new Date(endLocal.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+
+  return { startUtc, endUtc, bkkNow, dateLabel: toThaiDateLabel(bkkNow), startLocalBkk: startLocal };
 }
 
 function toThaiDateLabel(d: Date) {
@@ -20,47 +40,7 @@ function toThaiDateLabel(d: Date) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-/** คืนช่วงเวลาของ "วันนี้ (BKK)" แต่เป็น UTC สำหรับ query DB (endExclusive) */
-function todayWindowBangkokUtc(now = new Date()) {
-  const bkkNow = toBkk(now);
-
-  const startBkk = new Date(bkkNow);
-  startBkk.setHours(0, 0, 0, 0);
-
-  const endBkkExclusive = new Date(startBkk);
-  endBkkExclusive.setDate(startBkk.getDate() + 1); // พรุ่งนี้ 00:00 (BKK)
-
-  const startUtc = new Date(startBkk.getTime() - 7 * 60 * 60000);
-  const endUtcExclusive = new Date(endBkkExclusive.getTime() - 7 * 60 * 60000);
-
-  return { startUtc, endUtcExclusive, dateLabel: toThaiDateLabel(bkkNow), bkkNow };
-}
-
-/** กันส่งซ้ำ: ดูว่าเป็นวันเดียวกันใน BKK ไหม */
-function isSameBkkDay(a: Date, b: Date) {
-  const aa = toBkk(a);
-  const bb = toBkk(b);
-  return (
-    aa.getFullYear() === bb.getFullYear() &&
-    aa.getMonth() === bb.getMonth() &&
-    aa.getDate() === bb.getDate()
-  );
-}
-
-/** เช็คว่าเวลาปัจจุบันอยู่ในช่วง cut-off window (BKK) */
-function isWithinCutoffWindowBkk(
-  now: Date,
-  cutHour: number,
-  cutMinute: number,
-  windowMinutes = 2
-) {
-  const bkk = toBkk(now);
-  const nowMin = bkk.getHours() * 60 + bkk.getMinutes();
-  const cutMin = cutHour * 60 + cutMinute;
-  return nowMin >= cutMin && nowMin < cutMin + windowMinutes;
-}
-
-const fmtTHB = (n: number) => n.toLocaleString("th-TH");
+const fmtTHB = (n: number) => (Number.isFinite(n) ? n : 0).toLocaleString("th-TH");
 
 type SummaryParams = {
   dateLabel: string;
@@ -90,11 +70,7 @@ function formatMessage(p: SummaryParams) {
 }
 
 function buildBreakdownLines(
-  orders: Array<{
-    productType: number | null;
-    productName: string | null;
-    quantity: number;
-  }>
+  orders: Array<{ productType: number | null; productName: string | null; quantity: number }>
 ): string[] {
   const map = new Map<string, number>();
 
@@ -111,36 +87,73 @@ function buildBreakdownLines(
     .map(([name, qty]) => `• ${name}: ${fmtTHB(qty)} ชิ้น`);
 }
 
+/** เช็คว่าควรส่งตอนนี้ไหม: หลัง cut-off และยังไม่เคยส่งวันนี้ */
+function shouldSendNow(args: {
+  bkkNow: Date;
+  startLocalBkk: Date;
+  cutOffHour: number;
+  cutOffMinute: number;
+  lastSentAt: Date | null;
+}) {
+  const { bkkNow, startLocalBkk, cutOffHour, cutOffMinute, lastSentAt } = args;
+
+  const cutoffTodayBkk = new Date(startLocalBkk);
+  cutoffTodayBkk.setHours(cutOffHour ?? 23, cutOffMinute ?? 59, 0, 0);
+
+  // ยังไม่ถึงเวลา cut-off -> ไม่ส่ง
+  if (bkkNow.getTime() < cutoffTodayBkk.getTime()) return false;
+
+  // ถ้าเคยส่งแล้ว “วันนี้” (ตามเวลา BKK) -> ไม่ส่งซ้ำ
+  if (lastSentAt) {
+    const lastSentBkk = toBangkok(lastSentAt);
+    if (lastSentBkk.getTime() >= startLocalBkk.getTime()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export async function GET(req: Request) {
   try {
-    /** --- Auth: รองรับทั้ง Authorization: Bearer <secret> และ X-Cron-Secret --- */
+    // --- Auth: รองรับทั้ง Authorization: Bearer <secret> และ X-Cron-Secret ---
     const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      return NextResponse.json(
+        { error: "CRON_SECRET is not set" },
+        { status: 500 }
+      );
+    }
+
     const auth = req.headers.get("authorization");
     const xcron = req.headers.get("x-cron-secret");
 
-    // อนุญาตตอน dev ถ้าไม่ได้ตั้ง secret (กัน dev ยิงทดสอบลำบาก)
     const authorized =
-      (process.env.NODE_ENV !== "production" && !secret) ||
-      (!!secret &&
-        ((auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret)));
+      (auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret);
 
     if (!authorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const now = new Date();
-    const { startUtc, endUtcExclusive, dateLabel } = todayWindowBangkokUtc(now);
-
-    /** --- ดึง org ที่เปิดส่งสรุป + มีช่องทางส่ง --- */
+    // ✅ แก้ notIn [null,""] -> ใช้ AND แยก not null / not ""
     const settings = await prisma.systemSettings.findMany({
       where: {
         notifyDailySummary: true,
         OR: [
           {
-            lineChannelAccessToken: { notIn: [null, ""] },
-            lineTargetId: { notIn: [null, ""] },
+            AND: [
+              { lineChannelAccessToken: { not: null } },
+              { lineChannelAccessToken: { not: "" } },
+              { lineTargetId: { not: null } },
+              { lineTargetId: { not: "" } },
+            ],
           },
-          { lineNotifyToken: { notIn: [null, ""] } },
+          {
+            AND: [
+              { lineNotifyToken: { not: null } },
+              { lineNotifyToken: { not: "" } },
+            ],
+          },
         ],
       },
       select: {
@@ -148,41 +161,34 @@ export async function GET(req: Request) {
         lineChannelAccessToken: true,
         lineTargetId: true,
         lineNotifyToken: true,
-
-        // ✅ ใช้ตามหน้าตั้งค่า
         dailyCutOffHour: true,
         dailyCutOffMinute: true,
-
-        // ✅ กันส่งซ้ำ
         dailySummaryLastSentAt: true,
       },
     });
 
+    const { startUtc, endUtc, bkkNow, dateLabel, startLocalBkk } = todayWindowBangkok();
     const results: Array<Record<string, any>> = [];
 
     for (const s of settings) {
       try {
-        const cutHour = s.dailyCutOffHour ?? 23;
-        const cutMinute = s.dailyCutOffMinute ?? 59;
+        const cutOffHour = s.dailyCutOffHour ?? 23;
+        const cutOffMinute = s.dailyCutOffMinute ?? 59;
 
-        // ✅ 1) ถ้ายังไม่ถึงเวลาตัดยอดตาม settings => ข้าม
-        if (!isWithinCutoffWindowBkk(now, cutHour, cutMinute, 2)) {
+        // ✅ ยิง cron ถี่ได้ แต่จะส่งจริงเฉพาะ “หลังเวลาที่ตั้ง” และ “วันละครั้ง”
+        const okToSend = shouldSendNow({
+          bkkNow,
+          startLocalBkk,
+          cutOffHour,
+          cutOffMinute,
+          lastSentAt: s.dailySummaryLastSentAt ?? null,
+        });
+
+        if (!okToSend) {
           results.push({
             organizationId: s.organizationId,
             skipped: true,
-            reason: `not in cutoff window (${String(cutHour).padStart(2, "0")}:${String(
-              cutMinute
-            ).padStart(2, "0")})`,
-          });
-          continue;
-        }
-
-        // ✅ 2) ถ้าส่งไปแล้ววันนี้ => ข้าม
-        if (s.dailySummaryLastSentAt && isSameBkkDay(s.dailySummaryLastSentAt, now)) {
-          results.push({
-            organizationId: s.organizationId,
-            skipped: true,
-            reason: "already sent today",
+            reason: "not_time_or_already_sent",
           });
           continue;
         }
@@ -191,7 +197,7 @@ export async function GET(req: Request) {
         const orders = await prisma.order.findMany({
           where: {
             organizationId: s.organizationId,
-            orderDate: { gte: startUtc, lt: endUtcExclusive },
+            orderDate: { gte: startUtc, lte: endUtc },
           },
           select: {
             productType: true,
@@ -203,16 +209,16 @@ export async function GET(req: Request) {
 
         const breakdownLines = buildBreakdownLines(orders);
 
-        // --- รวมยอดแบบคิดโปรโมชันต่อออเดอร์ ---
         let totalRevenue = 0;
         let totalCost = 0;
 
         for (const o of orders) {
           totalRevenue += o.amount;
 
+          // ✅ ส่ง null ให้ calculator ถ้าไม่มี productType
           const calc = await calculateOrderProfit(
             {
-              productType: o.productType ?? null, // ✅ สำคัญ: ห้ามใช้ 0
+              productType: o.productType ?? null,
               quantity: o.quantity,
               amount: o.amount,
             },
@@ -241,7 +247,11 @@ export async function GET(req: Request) {
         let via: "push" | "notify" | "none" = "none";
 
         if (s.lineChannelAccessToken && s.lineTargetId) {
-          sent = await pushLineMessage(s.lineTargetId, s.lineChannelAccessToken, message);
+          sent = await pushLineMessage(
+            s.lineTargetId,
+            s.lineChannelAccessToken,
+            message
+          );
           via = "push";
         }
 
@@ -250,11 +260,11 @@ export async function GET(req: Request) {
           if (sent) via = "notify";
         }
 
-        // ✅ 3) อัปเดต last sent เฉพาะตอนส่งสำเร็จ
+        // ✅ mark ว่าส่งแล้ววันนี้ (กันส่งซ้ำทุก 5 นาที)
         if (sent) {
           await prisma.systemSettings.update({
             where: { organizationId: s.organizationId },
-            data: { dailySummaryLastSentAt: now },
+            data: { dailySummaryLastSentAt: new Date() },
           });
         }
 
@@ -266,10 +276,6 @@ export async function GET(req: Request) {
           totalProfit,
           margin,
           breakdownCount: breakdownLines.length,
-          cutoff: `${String(cutHour).padStart(2, "0")}:${String(cutMinute).padStart(
-            2,
-            "0"
-          )}`,
           via,
           sent,
         });
@@ -285,7 +291,7 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error("GET /api/cron/daily-summary error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to run daily summary" },
+      { error: error.message || "Failed" },
       { status: 500 }
     );
   }
