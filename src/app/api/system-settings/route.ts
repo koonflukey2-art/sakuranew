@@ -48,7 +48,6 @@ export async function GET(_request: NextRequest) {
       lineNotifyToken: maskToken(settings.lineNotifyToken),
       lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
       lineChannelSecret: maskToken(settings.lineChannelSecret),
-      // ส่งได้แบบ safe
       dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
     };
 
@@ -72,6 +71,7 @@ export async function POST(request: NextRequest) {
     // ตรวจ role แอดมิน
     const dbUser = await prisma.user.findUnique({
       where: { clerkId: user.id },
+      select: { role: true },
     });
 
     if (!dbUser || dbUser.role !== "ADMIN") {
@@ -86,7 +86,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({} as any));
+
+    // ✅ --- NEW: reset daily summary sent flag ---
+    // รองรับ 2 แบบ:
+    // 1) { action: "resetDailySummary" }
+    // 2) { resetDailySummary: true }
+    const wantsReset =
+      body?.action === "resetDailySummary" || body?.resetDailySummary === true;
+
+    if (wantsReset) {
+      const settings = await prisma.systemSettings.upsert({
+        where: { organizationId: orgId },
+        update: {
+          dailySummaryLastSentAt: null,
+        },
+        create: {
+          organizationId: orgId,
+          dailyCutOffHour: 23,
+          dailyCutOffMinute: 59,
+          notifyOnOrder: true,
+          notifyOnLowStock: true,
+          notifyDailySummary: true,
+          dailySummaryLastSentAt: null,
+        },
+      });
+
+      const safeSettings = {
+        ...settings,
+        lineNotifyToken: maskToken(settings.lineNotifyToken),
+        lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
+        lineChannelSecret: maskToken(settings.lineChannelSecret),
+        dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
+      };
+
+      return NextResponse.json({
+        ok: true,
+        action: "resetDailySummary",
+        settings: safeSettings,
+      });
+    }
+
+    // --- ปกติ: update settings ---
     const updateData: any = {};
 
     // Cut-off time

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -66,6 +65,9 @@ export default function DailySummaryPage() {
   );
   const [creatingCutoff, setCreatingCutoff] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ✅ เพิ่ม state สำหรับปุ่มรีเซ็ต
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     fetchSummaries();
@@ -166,6 +168,45 @@ export default function DailySummaryPage() {
     }
   };
 
+  // ✅ เพิ่ม: รีเซ็ตสถานะ “ส่งสรุปวันนี้แล้ว”
+  const resetDailySummarySentFlag = async () => {
+    if (
+      !window.confirm(
+        "รีเซ็ตสถานะส่งสรุปวันนี้?\n(จะทำให้ Cron ส่งได้อีกครั้งในวันเดียวกัน สำหรับทดสอบ)"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setResetting(true);
+
+      const res = await fetch("/api/system-settings/reset-daily-summary", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.error || error?.message || "รีเซ็ตไม่สำเร็จ");
+      }
+
+      toast({
+        title: "✅ รีเซ็ตสำเร็จ",
+        description: "ตอนนี้สามารถทดสอบ Cron ส่งสรุปวันนี้ได้อีกครั้ง",
+      });
+    } catch (error: any) {
+      console.error("resetDailySummarySentFlag error:", error);
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: error?.message || "ไม่สามารถรีเซ็ตได้",
+        variant: "destructive",
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const handleDeleteSummary = async (id: string) => {
     const target = summaries.find((s) => s.id === id);
     const dateText = target
@@ -240,7 +281,8 @@ export default function DailySummaryPage() {
             ข้อมูลยอดขาย กำไร และสินค้าที่ขายแต่ละวัน
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-2 flex-wrap">
           <Button
             onClick={fetchSummaries}
             variant="outline"
@@ -248,6 +290,26 @@ export default function DailySummaryPage() {
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช
+          </Button>
+
+          {/* ✅ ปุ่มใหม่: รีเซ็ตสถานะส่งสรุปวันนี้ */}
+          <Button
+            onClick={resetDailySummarySentFlag}
+            variant="outline"
+            disabled={resetting}
+            className="border-yellow-400 text-yellow-100"
+          >
+            {resetting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                กำลังรีเซ็ต...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                รีเซ็ตวัน (ทดสอบส่ง)
+              </>
+            )}
           </Button>
 
           {selectedSummary && timeRange === "today" && (
@@ -294,10 +356,7 @@ export default function DailySummaryPage() {
       <Card className="bg-white/5 border border-white/10 backdrop-blur">
         <CardContent className="pt-6">
           <div className="flex gap-4 items-center flex-wrap">
-            <Select
-              value={timeRange}
-              onValueChange={(v: any) => setTimeRange(v)}
-            >
+            <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
               <SelectTrigger className="w-48 bg-white/5 border-white/20">
                 <SelectValue placeholder="เลือกช่วงเวลา" />
               </SelectTrigger>
@@ -368,8 +427,7 @@ export default function DailySummaryPage() {
               <p className="text-xs text-blue-200 mt-1">
                 {selectedSummary.totalRevenue > 0
                   ? (
-                      (selectedSummary.totalProfit /
-                        selectedSummary.totalRevenue) *
+                      (selectedSummary.totalProfit / selectedSummary.totalRevenue) *
                       100
                     ).toFixed(1)
                   : 0}
@@ -392,10 +450,7 @@ export default function DailySummaryPage() {
               <p className="text-xs text-purple-200 mt-1">
                 ฿
                 {selectedSummary.totalOrders > 0
-                  ? (
-                      selectedSummary.totalRevenue /
-                      selectedSummary.totalOrders
-                    ).toLocaleString()
+                  ? (selectedSummary.totalRevenue / selectedSummary.totalOrders).toLocaleString()
                   : 0}{" "}
                 / ออเดอร์
               </p>
@@ -414,27 +469,16 @@ export default function DailySummaryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedSummary.productsSold &&
-            selectedSummary.productsSold.length > 0 ? (
+            {selectedSummary.productsSold && selectedSummary.productsSold.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-gray-300">สินค้า</TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      จำนวน
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      รายได้
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      ต้นทุน
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      กำไร
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      % Margin
-                    </TableHead>
+                    <TableHead className="text-right text-gray-300">จำนวน</TableHead>
+                    <TableHead className="text-right text-gray-300">รายได้</TableHead>
+                    <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
+                    <TableHead className="text-right text-gray-300">กำไร</TableHead>
+                    <TableHead className="text-right text-gray-300">% Margin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -457,9 +501,7 @@ export default function DailySummaryPage() {
                       </TableCell>
                       <TableCell className="text-right text-gray-300">
                         {product.revenue > 0
-                          ? ((product.profit / product.revenue) * 100).toFixed(
-                              1
-                            )
+                          ? ((product.profit / product.revenue) * 100).toFixed(1)
                           : 0}
                         %
                       </TableCell>
@@ -468,9 +510,7 @@ export default function DailySummaryPage() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-center text-gray-400 py-8">
-                ไม่มีข้อมูลการขายสินค้า
-              </p>
+              <p className="text-center text-gray-400 py-8">ไม่มีข้อมูลการขายสินค้า</p>
             )}
           </CardContent>
         </Card>
@@ -488,18 +528,10 @@ export default function DailySummaryPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-gray-300">วันที่</TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      รายได้
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      ต้นทุน
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      กำไร
-                    </TableHead>
-                    <TableHead className="text-right text-gray-300">
-                      ออเดอร์
-                    </TableHead>
+                    <TableHead className="text-right text-gray-300">รายได้</TableHead>
+                    <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
+                    <TableHead className="text-right text-gray-300">กำไร</TableHead>
+                    <TableHead className="text-right text-gray-300">ออเดอร์</TableHead>
                     <TableHead className="text-right text-gray-300"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -530,11 +562,7 @@ export default function DailySummaryPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setSelectedDate(
-                              new Date(summary.date)
-                                .toISOString()
-                                .split("T")[0]
-                            );
+                            setSelectedDate(new Date(summary.date).toISOString().split("T")[0]);
                             setTimeRange("today");
                           }}
                           className="text-purple-400 hover:text-purple-300"
@@ -560,9 +588,7 @@ export default function DailySummaryPage() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-center text-gray-400 py-8">
-                ไม่มีข้อมูลสรุปยอด
-              </p>
+              <p className="text-center text-gray-400 py-8">ไม่มีข้อมูลสรุปยอด</p>
             )}
           </CardContent>
         </Card>
@@ -574,9 +600,7 @@ export default function DailySummaryPage() {
           <CardContent className="py-12 text-center text-gray-400">
             <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
             <p className="text-lg mb-2">ยังไม่มีข้อมูลสรุปยอดสำหรับช่วงเวลานี้</p>
-            <p className="text-sm">
-              กดปุ่ม "ตัดยอดทันที" เพื่อสร้างสรุปยอดวันนี้
-            </p>
+            <p className="text-sm">กดปุ่ม "ตัดยอดทันที" เพื่อสร้างสรุปยอดวันนี้</p>
           </CardContent>
         </Card>
       )}

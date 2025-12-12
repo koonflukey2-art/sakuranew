@@ -1,4 +1,3 @@
-// src/app/api/cron/daily-summary/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendLineNotify, pushLineMessage } from "@/lib/line-integration";
@@ -25,7 +24,6 @@ function todayWindowBangkok() {
   const endLocalBkk = new Date(bkkNow);
   endLocalBkk.setHours(23, 59, 59, 999);
 
-  // กลับเป็น UTC สำหรับ query
   const startUtc = new Date(startLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
   const endUtc = new Date(endLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
 
@@ -84,7 +82,7 @@ function buildBreakdownLines(
     .map(([name, qty]) => `• ${name}: ${fmtTHB(qty)} ชิ้น`);
 }
 
-/** เช็คว่า “ควรส่งตอนนี้ไหม”: หลัง cut-off และยังไม่เคยส่งวันนี้ (ตามเวลา BKK) */
+/** เช็คว่าควรส่งตอนนี้ไหม: หลัง cut-off และยังไม่เคยส่งวันนี้ (ตามเวลา BKK) */
 function shouldSendNow(args: {
   bkkNow: Date;
   startLocalBkk: Date;
@@ -97,12 +95,10 @@ function shouldSendNow(args: {
   const cutoffTodayBkk = new Date(startLocalBkk);
   cutoffTodayBkk.setHours(cutOffHour ?? 23, cutOffMinute ?? 59, 0, 0);
 
-  // ยังไม่ถึงเวลา cut-off -> ไม่ส่ง
   if (bkkNow.getTime() < cutoffTodayBkk.getTime()) {
     return { ok: false, cutoffTodayBkk };
   }
 
-  // ถ้าเคยส่งแล้ว “วันนี้” (ตามเวลา BKK) -> ไม่ส่งซ้ำ
   if (lastSentAt) {
     const lastSentBkk = toBangkok(lastSentAt);
     if (lastSentBkk.getTime() >= startLocalBkk.getTime()) {
@@ -120,22 +116,17 @@ function isAuthorized(req: Request) {
   const auth = req.headers.get("authorization");
   const xcron = req.headers.get("x-cron-secret");
 
-  const ok =
-    (auth && auth === `Bearer ${secret}`) ||
-    (xcron && xcron === secret);
-
+  const ok = (auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret);
   return { ok: !!ok, reason: ok ? "OK" : "BAD_SECRET_OR_MISSING_HEADER" };
 }
 
 export async function GET(req: Request) {
   try {
-    // --- Auth ---
     const auth = isAuthorized(req);
     if (!auth.ok) {
       return NextResponse.json({ error: "Unauthorized", reason: auth.reason }, { status: 401 });
     }
 
-    // ✅ แก้ notIn [null,""] -> ใช้ AND แยก not null / not ""
     const settings = await prisma.systemSettings.findMany({
       where: {
         notifyDailySummary: true,
@@ -149,10 +140,7 @@ export async function GET(req: Request) {
             ],
           },
           {
-            AND: [
-              { lineNotifyToken: { not: null } },
-              { lineNotifyToken: { not: "" } },
-            ],
+            AND: [{ lineNotifyToken: { not: null } }, { lineNotifyToken: { not: "" } }],
           },
         ],
       },
@@ -197,7 +185,6 @@ export async function GET(req: Request) {
           continue;
         }
 
-        // --- ออเดอร์วันนี้ของ org นี้ ---
         const orders = await prisma.order.findMany({
           where: {
             organizationId: s.organizationId,
@@ -220,11 +207,7 @@ export async function GET(req: Request) {
           totalRevenue += o.amount;
 
           const calc = await calculateOrderProfit(
-            {
-              productType: o.productType ?? null,
-              quantity: o.quantity,
-              amount: o.amount,
-            },
+            { productType: o.productType ?? null, quantity: o.quantity, amount: o.amount },
             s.organizationId
           );
 
@@ -245,7 +228,6 @@ export async function GET(req: Request) {
           breakdownLines,
         });
 
-        // --- ส่ง LINE: push ก่อน ถ้าไม่ได้ค่อย fallback notify ---
         let sent = false;
         let via: "push" | "notify" | "none" = "none";
 
@@ -259,7 +241,6 @@ export async function GET(req: Request) {
           if (sent) via = "notify";
         }
 
-        // ✅ mark ว่าส่งแล้ววันนี้ (กันส่งซ้ำทุก 5 นาที)
         if (sent) {
           await prisma.systemSettings.update({
             where: { organizationId: s.organizationId },
@@ -279,10 +260,7 @@ export async function GET(req: Request) {
           sent,
         });
       } catch (err: any) {
-        results.push({
-          organizationId: s.organizationId,
-          error: err?.message ?? String(err),
-        });
+        results.push({ organizationId: s.organizationId, error: err?.message ?? String(err) });
       }
     }
 
