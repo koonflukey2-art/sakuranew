@@ -56,7 +56,6 @@ export const config = {
   matcher: [
     // ข้าม _next, ไฟล์ static และไฟล์มีนามสกุล
     "/((?!_next|.*\\..*|favicon.ico).*)",
-    // รวมถึง API/TRPC
     "/(api|trpc)(.*)",
   ],
 };
