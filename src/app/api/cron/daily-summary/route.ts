@@ -1,13 +1,11 @@
-// src/app/api/cron/daily-summary/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendLineNotify } from "@/lib/line-integration";
+import { sendLineNotify, pushLineMessage } from "@/lib/line-integration";
 import { calculateOrderProfit } from "@/lib/profit-calculator";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** คืนช่วงเวลา “วันนี้ของกรุงเทพฯ” เป็น UTC สำหรับ query DB */
 function todayWindowBangkok() {
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -24,14 +22,12 @@ function todayWindowBangkok() {
 
   return { startUtc, endUtc, dateLabel: toThaiDateLabel(bkkNow) };
 }
-
 function toThaiDateLabel(d: Date) {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 }
-
 const fmtTHB = (n: number) => n.toLocaleString("th-TH");
 
 function formatMessage(p: {
@@ -53,17 +49,23 @@ function formatMessage(p: {
 }
 
 export async function GET(req: Request) {
-  // --------- Auth: “ใช้ Bearer เท่านั้น” ----------
+  // --- Auth (รองรับ Authorization และ X-Cron-Secret)
   const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization"); // e.g. "Bearer xxx"
-  if (!secret || !auth || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const ok =
+    !!secret &&
+    (req.headers.get("authorization") === `Bearer ${secret}` ||
+      req.headers.get("x-cron-secret") === secret);
+  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // --------- หา org ที่เปิดส่งสรุปและมี LINE token ----------
+  // --- องค์กรที่เปิดส่งสรุปรายวัน
   const settings = await prisma.systemSettings.findMany({
-    where: { notifyDailySummary: true, lineNotifyToken: { not: null } },
-    select: { organizationId: true, lineNotifyToken: true },
+    where: { notifyDailySummary: true },
+    select: {
+      organizationId: true,
+      lineChannelAccessToken: true, // สำหรับ push (Messaging API)
+      lineTargetId: true,           // ✅ userId/groupId/roomId
+      lineNotifyToken: true,        // fallback (LINE Notify)
+    },
   });
 
   const { startUtc, endUtc, dateLabel } = todayWindowBangkok();
@@ -71,7 +73,6 @@ export async function GET(req: Request) {
 
   for (const s of settings) {
     try {
-      // ดึงออเดอร์วันนี้ของ org
       const orders = await prisma.order.findMany({
         where: {
           organizationId: s.organizationId,
@@ -80,47 +81,20 @@ export async function GET(req: Request) {
         select: { productType: true, quantity: true, amount: true },
       });
 
-      // ถ้าไม่มีออเดอร์ก็ส่งข้อความ “0” ได้เลย
-      if (orders.length === 0) {
-        const message = formatMessage({
-          dateLabel,
-          orderCount: 0,
-          totalRevenue: 0,
-          totalCost: 0,
-          totalProfit: 0,
-          margin: 0,
-        });
-        const sent = await sendLineNotify(s.lineNotifyToken!, message);
-        results.push({
-          organizationId: s.organizationId,
-          orderCount: 0,
-          totalRevenue: 0,
-          totalCost: 0,
-          totalProfit: 0,
-          margin: 0,
-          sent,
-        });
-        continue;
-      }
-
-      // รวมยอดรายได้/ต้นทุนโดยคิดโปรโมชันต่อออเดอร์
       let totalRevenue = 0;
       let totalCost = 0;
 
       for (const o of orders) {
         totalRevenue += o.amount;
-
-        // ลำดับอาร์กิวเมนต์ที่ถูกต้อง: (orderLikeObject, organizationId)
         const calc = await calculateOrderProfit(
           {
-            productType: o.productType,
+            productType: o.productType!, // ใน schema เป็น Int? เลยใช้ !
             quantity: o.quantity,
             amount: o.amount,
           },
           s.organizationId
         );
-
-        totalCost += calc.cost; // ต้นทุนหลังหักโปรโมชัน
+        totalCost += calc.cost;
       }
 
       const orderCount = orders.length;
@@ -136,7 +110,18 @@ export async function GET(req: Request) {
         margin,
       });
 
-      const sent = await sendLineNotify(s.lineNotifyToken!, message);
+      // --- ส่ง: push ก่อน, ถ้าไม่ได้ค่อย fallback ไป Notify
+      let sent = false;
+      let via: "push" | "notify" | "none" = "none";
+
+      if (s.lineChannelAccessToken && s.lineTargetId) {
+        sent = await pushLineMessage(s.lineTargetId, s.lineChannelAccessToken, message);
+        via = "push";
+      }
+      if (!sent && s.lineNotifyToken) {
+        sent = await sendLineNotify(s.lineNotifyToken, message);
+        if (sent) via = "notify";
+      }
 
       results.push({
         organizationId: s.organizationId,
@@ -145,6 +130,7 @@ export async function GET(req: Request) {
         totalCost,
         totalProfit,
         margin,
+        via,
         sent,
       });
     } catch (err: any) {
