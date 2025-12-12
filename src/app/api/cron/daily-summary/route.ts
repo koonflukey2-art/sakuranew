@@ -1,24 +1,144 @@
-import { NextResponse } from "next/server";
+// src/app/api/cron/daily-summary/route.ts
 
-// ให้รันบน Node runtime (ไม่ใช่ edge)
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendLineNotify } from "@/lib/line-integration";
+import { calculateOrderProfit } from "@/lib/profit-calculator";
+
 export const runtime = "nodejs";
-// กัน Next เอาไปแคช/พรีเรนเดอร์
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  // ตรวจ Bearer token
-  const auth = req.headers.get("authorization");
-  const secret = process.env.CRON_SECRET;
+/** แปลงเป็นหน้าวันนี้ตาม Asia/Bangkok แล้วคืนช่วงเวลาแบบ UTC สำหรับ query DB */
+function todayWindowBangkok() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const bkkNow = new Date(utcMs + 7 * 3600 * 1000);
 
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const startLocal = new Date(bkkNow);
+  startLocal.setHours(0, 0, 0, 0);
+
+  const endLocal = new Date(bkkNow);
+  endLocal.setHours(23, 59, 59, 999);
+
+  const startUtc = new Date(startLocal.getTime() - 7 * 3600 * 1000);
+  const endUtc = new Date(endLocal.getTime() - 7 * 3600 * 1000);
+
+  return { startUtc, endUtc, dateLabel: toThaiDateLabel(bkkNow) };
+}
+
+function toThaiDateLabel(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+const fmtTHB = (n: number) => n.toLocaleString("th-TH");
+
+function formatMessage(p: {
+  dateLabel: string;
+  orderCount: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  margin: number;
+}) {
+  return (
+    `📊 สรุปยอดประจำวัน ${p.dateLabel}\n\n` +
+    `📦 ออเดอร์: ${p.orderCount} รายการ\n` +
+    `💰 รายได้: ฿${fmtTHB(p.totalRevenue)}\n` +
+    `💵 ต้นทุน: ฿${fmtTHB(p.totalCost)}\n` +
+    `✨ กำไรสุทธิ: ฿${fmtTHB(p.totalProfit)}\n` +
+    `📈 Margin: ${p.margin.toFixed(2)}%`
+  );
+}
+
+export async function GET(req: Request) {
+  // --- Auth: รองรับทั้ง Authorization: Bearer <secret> และ X-Cron-Secret ---
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.get("authorization");
+  const xcron = req.headers.get("x-cron-secret");
+
+  const authorized =
+    !!secret &&
+    ((auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret));
+
+  if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // TODO: ใส่ลอจิกจริงสำหรับ daily summary ที่นี่
-  // - อ่าน SystemSettings (cut-off hour/minute, notifyDailySummary, line token)
-  // - รวมยอดออเดอร์วันนี้ด้วยต้นทุนแบบโปรโมชัน
-  // - ส่งข้อความไป LINE Notify
-  // - คืนผลลัพธ์
+  // --- ดึง org ที่เปิดส่งสรุป + มี LINE token ---
+  const settings = await prisma.systemSettings.findMany({
+    where: { notifyDailySummary: true, lineNotifyToken: { not: null } },
+    select: { organizationId: true, lineNotifyToken: true },
+  });
 
-  return NextResponse.json({ ok: true, message: "cron endpoint is alive" });
+  const { startUtc, endUtc, dateLabel } = todayWindowBangkok();
+  const results: Array<Record<string, any>> = [];
+
+  for (const s of settings) {
+    try {
+      // --- ออเดอร์วันนี้ของ org นี้ ---
+      const orders = await prisma.order.findMany({
+        where: {
+          organizationId: s.organizationId,
+          orderDate: { gte: startUtc, lte: endUtc },
+        },
+        select: { productType: true, quantity: true, amount: true },
+      });
+
+      // --- รวมยอดแบบคิดโปรโมชันต่อออเดอร์ ---
+      let totalRevenue = 0;
+      let totalCost = 0;
+
+      for (const o of orders) {
+        totalRevenue += o.amount;
+
+        // ⬇️ ลำดับอาร์กิวเมนต์ที่ถูกต้อง: (orderLikeObject, organizationId)
+        const calc = await calculateOrderProfit(
+          {
+            productType: o.productType,
+            quantity: o.quantity,
+            amount: o.amount,
+          },
+          s.organizationId
+        );
+
+        totalCost += calc.cost; // ต้นทุนหลังหักโปรโมชัน
+      }
+
+      const orderCount = orders.length;
+      const totalProfit = totalRevenue - totalCost;
+      const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+      // --- ส่งเข้า LINE ---
+      const message = formatMessage({
+        dateLabel,
+        orderCount,
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        margin,
+      });
+
+      const sent = await sendLineNotify(s.lineNotifyToken!, message);
+
+      results.push({
+        organizationId: s.organizationId,
+        orderCount,
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        margin,
+        sent,
+      });
+    } catch (err: any) {
+      results.push({
+        organizationId: s.organizationId,
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: true, processed: results.length, results });
 }
