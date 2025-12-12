@@ -1,5 +1,4 @@
 // src/app/api/cron/daily-summary/route.ts
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendLineNotify } from "@/lib/line-integration";
@@ -8,7 +7,7 @@ import { calculateOrderProfit } from "@/lib/profit-calculator";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** แปลงเป็นหน้าวันนี้ตาม Asia/Bangkok แล้วคืนช่วงเวลาแบบ UTC สำหรับ query DB */
+/** คืนช่วงเวลา “วันนี้ของกรุงเทพฯ” เป็น UTC สำหรับ query DB */
 function todayWindowBangkok() {
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -54,20 +53,14 @@ function formatMessage(p: {
 }
 
 export async function GET(req: Request) {
-  // --- Auth: รองรับทั้ง Authorization: Bearer <secret> และ X-Cron-Secret ---
+  // --------- Auth: “ใช้ Bearer เท่านั้น” ----------
   const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  const xcron = req.headers.get("x-cron-secret");
-
-  const authorized =
-    !!secret &&
-    ((auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret));
-
-  if (!authorized) {
+  const auth = req.headers.get("authorization"); // e.g. "Bearer xxx"
+  if (!secret || !auth || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // --- ดึง org ที่เปิดส่งสรุป + มี LINE token ---
+  // --------- หา org ที่เปิดส่งสรุปและมี LINE token ----------
   const settings = await prisma.systemSettings.findMany({
     where: { notifyDailySummary: true, lineNotifyToken: { not: null } },
     select: { organizationId: true, lineNotifyToken: true },
@@ -78,7 +71,7 @@ export async function GET(req: Request) {
 
   for (const s of settings) {
     try {
-      // --- ออเดอร์วันนี้ของ org นี้ ---
+      // ดึงออเดอร์วันนี้ของ org
       const orders = await prisma.order.findMany({
         where: {
           organizationId: s.organizationId,
@@ -87,14 +80,37 @@ export async function GET(req: Request) {
         select: { productType: true, quantity: true, amount: true },
       });
 
-      // --- รวมยอดแบบคิดโปรโมชันต่อออเดอร์ ---
+      // ถ้าไม่มีออเดอร์ก็ส่งข้อความ “0” ได้เลย
+      if (orders.length === 0) {
+        const message = formatMessage({
+          dateLabel,
+          orderCount: 0,
+          totalRevenue: 0,
+          totalCost: 0,
+          totalProfit: 0,
+          margin: 0,
+        });
+        const sent = await sendLineNotify(s.lineNotifyToken!, message);
+        results.push({
+          organizationId: s.organizationId,
+          orderCount: 0,
+          totalRevenue: 0,
+          totalCost: 0,
+          totalProfit: 0,
+          margin: 0,
+          sent,
+        });
+        continue;
+      }
+
+      // รวมยอดรายได้/ต้นทุนโดยคิดโปรโมชันต่อออเดอร์
       let totalRevenue = 0;
       let totalCost = 0;
 
       for (const o of orders) {
         totalRevenue += o.amount;
 
-        // ⬇️ ลำดับอาร์กิวเมนต์ที่ถูกต้อง: (orderLikeObject, organizationId)
+        // ลำดับอาร์กิวเมนต์ที่ถูกต้อง: (orderLikeObject, organizationId)
         const calc = await calculateOrderProfit(
           {
             productType: o.productType,
@@ -111,7 +127,6 @@ export async function GET(req: Request) {
       const totalProfit = totalRevenue - totalCost;
       const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-      // --- ส่งเข้า LINE ---
       const message = formatMessage({
         dateLabel,
         orderCount,
