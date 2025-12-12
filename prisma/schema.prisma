@@ -732,7 +732,7 @@ model DailySummary {
 
   createdAt  DateTime @default(now())
   cutOffTime DateTime
-
+  @@unique([organizationId, date]) // ✅ เพิ่มอันนี้
   @@index([organizationId, date])
   @@index([date])
 }
