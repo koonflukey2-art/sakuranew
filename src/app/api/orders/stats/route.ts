@@ -2,10 +2,24 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
-import { getProductTypeName } from "@/lib/line-parser";
 import { calculateTotalProfit } from "@/lib/profit-calculator";
 
 export const runtime = "nodejs";
+
+/**
+ * ทำ window ของ "วันไทย" (UTC+7) แต่คืนค่าเป็นเวลา UTC สำหรับ query DB
+ */
+function bkkDayStartUtc(base = new Date()) {
+  const utcMs = base.getTime() + base.getTimezoneOffset() * 60000;
+  const bkk = new Date(utcMs + 7 * 3600 * 1000);
+  bkk.setHours(0, 0, 0, 0);
+  return new Date(bkk.getTime() - 7 * 3600 * 1000);
+}
+
+function formatBkkLabel(dayStartUtc: Date) {
+  const bkk = new Date(dayStartUtc.getTime() + 7 * 3600 * 1000);
+  return bkk.toLocaleDateString("th-TH", { day: "2-digit", month: "short" });
+}
 
 export async function GET() {
   try {
@@ -18,43 +32,87 @@ export async function GET() {
     if (!orgId) {
       return NextResponse.json({
         today: { revenue: 0, orders: 0, profit: 0, expense: 0, byType: {} },
-        week: { revenue: 0, orders: 0, profit: 0, expense: 0, byType: {}, daily: [] },
+        week: {
+          revenue: 0,
+          orders: 0,
+          profit: 0,
+          expense: 0,
+          byType: {},
+          daily: [],
+        },
+        budget: { total: 0, used: 0, remaining: 0 },
       });
     }
 
-    // Today's stats
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // ✅ ใช้วันไทย (UTC+7)
+    const todayStartUtc = bkkDayStartUtc(new Date());
+    const tomorrowStartUtc = new Date(todayStartUtc.getTime() + 24 * 3600 * 1000);
 
+    // รวม 7 วัน (รวมวันนี้) -> ย้อนหลัง 6 วันจากวันนี้
+    const weekStartUtc = new Date(todayStartUtc.getTime() - 6 * 24 * 3600 * 1000);
+
+    // ดึงชื่อประเภทจาก DB (แม่นกว่า getProductTypeName)
+    const typeRows = await prisma.productType.findMany({
+      where: { organizationId: orgId, isActive: true },
+      select: { typeNumber: true, typeName: true },
+      orderBy: { typeNumber: "asc" },
+    });
+
+    const typeMap = new Map<number, string>();
+    for (const t of typeRows) {
+      typeMap.set(t.typeNumber, t.typeName || `ประเภท ${t.typeNumber}`);
+    }
+
+    const resolveTypeName = (n: number | null | undefined) => {
+      if (!n) return "ไม่ระบุ";
+      return typeMap.get(n) || `ประเภท ${n}`;
+    };
+
+    // Today orders
     const todayOrders = await prisma.order.findMany({
       where: {
         organizationId: orgId,
+        status: "COMPLETED", // ✅ ถ้าไม่อยากกรอง status ให้ลบบรรทัดนี้ออก
         orderDate: {
-          gte: today,
+          gte: todayStartUtc,
+          lt: tomorrowStartUtc,
         },
+      },
+      select: {
+        productType: true,
+        quantity: true,
+        amount: true,
+        orderDate: true,
       },
     });
 
-    // Last 7 days
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
+    // Last 7 days orders
     const weekOrders = await prisma.order.findMany({
       where: {
         organizationId: orgId,
+        status: "COMPLETED", // ✅ ถ้าไม่อยากกรอง status ให้ลบบรรทัดนี้ออก
         orderDate: {
-          gte: weekAgo,
+          gte: weekStartUtc,
+          lt: tomorrowStartUtc,
         },
+      },
+      select: {
+        productType: true,
+        quantity: true,
+        amount: true,
+        orderDate: true,
       },
     });
 
-    // Calculate profit and expense with promotion-aware cost
-    const calculateStats = async (orders: any[]) => {
+    // ✅ Profit/expense ใช้ calculateTotalProfit (รองรับโปรโมชั่นตามที่คุณแก้ไว้)
+    const calculateStats = async (
+      orders: Array<{ productType: number | null; quantity: number; amount: number }>
+    ) => {
       const profitCalc = await calculateTotalProfit(
-        orders.map((order) => ({
-          productType: order.productType,
-          quantity: order.quantity,
-          amount: order.amount,
+        orders.map((o) => ({
+          productType: o.productType ?? null,
+          quantity: o.quantity,
+          amount: o.amount,
         })),
         orgId
       );
@@ -71,58 +129,44 @@ export async function GET() {
     const todayStats = await calculateStats(todayOrders);
     const weekStats = await calculateStats(weekOrders);
 
-    // Daily breakdown for chart (last 7 days)
-    const dailyStats = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(now.getDate() - i);
-      date.setHours(0, 0, 0, 0);
+    // Daily breakdown chart (7 วัน)
+    const dailyStats: Array<{ date: string; revenue: number; expense: number; profit: number }> = [];
 
-      const nextDate = new Date(date);
-      nextDate.setDate(date.getDate() + 1);
+    for (let i = 6; i >= 0; i--) {
+      const dayStartUtc = new Date(todayStartUtc.getTime() - i * 24 * 3600 * 1000);
+      const dayEndUtc = new Date(dayStartUtc.getTime() + 24 * 3600 * 1000);
 
       const dayOrders = weekOrders.filter(
-        (o) => o.orderDate >= date && o.orderDate < nextDate
+        (o) => o.orderDate >= dayStartUtc && o.orderDate < dayEndUtc
       );
 
       const dayStats = await calculateStats(dayOrders);
 
       dailyStats.push({
-        date: date.toLocaleDateString("th-TH", { day: "2-digit", month: "short" }),
+        date: formatBkkLabel(dayStartUtc),
         revenue: dayStats.revenue,
         expense: dayStats.expense,
         profit: dayStats.profit,
       });
     }
 
-    // Group by product type
+    // Group by product type (วันนี้/สัปดาห์)
     const todayByType: Record<string, { count: number; revenue: number }> = {};
     const weekByType: Record<string, { count: number; revenue: number }> = {};
 
-    todayOrders.forEach((order) => {
-      const typeName = order.productType
-        ? getProductTypeName(order.productType)
-        : "ไม่ระบุ";
-
-      if (!todayByType[typeName]) {
-        todayByType[typeName] = { count: 0, revenue: 0 };
-      }
+    for (const order of todayOrders) {
+      const typeName = resolveTypeName(order.productType);
+      if (!todayByType[typeName]) todayByType[typeName] = { count: 0, revenue: 0 };
       todayByType[typeName].count += order.quantity;
       todayByType[typeName].revenue += order.amount;
-    });
+    }
 
-    weekOrders.forEach((order) => {
-      const typeName = order.productType
-        ? getProductTypeName(order.productType)
-        : "ไม่ระบุ";
-
-      if (!weekByType[typeName]) {
-        weekByType[typeName] = { count: 0, revenue: 0 };
-      }
+    for (const order of weekOrders) {
+      const typeName = resolveTypeName(order.productType);
+      if (!weekByType[typeName]) weekByType[typeName] = { count: 0, revenue: 0 };
       weekByType[typeName].count += order.quantity;
       weekByType[typeName].revenue += order.amount;
-    });
+    }
 
     const budget = await prisma.capitalBudget.findFirst({
       where: { organizationId: orgId },

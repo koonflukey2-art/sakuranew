@@ -748,6 +748,8 @@ model SystemSettings {
   dailyCutOffHour   Int @default(23)
   dailyCutOffMinute Int @default(59)
 
+  dailySummaryLastSentAt DateTime?
+  
   lineNotifyToken        String?
   lineChannelAccessToken String?
   lineChannelSecret      String?

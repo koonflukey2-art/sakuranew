@@ -12,7 +12,7 @@ function maskToken(token: string | null | undefined): string | null {
   return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
     if (!user) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!settings) {
-      // ถ้ายังไม่มี settings ของ org นี้ ให้สร้างค่า default
+      // default
       settings = await prisma.systemSettings.create({
         data: {
           organizationId: orgId,
@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
           notifyOnOrder: true,
           notifyOnLowStock: true,
           notifyDailySummary: true,
+          dailySummaryLastSentAt: null,
         },
       });
     }
@@ -47,6 +48,8 @@ export async function GET(request: NextRequest) {
       lineNotifyToken: maskToken(settings.lineNotifyToken),
       lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
       lineChannelSecret: maskToken(settings.lineChannelSecret),
+      // ส่งได้แบบ safe
+      dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
     };
 
     return NextResponse.json(safeSettings);
@@ -84,15 +87,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
     const updateData: any = {};
 
     // Cut-off time
     if (body.dailyCutOffHour !== undefined) {
-      updateData.dailyCutOffHour = parseInt(body.dailyCutOffHour);
+      updateData.dailyCutOffHour = parseInt(String(body.dailyCutOffHour), 10);
     }
     if (body.dailyCutOffMinute !== undefined) {
-      updateData.dailyCutOffMinute = parseInt(body.dailyCutOffMinute);
+      updateData.dailyCutOffMinute = parseInt(String(body.dailyCutOffMinute), 10);
     }
 
     // LINE webhook URL
@@ -110,11 +112,13 @@ export async function POST(request: NextRequest) {
     ) {
       updateData.lineChannelAccessToken = body.lineChannelAccessToken.trim();
     }
-    if (
-      typeof body.lineChannelSecret === "string" &&
-      body.lineChannelSecret.trim()
-    ) {
+    if (typeof body.lineChannelSecret === "string" && body.lineChannelSecret.trim()) {
       updateData.lineChannelSecret = body.lineChannelSecret.trim();
+    }
+
+    // Optional: lineTargetId
+    if (typeof body.lineTargetId === "string") {
+      updateData.lineTargetId = body.lineTargetId.trim() || null;
     }
 
     // Notification flags
@@ -133,12 +137,17 @@ export async function POST(request: NextRequest) {
       updateData.adminEmails = body.adminEmails;
     }
 
-    // upsert ตาม organizationId (สำคัญมาก เพราะ webhook จะใช้ organizationId นี้)
     const settings = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
       update: updateData,
       create: {
         organizationId: orgId,
+        dailyCutOffHour: 23,
+        dailyCutOffMinute: 59,
+        notifyOnOrder: true,
+        notifyOnLowStock: true,
+        notifyDailySummary: true,
+        dailySummaryLastSentAt: null,
         ...updateData,
       },
     });
@@ -148,6 +157,7 @@ export async function POST(request: NextRequest) {
       lineNotifyToken: maskToken(settings.lineNotifyToken),
       lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
       lineChannelSecret: maskToken(settings.lineChannelSecret),
+      dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
     };
 
     return NextResponse.json(safeSettings);
