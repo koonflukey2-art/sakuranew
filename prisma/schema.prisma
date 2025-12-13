@@ -118,6 +118,9 @@ model Organization {
   productTypes        ProductType[]
   lineSettings        LINESettings?
   promotions          Promotion[]
+
+  // ✅ เพิ่มความสัมพันธ์ SystemSettings (สำคัญ: ทำให้ Prisma type เห็นฟิลด์ adsLine... ชัวร์ + เป็น FK จริง)
+  systemSettings      SystemSettings?
 }
 
 // ============================
@@ -339,11 +342,11 @@ model AdCampaign {
   conversions  Int            @default(0)
 
   // Calculated Metrics
-  ctr          Float          @default(0) // Click-through rate
-  cpc          Float          @default(0) // Cost per click
-  cpm          Float          @default(0) // Cost per 1000 impressions
-  cpa          Float          @default(0) // Cost per acquisition
-  roas         Float          @default(0) // Return on ad spend
+  ctr          Float          @default(0)
+  cpc          Float          @default(0)
+  cpm          Float          @default(0)
+  cpa          Float          @default(0)
+  roas         Float          @default(0)
   roi          Float          @default(0)
 
   // Revenue & Profit
@@ -446,10 +449,10 @@ model AdReceipt {
   currency       String      @default("THB")
 
   // Receipt File
-  receiptUrl     String?     // URL to uploaded receipt image
-  qrCodeData     String?     // Extracted QR code data
+  receiptUrl     String?
+  qrCodeData     String?
 
-  // ✅ สำคัญ: ทำให้ optional ก่อน เพื่อกัน migrate error ตอนมีข้อมูลเก่า
+  // ✅ optional กัน migrate error ตอนมีข้อมูลเก่า
   fileHash       String?     @db.Char(64)
   qrHash         String?     @db.Char(64)
 
@@ -464,7 +467,7 @@ model AdReceipt {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  // ✅ กันซ้ำแบบ unique ต่อ org (NULL จะซ้ำได้ → เหมาะกับข้อมูลเก่าที่ยังไม่มี hash)
+  // ✅ กันซ้ำแบบ unique ต่อ org (NULL ซ้ำได้ใน Postgres)
   @@unique([organizationId, fileHash])
   @@unique([organizationId, qrHash])
 
@@ -481,17 +484,14 @@ model AdMetrics {
   campaignId     String
   campaign       AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  // Date
   date           DateTime
 
-  // Daily Metrics
   impressions    Int        @default(0)
   clicks         Int        @default(0)
   conversions    Int        @default(0)
   spent          Float      @default(0)
   revenue        Float      @default(0)
 
-  // Calculated
   ctr            Float      @default(0)
   cpc            Float      @default(0)
   cpa            Float      @default(0)
@@ -522,7 +522,7 @@ model Profit {
 model KPI {
   id             String   @id @default(cuid())
   organizationId String
-  period         String // "daily", "weekly", "monthly"
+  period         String
   date           DateTime
 
   totalRevenue Float @default(0)
@@ -632,7 +632,6 @@ model ChatMessage {
   @@index([createdAt])
 }
 
-// ✅ (แก้ P1012) AutomationRule
 model AutomationRule {
   id        String   @id @default(cuid())
   platform  String
@@ -663,7 +662,6 @@ model WorkflowTemplate {
   createdAt   DateTime @default(now())
 }
 
-// ✅ (แก้ P1012) MetricsPlan
 model MetricsPlan {
   id           String   @id @default(cuid())
   templateName String
@@ -826,12 +824,12 @@ model DailySummary {
   totalProfit  Float @default(0)
   totalOrders  Int   @default(0)
 
-  productsSold Json // [{productType, productName, quantity, revenue, cost, profit}]
+  productsSold Json
 
   createdAt  DateTime @default(now())
   cutOffTime DateTime
 
-  @@unique([organizationId, date]) // ✅ เพิ่มอันนี้
+  @@unique([organizationId, date])
   @@index([organizationId, date])
   @@index([date])
 }
@@ -842,7 +840,10 @@ model DailySummary {
 
 model SystemSettings {
   id             String @id @default(cuid())
+
+  // ✅ ทำเป็น FK จริง (สำคัญมาก)
   organizationId String @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   dailyCutOffHour   Int @default(23)
   dailyCutOffMinute Int @default(59)

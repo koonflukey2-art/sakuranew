@@ -14,17 +14,19 @@ function maskToken(token: string | null | undefined): string | null {
 
 // กันไม่ให้ค่าที่ถูก mask (เช่น "abcd...wxyz") ไปถูก save ทับของจริงใน DB
 function isMaskedValue(v: string): boolean {
-  // รูปแบบที่ maskToken สร้าง: "xxxx...yyyy"
   return /^[A-Za-z0-9_-]{2,8}\.\.\.[A-Za-z0-9_-]{2,8}$/.test(v);
 }
 
 function toSafeSettings(settings: any) {
   return {
     ...settings,
+
+    // Stock LINE
     lineNotifyToken: maskToken(settings.lineNotifyToken),
     lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
     lineChannelSecret: maskToken(settings.lineChannelSecret),
 
+    // Ads LINE
     adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
     adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
     adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
@@ -33,24 +35,24 @@ function toSafeSettings(settings: any) {
   };
 }
 
+function toInt(v: any, fallback: number) {
+  const n = parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const orgId = await getOrganizationId();
-    if (!orgId) {
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
-    }
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
 
     let settings = await prisma.systemSettings.findUnique({
       where: { organizationId: orgId },
     });
 
     if (!settings) {
-      // default
       settings = await prisma.systemSettings.create({
         data: {
           organizationId: orgId,
@@ -60,7 +62,16 @@ export async function GET(_request: NextRequest) {
           notifyOnLowStock: true,
           notifyDailySummary: true,
           dailySummaryLastSentAt: null,
-        },
+
+          // กัน null/undefined ให้ครบ (ถ้า schema มี fields)
+          lineWebhookUrl: null,
+          lineTargetId: null,
+
+          adsLineWebhookUrl: null,
+          adsLineNotifyToken: null,
+          adsLineChannelAccessToken: null,
+          adsLineChannelSecret: null,
+        } as any,
       });
     }
 
@@ -77,9 +88,7 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // ตรวจ role แอดมิน
     const dbUser = await prisma.user.findUnique({
@@ -95,25 +104,18 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
-    if (!orgId) {
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
-    }
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
 
     const body = await request.json().catch(() => ({} as any));
 
     // ✅ reset daily summary sent flag
-    // รองรับ 2 แบบ:
-    // 1) { action: "resetDailySummary" }
-    // 2) { resetDailySummary: true }
     const wantsReset =
       body?.action === "resetDailySummary" || body?.resetDailySummary === true;
 
     if (wantsReset) {
       const settings = await prisma.systemSettings.upsert({
         where: { organizationId: orgId },
-        update: {
-          dailySummaryLastSentAt: null,
-        },
+        update: { dailySummaryLastSentAt: null },
         create: {
           organizationId: orgId,
           dailyCutOffHour: 23,
@@ -132,23 +134,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // --- ปกติ: update settings ---
     const updateData: any = {};
 
     // Cut-off time
-    if (body.dailyCutOffHour !== undefined) {
-      updateData.dailyCutOffHour = parseInt(String(body.dailyCutOffHour), 10);
-    }
-    if (body.dailyCutOffMinute !== undefined) {
-      updateData.dailyCutOffMinute = parseInt(String(body.dailyCutOffMinute), 10);
-    }
+    if (body.dailyCutOffHour !== undefined) updateData.dailyCutOffHour = toInt(body.dailyCutOffHour, 23);
+    if (body.dailyCutOffMinute !== undefined) updateData.dailyCutOffMinute = toInt(body.dailyCutOffMinute, 59);
 
-    // LINE webhook URL
-    if (body.lineWebhookUrl !== undefined) {
-      updateData.lineWebhookUrl = body.lineWebhookUrl;
-    }
+    // Stock LINE
+    if (body.lineWebhookUrl !== undefined) updateData.lineWebhookUrl = body.lineWebhookUrl;
 
-    // update token เฉพาะตอนที่มีการกรอกค่าใหม่ (ไม่ใช่ค่าว่าง และไม่ใช่ค่า masked)
     if (typeof body.lineNotifyToken === "string") {
       const v = body.lineNotifyToken.trim();
       if (v && !isMaskedValue(v)) updateData.lineNotifyToken = v;
@@ -162,12 +156,11 @@ export async function POST(request: NextRequest) {
       if (v && !isMaskedValue(v)) updateData.lineChannelSecret = v;
     }
 
-    // Optional: lineTargetId
     if (typeof body.lineTargetId === "string") {
       updateData.lineTargetId = body.lineTargetId.trim() || null;
     }
 
-    // Ads LINE tokens (separate from stock LINE) - กัน masked value ไม่ให้ไปทับของจริง
+    // Ads LINE (Separate) — กัน masked value ไม่ให้ไปทับของจริง
     if (typeof body.adsLineNotifyToken === "string") {
       const v = body.adsLineNotifyToken.trim();
       if (v && !isMaskedValue(v)) updateData.adsLineNotifyToken = v;
@@ -180,26 +173,17 @@ export async function POST(request: NextRequest) {
       const v = body.adsLineChannelSecret.trim();
       if (v && !isMaskedValue(v)) updateData.adsLineChannelSecret = v;
     }
-
     if (body.adsLineWebhookUrl !== undefined) {
       updateData.adsLineWebhookUrl = body.adsLineWebhookUrl;
     }
 
     // Notification flags
-    if (body.notifyOnOrder !== undefined) {
-      updateData.notifyOnOrder = !!body.notifyOnOrder;
-    }
-    if (body.notifyOnLowStock !== undefined) {
-      updateData.notifyOnLowStock = !!body.notifyOnLowStock;
-    }
-    if (body.notifyDailySummary !== undefined) {
-      updateData.notifyDailySummary = !!body.notifyDailySummary;
-    }
+    if (body.notifyOnOrder !== undefined) updateData.notifyOnOrder = !!body.notifyOnOrder;
+    if (body.notifyOnLowStock !== undefined) updateData.notifyOnLowStock = !!body.notifyOnLowStock;
+    if (body.notifyDailySummary !== undefined) updateData.notifyDailySummary = !!body.notifyDailySummary;
 
     // Admin emails
-    if (body.adminEmails !== undefined) {
-      updateData.adminEmails = body.adminEmails;
-    }
+    if (body.adminEmails !== undefined) updateData.adminEmails = body.adminEmails;
 
     const settings = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
