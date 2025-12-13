@@ -330,10 +330,27 @@ model AdCampaign {
   campaignName String
   budget       Float
   spent        Float          @default(0)
+  remaining    Float          @default(0)
+
+  // Performance Metrics
+  impressions  Int            @default(0)
   reach        Int            @default(0)
   clicks       Int            @default(0)
   conversions  Int            @default(0)
+
+  // Calculated Metrics
+  ctr          Float          @default(0) // Click-through rate
+  cpc          Float          @default(0) // Cost per click
+  cpm          Float          @default(0) // Cost per 1000 impressions
+  cpa          Float          @default(0) // Cost per acquisition
+  roas         Float          @default(0) // Return on ad spend
   roi          Float          @default(0)
+
+  // Revenue & Profit
+  revenue      Float          @default(0)
+  profit       Float          @default(0)
+  profitMargin Float          @default(0)
+
   status       CampaignStatus @default(ACTIVE)
   startDate    DateTime?
   endDate      DateTime?
@@ -346,8 +363,13 @@ model AdCampaign {
   adAccountId String?
   adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
 
+  receipts    AdReceipt[]
+  metrics     AdMetrics[]
+
   @@index([organizationId])
   @@index([adAccountId])
+  @@index([platform])
+  @@index([status])
 }
 
 model AdAccount {
@@ -406,6 +428,74 @@ model PlatformCredential {
 
   @@unique([organizationId, platform])
   @@index([organizationId])
+}
+
+model AdReceipt {
+  id             String      @id @default(cuid())
+  organizationId String
+  campaignId     String?
+  campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  // Receipt Info
+  receiptNumber  String      @unique
+  platform       String      // FACEBOOK, GOOGLE, META_ADS, TIKTOK
+  paymentMethod  String      // QR_CODE, CREDIT_CARD, BANK_TRANSFER
+
+  // Amount
+  amount         Float
+  currency       String      @default("THB")
+
+  // Receipt File
+  receiptUrl     String?     // URL to uploaded receipt image
+  qrCodeData     String?     // Extracted QR code data
+
+  // Processing
+  isProcessed    Boolean     @default(false)
+  processedAt    DateTime?
+
+  // Metadata
+  paidAt         DateTime    @default(now())
+  notes          String?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([platform])
+  @@index([isProcessed])
+  @@index([paidAt])
+}
+
+model AdMetrics {
+  id             String     @id @default(cuid())
+  organizationId String
+  campaignId     String
+  campaign       AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Date
+  date           DateTime
+
+  // Daily Metrics
+  impressions    Int        @default(0)
+  clicks         Int        @default(0)
+  conversions    Int        @default(0)
+  spent          Float      @default(0)
+  revenue        Float      @default(0)
+
+  // Calculated
+  ctr            Float      @default(0)
+  cpc            Float      @default(0)
+  cpa            Float      @default(0)
+  roas           Float      @default(0)
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([campaignId, date])
+  @@index([organizationId])
+  @@index([date])
+  @@index([campaignId])
 }
 
 // ============================

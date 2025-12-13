@@ -29,6 +29,8 @@ import {
   Calendar,
   Box,
   Gift,
+  Facebook,
+  Receipt,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 
@@ -76,6 +78,14 @@ const menuStructure: MenuSection[] = [
       { label: "ต้นทุนและกำไร", href: "/analysis", icon: BarChart3 },
       { label: "KPI Dashboard", href: "/kpi", icon: Target },
       { label: "Work Flow", href: "/workflow", icon: GitBranch },
+    ],
+  },
+  {
+    section: "โฆษณา",
+    collapsible: true,
+    items: [
+      { label: "Ads Facebook", href: "/ads-facebook", icon: Facebook },
+      { label: "อัพโหลดสลิป", href: "/upload-receipt", icon: Receipt },
     ],
   },
   {
