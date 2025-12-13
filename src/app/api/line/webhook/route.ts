@@ -97,7 +97,10 @@ export async function POST(req: NextRequest) {
       console.log("💬 Message text:", text);
 
       // ✅ LOG SOURCE ให้เห็น groupId / roomId / userId ชัดๆ
-      console.log("🔎 event.source =", JSON.stringify(event.source ?? null, null, 2));
+      console.log(
+        "🔎 event.source =",
+        JSON.stringify(event.source ?? null, null, 2)
+      );
       console.log("🔎 source.type =", event.source?.type);
       console.log("🔎 source.userId =", event.source?.userId);
       console.log("🔎 source.groupId =", event.source?.groupId);
@@ -289,7 +292,9 @@ export async function POST(req: NextRequest) {
         const notifyMessage =
           `🔔 ออเดอร์ใหม่!\n\n` +
           `📦 เลขที่: ${order.id.slice(0, 8).toUpperCase()}\n` +
-          `🛍️ สินค้า: ${order.productName || `หมายเลข ${order.productType}`}\n` +
+          `🛍️ สินค้า: ${
+            order.productName || `หมายเลข ${order.productType}`
+          }\n` +
           `📊 จำนวน: ${order.quantity} ชิ้น\n` +
           `💰 ยอดเงิน: ฿${order.amount.toLocaleString("th-TH")}\n` +
           `👤 ลูกค้า: ${customer.name}\n` +
