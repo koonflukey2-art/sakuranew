@@ -15,12 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -50,11 +45,10 @@ import {
   Check,
   X,
   RefreshCw,
-  KeyRound,
-  Sparkles,
   Eye,
   EyeOff,
   Receipt,
+  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -69,10 +63,13 @@ interface SystemSettings {
   lineChannelAccessToken: string;
   lineChannelSecret: string;
   lineWebhookUrl: string;
+
+  // ✅ Ads
   adsLineNotifyToken?: string;
   adsLineChannelAccessToken?: string;
   adsLineChannelSecret?: string;
   adsLineWebhookUrl?: string;
+
   adminEmails: string;
   notifyOnOrder: boolean;
   notifyOnLowStock: boolean;
@@ -125,6 +122,13 @@ export default function SystemSettingsPage() {
     lineChannelAccessToken: "",
     lineChannelSecret: "",
     lineWebhookUrl: "",
+
+    // ✅ Ads initial
+    adsLineNotifyToken: "",
+    adsLineChannelAccessToken: "",
+    adsLineChannelSecret: "",
+    adsLineWebhookUrl: "",
+
     adminEmails: "",
     notifyOnOrder: true,
     notifyOnLowStock: true,
@@ -186,6 +190,13 @@ export default function SystemSettingsPage() {
       ? `${window.location.origin}/api/line/webhook`
       : settings.lineWebhookUrl || "https://your-domain.com/api/line/webhook";
 
+  // ✅ Auto-generate webhook URL (Ads)
+  const adsWebhookUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/webhooks/line-ads`
+      : settings.adsLineWebhookUrl ||
+        "https://your-domain.com/api/webhooks/line-ads";
+
   // ========== AUTHORIZATION CHECK ==========
 
   useEffect(() => {
@@ -239,6 +250,8 @@ export default function SystemSettingsPage() {
       setSettings({
         dailyCutOffHour: data.dailyCutOffHour ?? 23,
         dailyCutOffMinute: data.dailyCutOffMinute ?? 59,
+
+        // Stock LINE
         lineNotifyToken: data.lineNotifyToken?.includes("...")
           ? ""
           : data.lineNotifyToken || "",
@@ -249,6 +262,19 @@ export default function SystemSettingsPage() {
           ? ""
           : data.lineChannelSecret || "",
         lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
+
+        // ✅ Ads LINE (IMPORTANT)
+        adsLineNotifyToken: data.adsLineNotifyToken?.includes("...")
+          ? ""
+          : data.adsLineNotifyToken || "",
+        adsLineChannelAccessToken: data.adsLineChannelAccessToken?.includes("...")
+          ? ""
+          : data.adsLineChannelAccessToken || "",
+        adsLineChannelSecret: data.adsLineChannelSecret?.includes("...")
+          ? ""
+          : data.adsLineChannelSecret || "",
+        adsLineWebhookUrl: data.adsLineWebhookUrl || adsWebhookUrl,
+
         adminEmails: data.adminEmails || "",
         notifyOnOrder: data.notifyOnOrder ?? true,
         notifyOnLowStock: data.notifyOnLowStock ?? true,
@@ -274,22 +300,43 @@ export default function SystemSettingsPage() {
       const payload: any = {
         dailyCutOffHour: settings.dailyCutOffHour,
         dailyCutOffMinute: settings.dailyCutOffMinute,
+
+        // Stock webhook
         lineWebhookUrl: webhookUrl,
+
+        // ✅ Ads webhook
+        adsLineWebhookUrl: adsWebhookUrl,
+
         adminEmails: settings.adminEmails,
         notifyOnOrder: settings.notifyOnOrder,
         notifyOnLowStock: settings.notifyOnLowStock,
         notifyDailySummary: settings.notifyDailySummary,
       };
 
+      // Stock LINE tokens
       if (settings.lineNotifyToken.trim()) {
         payload.lineNotifyToken = settings.lineNotifyToken.trim();
       }
       if (settings.lineChannelAccessToken.trim()) {
-        payload.lineChannelAccessToken =
-          settings.lineChannelAccessToken.trim();
+        payload.lineChannelAccessToken = settings.lineChannelAccessToken.trim();
       }
       if (settings.lineChannelSecret.trim()) {
         payload.lineChannelSecret = settings.lineChannelSecret.trim();
+      }
+
+      // ✅ Ads LINE tokens
+      if ((settings.adsLineNotifyToken || "").trim()) {
+        payload.adsLineNotifyToken = (settings.adsLineNotifyToken || "").trim();
+      }
+      if ((settings.adsLineChannelAccessToken || "").trim()) {
+        payload.adsLineChannelAccessToken = (
+          settings.adsLineChannelAccessToken || ""
+        ).trim();
+      }
+      if ((settings.adsLineChannelSecret || "").trim()) {
+        payload.adsLineChannelSecret = (
+          settings.adsLineChannelSecret || ""
+        ).trim();
       }
 
       const res = await fetch("/api/system-settings", {
@@ -309,7 +356,10 @@ export default function SystemSettingsPage() {
         ...prev,
         dailyCutOffHour: data.dailyCutOffHour ?? prev.dailyCutOffHour,
         dailyCutOffMinute: data.dailyCutOffMinute ?? prev.dailyCutOffMinute,
+
         lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
+        adsLineWebhookUrl: data.adsLineWebhookUrl || adsWebhookUrl,
+
         adminEmails: data.adminEmails ?? "",
         notifyOnOrder:
           typeof data.notifyOnOrder === "boolean"
@@ -323,11 +373,17 @@ export default function SystemSettingsPage() {
           typeof data.notifyDailySummary === "boolean"
             ? data.notifyDailySummary
             : prev.notifyDailySummary,
+
         // token จาก API จะเป็น masked/null เพื่อความปลอดภัย
         // ฝั่ง UI ให้เคลียร์ไว้รอกรอกใหม่เวลาจะเปลี่ยน
         lineNotifyToken: "",
         lineChannelAccessToken: "",
         lineChannelSecret: "",
+
+        // ✅ เคลียร์ Ads tokens ด้วย
+        adsLineNotifyToken: "",
+        adsLineChannelAccessToken: "",
+        adsLineChannelSecret: "",
       }));
 
       toast({
@@ -1096,15 +1152,7 @@ export default function SystemSettingsPage() {
 
               <div>
                 <Label>Webhook URL (Ads)</Label>
-                <Input
-                  value={
-                    typeof window !== "undefined"
-                      ? `${window.location.origin}/api/webhooks/line-ads`
-                      : "https://your-domain.com/api/webhooks/line-ads"
-                  }
-                  readOnly
-                  className="bg-muted"
-                />
+                <Input value={adsWebhookUrl} readOnly className="bg-muted" />
                 <p className="text-xs text-muted-foreground mt-1">
                   ใช้ URL นี้ใน LINE Developers Console (สำหรับกลุ่ม Ads)
                 </p>
@@ -1116,9 +1164,15 @@ export default function SystemSettingsPage() {
                   <p className="font-semibold mb-2">📝 วิธีตั้งค่า LINE Ads Bot:</p>
                   <ol className="text-sm space-y-1 list-decimal list-inside">
                     <li>ไปที่ LINE Developers Console (สร้าง Channel ใหม่)</li>
-                    <li>สร้าง Messaging API Channel ใหม่ (ชื่อ &quot;Ads Receipt Bot&quot;)</li>
+                    <li>
+                      สร้าง Messaging API Channel ใหม่ (ชื่อ &quot;Ads Receipt
+                      Bot&quot;)
+                    </li>
                     <li>ตั้ง Webhook URL เป็น URL ด้านบน</li>
-                    <li>เปิด &quot;Use webhook&quot; และปิด &quot;Auto-reply messages&quot;</li>
+                    <li>
+                      เปิด &quot;Use webhook&quot; และปิด &quot;Auto-reply
+                      messages&quot;
+                    </li>
                     <li>Copy Channel Access Token และ Channel Secret มาใส่ด้านบน</li>
                     <li>เพิ่ม Bot เข้ากลุ่ม LINE ใหม่ (แยกจากกลุ่มสต๊อก)</li>
                     <li>ส่งรูปสลิปเพื่อทดสอบ</li>
@@ -1255,36 +1309,6 @@ export default function SystemSettingsPage() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {selectedProvider === "GEMINI" && (
-                      <>
-                        Get API key from{" "}
-                        <a
-                          href="https://makersuite.google.com/app/apikey"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-500 underline"
-                        >
-                          Google AI Studio
-                        </a>
-                      </>
-                    )}
-                    {selectedProvider === "OPENAI" && (
-                      <>
-                        Get API key from{" "}
-                        <a
-                          href="https://platform.openai.com/api-keys"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-500 underline"
-                        >
-                          OpenAI Platform
-                        </a>
-                      </>
-                    )}
-                    {selectedProvider === "N8N" &&
-                      "ใส่ Webhook URL จาก workflow n8n ของคุณ"}
-                  </p>
                 </div>
 
                 <Button onClick={handleSaveAI} disabled={savingAI}>
@@ -1321,10 +1345,7 @@ export default function SystemSettingsPage() {
                             </h3>
                             {provider.isDefault && <Badge>ค่าเริ่มต้น</Badge>}
                             {provider.isValid ? (
-                              <Badge
-                                variant="default"
-                                className="bg-green-500"
-                              >
+                              <Badge variant="default" className="bg-green-500">
                                 <Check className="w-3 h-3 mr-1" />
                                 ใช้งานได้
                               </Badge>
@@ -1348,9 +1369,9 @@ export default function SystemSettingsPage() {
                           {provider.lastTested && (
                             <p className="text-xs text-muted-foreground">
                               ทดสอบล่าสุด:{" "}
-                              {new Date(
-                                provider.lastTested
-                              ).toLocaleString("th-TH")}
+                              {new Date(provider.lastTested).toLocaleString(
+                                "th-TH"
+                              )}
                             </p>
                           )}
                         </div>
@@ -1395,7 +1416,7 @@ export default function SystemSettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Platform APIs Tab - แบบย่อ (Coming soon) */}
+        {/* Platform APIs Tab */}
         <TabsContent value="platforms">
           <Card>
             <CardHeader>
@@ -1433,9 +1454,7 @@ export default function SystemSettingsPage() {
                         {cred.lastTested && (
                           <p className="text-xs text-muted-foreground">
                             ทดสอบล่าสุด{" "}
-                            {new Date(
-                              cred.lastTested
-                            ).toLocaleString("th-TH")}
+                            {new Date(cred.lastTested).toLocaleString("th-TH")}
                           </p>
                         )}
                         {cred.testMessage && (
@@ -1446,9 +1465,7 @@ export default function SystemSettingsPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge
-                          className={
-                            cred.isValid ? "bg-green-500" : "bg-red-500"
-                          }
+                          className={cred.isValid ? "bg-green-500" : "bg-red-500"}
                         >
                           {cred.isValid ? "ใช้งานได้" : "เชื่อมต่อไม่สำเร็จ"}
                         </Badge>
@@ -1481,7 +1498,7 @@ export default function SystemSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Ad Accounts Tab - แบบย่อ (Coming soon) */}
+        {/* Ad Accounts Tab */}
         <TabsContent value="adaccounts">
           <Card>
             <CardHeader>
@@ -1518,9 +1535,7 @@ export default function SystemSettingsPage() {
                             {acc.platform}
                           </Badge>
                           {acc.isDefault && (
-                            <Badge className="bg-blue-500 text-xs">
-                              Default
-                            </Badge>
+                            <Badge className="bg-blue-500 text-xs">Default</Badge>
                           )}
                         </div>
                         {acc.accountId && (
@@ -1531,9 +1546,7 @@ export default function SystemSettingsPage() {
                         {acc.lastTested && (
                           <p className="text-xs text-muted-foreground">
                             ทดสอบล่าสุด{" "}
-                            {new Date(
-                              acc.lastTested
-                            ).toLocaleString("th-TH")}
+                            {new Date(acc.lastTested).toLocaleString("th-TH")}
                           </p>
                         )}
                         {acc.testMessage && (
@@ -1544,9 +1557,7 @@ export default function SystemSettingsPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge
-                          className={
-                            acc.isValid ? "bg-green-500" : "bg-red-500"
-                          }
+                          className={acc.isValid ? "bg-green-500" : "bg-red-500"}
                         >
                           {acc.isValid ? "ใช้งานได้" : "มีปัญหา"}
                         </Badge>
