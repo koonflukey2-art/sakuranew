@@ -43,3 +43,8 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# uploaded files
+public/uploads/*
+!public/uploads/.gitkeep
+!public/uploads/receipts/.gitkeep

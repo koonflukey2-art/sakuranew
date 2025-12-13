@@ -54,6 +54,7 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Receipt,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -68,6 +69,10 @@ interface SystemSettings {
   lineChannelAccessToken: string;
   lineChannelSecret: string;
   lineWebhookUrl: string;
+  adsLineNotifyToken?: string;
+  adsLineChannelAccessToken?: string;
+  adsLineChannelSecret?: string;
+  adsLineWebhookUrl?: string;
   adminEmails: string;
   notifyOnOrder: boolean;
   notifyOnLowStock: boolean;
@@ -127,6 +132,12 @@ export default function SystemSettingsPage() {
   });
 
   const [showTokens, setShowTokens] = useState({
+    notify: false,
+    channelAccess: false,
+    channelSecret: false,
+  });
+
+  const [showAdsTokens, setShowAdsTokens] = useState({
     notify: false,
     channelAccess: false,
     channelSecret: false,
@@ -768,9 +779,10 @@ export default function SystemSettingsPage() {
       </div>
 
       <Tabs defaultValue="cutoff" className="w-full">
-        <TabsList className="grid w-full grid-cols-7 lg:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8 lg:grid-cols-8">
           <TabsTrigger value="cutoff">ตัดยอด</TabsTrigger>
-          <TabsTrigger value="line">LINE</TabsTrigger>
+          <TabsTrigger value="line">LINE Stock</TabsTrigger>
+          <TabsTrigger value="line-ads">LINE Ads</TabsTrigger>
           <TabsTrigger value="notifications">แจ้งเตือน</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="platforms">Platform</TabsTrigger>
@@ -953,6 +965,166 @@ export default function SystemSettingsPage() {
                   ใช้ URL นี้ใน LINE Developers Console
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* LINE Ads Integration Tab */}
+        <TabsContent value="line-ads">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-purple-400" />
+                LINE Ads Integration (Separate)
+              </CardTitle>
+              <CardDescription>
+                ตั้งค่า LINE สำหรับรับสลิปโฆษณา (แยกจากระบบสต๊อก)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert className="bg-purple-500/10 border-purple-500/30">
+                <Info className="w-4 h-4" />
+                <AlertDescription className="text-purple-200">
+                  <p className="font-semibold mb-2">⚠️ สำคัญ:</p>
+                  <ul className="text-sm space-y-1 list-disc list-inside">
+                    <li>นี่เป็นกลุ่ม LINE แยกต่างหากจากระบบสต๊อก</li>
+                    <li>ใช้สำหรับรับสลิปโฆษณาเท่านั้น</li>
+                    <li>ต้องสร้าง LINE Bot ใหม่ใน LINE Developers</li>
+                    <li>อย่าใช้ Token เดียวกับระบบสต๊อก</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div>
+                <Label>LINE Notify Token (Ads)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    type={showAdsTokens.notify ? "text" : "password"}
+                    value={settings.adsLineNotifyToken || ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        adsLineNotifyToken: e.target.value,
+                      })
+                    }
+                    placeholder="ใส่ token สำหรับแจ้งเตือนสลิปโฆษณา"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      setShowAdsTokens({
+                        ...showAdsTokens,
+                        notify: !showAdsTokens.notify,
+                      })
+                    }
+                  >
+                    {showAdsTokens.notify ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label>LINE Channel Access Token (Ads)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    type={showAdsTokens.channelAccess ? "text" : "password"}
+                    value={settings.adsLineChannelAccessToken || ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        adsLineChannelAccessToken: e.target.value,
+                      })
+                    }
+                    placeholder="ใส่ Channel Access Token สำหรับสลิปโฆษณา"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      setShowAdsTokens({
+                        ...showAdsTokens,
+                        channelAccess: !showAdsTokens.channelAccess,
+                      })
+                    }
+                  >
+                    {showAdsTokens.channelAccess ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label>LINE Channel Secret (Ads)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    type={showAdsTokens.channelSecret ? "text" : "password"}
+                    value={settings.adsLineChannelSecret || ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        adsLineChannelSecret: e.target.value,
+                      })
+                    }
+                    placeholder="ใส่ Channel Secret สำหรับสลิปโฆษณา"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      setShowAdsTokens({
+                        ...showAdsTokens,
+                        channelSecret: !showAdsTokens.channelSecret,
+                      })
+                    }
+                  >
+                    {showAdsTokens.channelSecret ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label>Webhook URL (Ads)</Label>
+                <Input
+                  value={
+                    typeof window !== "undefined"
+                      ? `${window.location.origin}/api/webhooks/line-ads`
+                      : "https://your-domain.com/api/webhooks/line-ads"
+                  }
+                  readOnly
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ใช้ URL นี้ใน LINE Developers Console (สำหรับกลุ่ม Ads)
+                </p>
+              </div>
+
+              <Alert className="bg-blue-500/10 border-blue-500/30">
+                <Info className="w-4 h-4" />
+                <AlertDescription className="text-blue-200">
+                  <p className="font-semibold mb-2">📝 วิธีตั้งค่า LINE Ads Bot:</p>
+                  <ol className="text-sm space-y-1 list-decimal list-inside">
+                    <li>ไปที่ LINE Developers Console (สร้าง Channel ใหม่)</li>
+                    <li>สร้าง Messaging API Channel ใหม่ (ชื่อ &quot;Ads Receipt Bot&quot;)</li>
+                    <li>ตั้ง Webhook URL เป็น URL ด้านบน</li>
+                    <li>เปิด &quot;Use webhook&quot; และปิด &quot;Auto-reply messages&quot;</li>
+                    <li>Copy Channel Access Token และ Channel Secret มาใส่ด้านบน</li>
+                    <li>เพิ่ม Bot เข้ากลุ่ม LINE ใหม่ (แยกจากกลุ่มสต๊อก)</li>
+                    <li>ส่งรูปสลิปเพื่อทดสอบ</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>

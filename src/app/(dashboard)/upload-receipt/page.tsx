@@ -7,9 +7,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Upload, FileImage, DollarSign, TrendingUp, Loader2, Check, Eye, Trash2,
+  Upload, FileImage, DollarSign, TrendingUp, Loader2, Check, Eye, Trash2, MessageSquare,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -150,6 +151,19 @@ export default function UploadReceiptPage() {
           อัพโหลดสลิปการจ่ายเงินโฆษณาจาก Meta Ads / Facebook Ads
         </p>
       </div>
+
+      <Alert className="bg-purple-500/10 border-purple-500/30">
+        <MessageSquare className="w-4 h-4" />
+        <AlertDescription className="text-purple-200">
+          <p className="font-semibold mb-2">💡 ส่งสลิปผ่าน LINE:</p>
+          <p className="text-sm">
+            คุณสามารถส่งรูปสลิปผ่าน LINE Bot โดยตรง ระบบจะอ่านข้อมูลอัตโนมัติ
+          </p>
+          <p className="text-xs mt-2 text-purple-300">
+            ตั้งค่า LINE Bot ได้ที่: System Settings → LINE Ads
+          </p>
+        </AlertDescription>
+      </Alert>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
