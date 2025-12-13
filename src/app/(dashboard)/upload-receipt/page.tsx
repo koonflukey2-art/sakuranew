@@ -32,7 +32,7 @@ interface Receipt {
   amount: number;
   paidAt: string;
   receiptUrl: string;
-  qrCodeData?: string | null;
+  qrCodeData: string | null;
   isProcessed: boolean;
   campaign?: {
     campaignName: string;
@@ -43,9 +43,11 @@ export default function UploadReceiptPage() {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,15 +118,15 @@ export default function UploadReceiptPage() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Upload failed");
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data?.error || "Upload failed");
+      }
+
       toast({
-        title: data.amountDetected ? "✅ อัพโหลดสำเร็จ" : "⚠️ อัพโหลดสำเร็จ แต่ต้องยืนยันยอด",
-        description: data.amountDetected
-          ? `อ่านยอดเงินได้ ฿${Number(data.amount).toLocaleString()} (${data.detectMethod})`
-          : `อ่านยอดไม่ได้ (${data.reason || "unknown"})`,
-        variant: data.amountDetected ? "default" : "destructive",
+        title: "✅ อัพโหลดสำเร็จ",
+        description: `อ่านยอดเงินได้ ฿${Number(data.amount || 0).toLocaleString()}`,
       });
 
       setSelectedFile(null);
@@ -132,10 +134,10 @@ export default function UploadReceiptPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
 
       fetchReceipts();
-    } catch {
+    } catch (error: any) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถอัพโหลดสลิปได้",
+        description: error?.message || "ไม่สามารถอัพโหลดสลิปได้",
         variant: "destructive",
       });
     } finally {
@@ -144,24 +146,27 @@ export default function UploadReceiptPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const ok = window.confirm("ต้องการลบสลิปนี้ใช่ไหม? การลบจะย้อนกลับไม่ได้");
+    const ok = confirm("ต้องการลบสลิปนี้ใช่ไหม?");
     if (!ok) return;
 
     try {
       setDeletingId(id);
+
       const res = await fetch(`/api/ads/receipts/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) throw new Error(data?.error || "Delete failed");
 
       toast({
-        title: "🗑️ ลบสำเร็จ",
-        description: "ลบสลิปออกจากระบบแล้ว",
+        title: "🗑️ ลบแล้ว",
+        description: "ลบสลิปเรียบร้อย",
       });
 
       fetchReceipts();
-    } catch {
+    } catch (err: any) {
       toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบสลิปได้",
+        title: "ลบไม่สำเร็จ",
+        description: err?.message || "เกิดข้อผิดพลาด",
         variant: "destructive",
       });
     } finally {
@@ -328,8 +333,9 @@ export default function UploadReceiptPage() {
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <p className="text-2xl font-bold">
-                        ฿{Number(receipt.amount || 0).toLocaleString()}
+                        ฿{receipt.amount.toLocaleString()}
                       </p>
+
                       <Badge className={receipt.isProcessed ? "bg-green-500" : "bg-yellow-500"}>
                         {receipt.isProcessed ? (
                           <>
@@ -349,7 +355,7 @@ export default function UploadReceiptPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => window.open(receipt.receiptUrl, "_blank")}
-                      aria-label="View receipt"
+                      title="ดูรูป"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -359,13 +365,12 @@ export default function UploadReceiptPage() {
                       size="icon"
                       onClick={() => handleDelete(receipt.id)}
                       disabled={deletingId === receipt.id}
-                      aria-label="Delete receipt"
-                      className="text-red-500 hover:text-red-600"
+                      title="ลบ"
                     >
                       {deletingId === receipt.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 text-red-400" />
                       )}
                     </Button>
                   </div>

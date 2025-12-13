@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join, extname } from "path";
+
+import { mkdir, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import { join, extname } from "path";
 
 import sharp from "sharp";
 import jsQR from "jsqr";
-import { createWorker } from "tesseract.js";
-
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
-// -------- OCR worker singleton --------
+// -------------------- config --------------------
+function getUploadDir() {
+  return process.env.UPLOAD_DIR || join(process.cwd(), "uploads");
+}
+
+function guessExtFromMime(mime: string) {
+  if (mime === "image/png") return ".png";
+  if (mime === "image/webp") return ".webp";
+  return ".jpg";
+}
+
+// -------------------- OCR worker singleton --------------------
 let workerPromise: Promise<any> | null = null;
 
 async function getOcrWorker() {
@@ -23,43 +30,41 @@ async function getOcrWorker() {
     workerPromise = (async () => {
       console.log("[OCR] init worker...");
 
-      // ✅ Fix Render/Next bundling: resolve จาก node_modules
-      const workerPath = require.resolve("tesseract.js/dist/worker.min.js");
-      const corePath = require.resolve("tesseract.js-core/tesseract-core.wasm.js");
+      // ✅ dynamic import ลดปัญหา bundling และโหลดเฉพาะตอนใช้จริง
+      const tesseract: any = await import("tesseract.js");
+      const createWorker: any = tesseract.createWorker;
 
-      // ✅ ใช้ langPath local กันค้างจาก CDN
-      // ต้องมีไฟล์: public/tessdata/eng.traineddata.gz
-      const langPath = join(process.cwd(), "public", "tessdata");
-
-      // ✅ สำคัญ: options ต้องเป็น arg ตัวที่ 3 ตาม signature ในโปรเจกต์คุณ
-      const w: any = await createWorker(
-        "eng",
-        1,
-        {
-          workerPath,
-          corePath,
-          langPath,
-          logger: (m: any) => console.log("[OCR]", m),
-        } as any
-      );
-
-      // บางเวอร์ชันต้องเรียกเพื่อชัวร์
-      await w.loadLanguage("eng");
-      await w.initialize("eng");
-
-      await w.setParameters({
-        tessedit_char_whitelist: "0123456789.,",
+      // รองรับหลายเวอร์ชัน: บางเวอร์ชัน createWorker('eng', ...) ได้เลย
+      const w: any = await createWorker("eng", 1, {
+        logger: (m: any) => {
+          // จะเห็น log ตอนดาวน์โหลด/โหลด wasm/recognize
+          if (m?.status) console.log("[OCR]", m.status, m.progress ?? "");
+        },
       });
 
-      console.log("[OCR] worker ready ✅");
+      // เผื่อเวอร์ชันที่ยังต้อง loadLanguage/initialize
+      if (typeof w.loadLanguage === "function") await w.loadLanguage("eng");
+      if (typeof w.initialize === "function") await w.initialize("eng");
+
+      if (typeof w.setParameters === "function") {
+        await w.setParameters({
+          tessedit_char_whitelist: "0123456789.,บาทBAHT",
+          preserve_interword_spaces: "1",
+          tessedit_pageseg_mode: "6",
+        });
+      }
+
+      console.log("[OCR] worker ready");
       return w;
     })();
   }
   return workerPromise;
 }
 
+// -------------------- main --------------------
 export async function POST(request: NextRequest) {
-  const started = Date.now();
+  const startedAt = Date.now();
+
   try {
     console.log("[UPLOAD] start");
 
@@ -94,42 +99,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
 
-    console.log("[UPLOAD] file:", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
+    console.log("[UPLOAD] file:", { name: file.name, type: file.type, size: file.size });
 
-    // Ensure uploads directory exists
-    const uploadsDir = join(process.cwd(), "public", "uploads");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
+    // ✅ save to uploads dir (ไม่ใช่ public/)
+    const uploadDir = getUploadDir();
+    if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true });
 
-    // Save file
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
     const safeExt = extname(file.name) || guessExtFromMime(file.type);
-    const filename = `receipt-${Date.now()}-${Math.floor(
-      Math.random() * 1000
-    )}${safeExt}`;
-    const filepath = join(uploadsDir, filename);
+    const filename = `receipt-${Date.now()}-${Math.floor(Math.random() * 1000)}${safeExt}`;
+    const filepath = join(uploadDir, filename);
 
     await writeFile(filepath, buffer);
-    const receiptUrl = `/uploads/${filename}`;
+
+    // ✅ serve ผ่าน API route
+    const receiptUrl = `/api/uploads/${filename}`;
     console.log("[UPLOAD] saved:", receiptUrl);
 
-    // ✅ อ่านยอดเงิน: Tag54 ก่อน -> ถ้าไม่มีค่อย OCR (มี timeout กันค้าง)
+    // ✅ อ่านยอดเงิน: QR(EMV tag54) ก่อน -> ถ้าไม่มีค่อย OCR
     const result = await extractAmountFromReceipt(buffer);
 
-    console.log("[UPLOAD] detect:", {
-      method: result.method,
-      amount: result.amount,
-      amountDetected: result.amountDetected,
-      reason: result.reason,
-    });
-
+    // Create receipt record
     const receipt = await prisma.adReceipt.create({
       data: {
         organizationId: orgId,
@@ -146,7 +138,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log("[UPLOAD] done in", Date.now() - started, "ms");
+    console.log("[UPLOAD] done in", Date.now() - startedAt, "ms");
 
     return NextResponse.json({
       success: true,
@@ -157,21 +149,16 @@ export async function POST(request: NextRequest) {
       needsManualAmount: !result.amountDetected,
       reason: result.amountDetected ? undefined : result.reason,
     });
-  } catch (error: any) {
-    console.error("[UPLOAD] error:", error);
+  } catch (err: any) {
+    console.error("[UPLOAD] error:", err);
     return NextResponse.json(
-      { error: error?.message || "Upload failed" },
+      { error: err?.message || "Upload failed" },
       { status: 500 }
     );
   }
 }
 
-function guessExtFromMime(mime: string) {
-  if (mime === "image/png") return ".png";
-  if (mime === "image/webp") return ".webp";
-  return ".jpg";
-}
-
+// -------------------- QR + OCR extract --------------------
 async function extractAmountFromReceipt(buffer: Buffer): Promise<{
   amount: number | null;
   qrText: string | null;
@@ -179,19 +166,19 @@ async function extractAmountFromReceipt(buffer: Buffer): Promise<{
   method: "EMV_TAG_54" | "OCR" | "NONE";
   reason?: string;
 }> {
-  // 1) decode QR (ถ้ามี)
+  // 1) decode QR
   let qrText: string | null = null;
   try {
     qrText = await decodeQrFromImageBuffer(buffer);
-    console.log("[QR] found:", qrText ? qrText.slice(0, 60) + "..." : null);
+    if (qrText) console.log("[QR] data:", qrText.slice(0, 40) + "...");
   } catch {
     qrText = null;
   }
 
-  // 2) Try EMV Tag 54
+  // 2) EMV Tag 54 (กรณีเป็น QR payment ที่ฝัง amount)
   if (qrText) {
     const tlv = parseTlv2Len2(qrText);
-    const amountStr = tlv["54"]; // transaction amount
+    const amountStr = tlv["54"];
     if (amountStr) {
       const amount = Number(amountStr);
       if (Number.isFinite(amount) && amount > 0) {
@@ -200,14 +187,10 @@ async function extractAmountFromReceipt(buffer: Buffer): Promise<{
     }
   }
 
-  // 3) Fallback OCR
-  try {
-    const ocrAmount = await withTimeout(extractAmountByOcr(buffer), 20_000); // 20s
-    if (ocrAmount !== null) {
-      return { amount: ocrAmount, qrText, amountDetected: true, method: "OCR" };
-    }
-  } catch (e: any) {
-    console.error("[OCR] timeout/error:", e?.message || e);
+  // 3) OCR (กรณีสลิป K+ / ธนาคาร QR ตรวจสอบสลิป มักไม่มี amount ใน QR)
+  const ocrAmount = await extractAmountByOcr(buffer);
+  if (ocrAmount !== null) {
+    return { amount: ocrAmount, qrText, amountDetected: true, method: "OCR" };
   }
 
   return {
@@ -216,14 +199,16 @@ async function extractAmountFromReceipt(buffer: Buffer): Promise<{
     amountDetected: false,
     method: qrText ? "OCR" : "NONE",
     reason: qrText
-      ? "QR has no amount (tag54 missing). OCR timed out or could not read amount."
+      ? "QR has no embedded amount. OCR could not confidently read amount."
       : "No QR detected and OCR could not read amount.",
   };
 }
 
-/** decode QR using sharp + jsqr */
 async function decodeQrFromImageBuffer(buffer: Buffer): Promise<string | null> {
+  // ลด noise ก่อนอ่าน QR
   const { data, info } = await sharp(buffer)
+    .rotate()
+    .resize({ width: 1200, withoutEnlargement: true })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -232,14 +217,10 @@ async function decodeQrFromImageBuffer(buffer: Buffer): Promise<string | null> {
   return code?.data ?? null;
 }
 
-/**
- * TLV parser: tag(2 chars) + length(2 digits) + value(length)
- * รองรับ payload ที่มีตัวอักษรด้วย
- */
+// TLV parser: tag(2) + len(2) + value(len) รองรับ payload อักษร/ตัวเลข
 function parseTlv2Len2(payload: string): Record<string, string> {
   const out: Record<string, string> = {};
   let i = 0;
-
   while (i + 4 <= payload.length) {
     const tag = payload.slice(i, i + 2);
     const lenStr = payload.slice(i + 2, i + 4);
@@ -253,14 +234,12 @@ function parseTlv2Len2(payload: string): Record<string, string> {
     out[tag] = payload.slice(start, end);
     i = end;
   }
-
   return out;
 }
 
 /**
- * OCR อ่านบริเวณ “จำนวน: 500.00 บาท” (สลิป K+ แบบในรูป)
- * - crop เฉพาะด้านล่างซ้าย (ตัด QR ด้านขวาออก)
- * - resize + threshold ให้ตัวเลขชัดขึ้น
+ * OCR: ตัดโซน "จำนวน: xxx.xx บาท" และเลือกเลขที่อยู่ใกล้คำว่า บาท
+ * (กันอ่านเลขยาวๆ เช่น เลขรายการ/อ้างอิง แล้วไปเป็น 8,765)
  */
 async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
   console.log("[OCR] start recognize...");
@@ -271,59 +250,60 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
   const h = meta.height ?? 0;
   if (!w || !h) return null;
 
-  // โซน “จำนวน: 500.00 บาท” อยู่ช่วงล่างกลางซ้าย
-  const cropped = await img
+  // ✅ crop โซนล่างซ้าย (กัน QR ด้านขวา)
+  const cropBuf = await img
+    .rotate()
     .extract({
-      left: Math.floor(w * 0.02),
-      top: Math.floor(h * 0.58),
-      width: Math.floor(w * 0.68), // ตัดขวาออกกัน QR
-      height: Math.floor(h * 0.32),
+      left: 0,
+      top: Math.floor(h * 0.55),
+      width: Math.floor(w * 0.78),
+      height: Math.floor(h * 0.40),
     })
-    .resize({ width: Math.floor(w * 0.9) }) // ขยายให้ OCR อ่านง่ายขึ้น
+    // ✅ preprocess ให้ตัวเลขชัดขึ้น
+    .resize({ width: Math.floor(w * 1.2) }) // ขยายช่วย OCR
     .grayscale()
     .normalize()
-    .threshold(175)
+    .sharpen()
+    .threshold(170)
     .png()
     .toBuffer();
 
   const worker = await getOcrWorker();
-  const res = await worker.recognize(cropped);
-  const text = String(res?.data?.text || "").replace(/\s+/g, " ");
+
+  // ✅ กันค้าง: ถ้าเกิน 20s ให้ปล่อย null (ไม่ให้ request ค้างยาว)
+  const timeoutMs = 20000;
+  const res: any = await Promise.race([
+    worker.recognize(cropBuf),
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+
+  const text = String(res?.data?.text || "")
+    .replace(/\s+/g, " ")
+    .trim();
 
   console.log("[OCR] text:", text);
 
-  // ดึงเลขแบบเงิน (พยายามจับที่มีทศนิยม 2 ตำแหน่งก่อน)
-  const moneyMatches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\.(\d{2})/g)];
-  const moneyNums = moneyMatches
-    .map((m) => Number(`${m[1].replace(/,/g, "")}.${m[2]}`))
-    .filter((n) => Number.isFinite(n))
-    .filter((n) => n > 0 && n < 1_000_000);
-
-  if (moneyNums.length > 0) {
-    // บ่อยสุดจะมี 500.00 กับ 0.00 → เรากรอง 0 ออกแล้ว
-    return Math.max(...moneyNums);
+  // ✅ กรณีอ่านได้แบบ "... 500.00 บาท" ให้ใช้ตัวนี้ก่อน
+  const bahtMatch = text.match(/(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?\s*(บาท|baht)/i);
+  if (bahtMatch?.[0]) {
+    const n = Number(bahtMatch[0].replace(/[^\d.,]/g, "").replace(/,/g, ""));
+    if (Number.isFinite(n) && n > 0) return n;
   }
 
-  // fallback: ถ้า OCR ตัดจุดหาย
-  const anyMatches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)/g)];
-  const nums = anyMatches
+  // fallback: เอาตัวเลขที่ plausible (ตัดเลขยาวๆ ออก)
+  const matches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?/g)];
+  const nums = matches
     .map((m) => Number(String(m[0]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n))
-    .filter((n) => n > 0 && n < 1_000_000);
+    .filter((n) => n > 0 && n < 200_000);
 
   if (nums.length === 0) return null;
-  return Math.max(...nums);
-}
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-    p.then((v) => {
-      clearTimeout(t);
-      resolve(v);
-    }).catch((e) => {
-      clearTimeout(t);
-      reject(e);
-    });
-  });
+  // ✅ เลือกค่าที่มีทศนิยม .00 หรือ .xx ก่อน (มักเป็นจำนวนเงิน)
+  const withDecimals = nums.filter((n) => String(n).includes("."));
+  if (withDecimals.length) return Math.max(...withDecimals);
+
+  return Math.max(...nums);
 }
