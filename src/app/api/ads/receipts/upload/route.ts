@@ -9,25 +9,34 @@ import sharp from "sharp";
 import jsQR from "jsqr";
 import { createWorker } from "tesseract.js";
 
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
 export const runtime = "nodejs";
 
 // -------- OCR worker singleton (กันช้า/กันสร้างซ้ำ) --------
-// แก้ปัญหา type ที่คุณเจอ: ใช้ `any` + `reinitialize()` แทน loadLanguage/initialize
 let workerPromise: Promise<any> | null = null;
 
 async function getOcrWorker() {
   if (!workerPromise) {
     workerPromise = (async () => {
-      const w: any = await createWorker();
-      // ในบางเวอร์ชัน typings จะมี reinitialize แทน
-      if (typeof w.reinitialize === "function") {
-        await w.reinitialize("eng");
-      }
-      if (typeof w.setParameters === "function") {
-        await w.setParameters({
-          tessedit_char_whitelist: "0123456789.,",
-        });
-      }
+      // ✅ Fix Render/Next bundling: ชี้ไฟล์ worker/core จาก node_modules ตรงๆ
+      const workerPath = require.resolve("tesseract.js/dist/worker.min.js");
+      const corePath = require.resolve("tesseract.js-core/tesseract-core.wasm.js");
+
+      const w: any = await createWorker({
+        workerPath,
+        corePath,
+      });
+
+      // ✅ ใช้ runtime methods ของ tesseract (ไม่ใช้ reinitialize แล้ว)
+      await w.loadLanguage("eng");
+      await w.initialize("eng");
+
+      await w.setParameters({
+        tessedit_char_whitelist: "0123456789.,",
+      });
+
       return w;
     })();
   }
@@ -79,9 +88,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     const safeExt = extname(file.name) || guessExtFromMime(file.type);
-    const filename = `receipt-${Date.now()}-${Math.floor(
-      Math.random() * 1000
-    )}${safeExt}`;
+    const filename = `receipt-${Date.now()}-${Math.floor(Math.random() * 1000)}${safeExt}`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
@@ -90,7 +97,6 @@ export async function POST(request: NextRequest) {
     // ✅ อ่านยอดเงิน: Tag54 ก่อน -> ถ้าไม่มีค่อย OCR
     const result = await extractAmountFromReceipt(buffer);
 
-    // Create receipt record
     const receipt = await prisma.adReceipt.create({
       data: {
         organizationId: orgId,
@@ -118,7 +124,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: error?.message || "Upload failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || "Upload failed" },
+      { status: 500 }
+    );
   }
 }
 
@@ -235,7 +244,9 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
   const res = await worker.recognize(crop);
   const text = String(res?.data?.text || "").replace(/\s+/g, " ");
 
-  const matches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?/g)];
+  const matches = [
+    ...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?/g),
+  ];
   const nums = matches
     .map((m) => Number(String(m[0]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n))
