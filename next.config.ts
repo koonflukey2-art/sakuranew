@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -11,8 +10,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
 
-  // ✅ สำคัญมาก: กัน Next.js bundle tesseract.js บน server
-  // เพื่อไม่ให้มันไปหา worker-script ใน .next/server/... แล้ว MODULE_NOT_FOUND
+  // ✅ Next 15 ใช้อันนี้แทน experimental.serverComponentsExternalPackages
   serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
 
   images: {
@@ -31,9 +29,6 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
-
-    // ✅ เผื่อ Next 13/14 บางโปรเจกต์ยังต้องมี (มีแล้วไม่เสียหาย)
-    serverComponentsExternalPackages: ["tesseract.js", "tesseract.js-core"],
   },
 
   webpack: (config, { isServer }) => {
