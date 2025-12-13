@@ -6,8 +6,8 @@ import { join } from "path";
 export const runtime = "nodejs";
 
 function getUploadDir() {
-  // แนะนำให้ตั้งบน Render เป็น /opt/render/project/src/uploads
-  return process.env.UPLOAD_DIR || join(process.cwd(), "uploads");
+  // ✅ ให้ตรงกับที่ save: public/uploads
+  return process.env.UPLOAD_DIR || join(process.cwd(), "public", "uploads");
 }
 
 function contentTypeFromName(name: string) {
