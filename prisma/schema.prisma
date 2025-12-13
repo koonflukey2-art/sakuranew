@@ -849,11 +849,18 @@ model SystemSettings {
 
   dailySummaryLastSentAt DateTime?
 
+  // LINE Integration (Stock Management)
   lineNotifyToken        String?
   lineChannelAccessToken String?
   lineChannelSecret      String?
   lineWebhookUrl         String?
-  lineTargetId           String? // ✅ เพิ่มบรรทัดนี้
+  lineTargetId           String?
+
+  // LINE Ads Integration (Separate)
+  adsLineNotifyToken         String?
+  adsLineChannelAccessToken  String?
+  adsLineChannelSecret       String?
+  adsLineWebhookUrl          String?
 
   adminEmails String?
 

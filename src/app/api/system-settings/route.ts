@@ -48,6 +48,9 @@ export async function GET(_request: NextRequest) {
       lineNotifyToken: maskToken(settings.lineNotifyToken),
       lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
       lineChannelSecret: maskToken(settings.lineChannelSecret),
+      adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
+      adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
+      adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
       dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
     };
 
@@ -162,6 +165,23 @@ export async function POST(request: NextRequest) {
       updateData.lineTargetId = body.lineTargetId.trim() || null;
     }
 
+    // Ads LINE tokens (separate from stock LINE)
+    if (typeof body.adsLineNotifyToken === "string" && body.adsLineNotifyToken.trim()) {
+      updateData.adsLineNotifyToken = body.adsLineNotifyToken.trim();
+    }
+    if (
+      typeof body.adsLineChannelAccessToken === "string" &&
+      body.adsLineChannelAccessToken.trim()
+    ) {
+      updateData.adsLineChannelAccessToken = body.adsLineChannelAccessToken.trim();
+    }
+    if (typeof body.adsLineChannelSecret === "string" && body.adsLineChannelSecret.trim()) {
+      updateData.adsLineChannelSecret = body.adsLineChannelSecret.trim();
+    }
+    if (body.adsLineWebhookUrl !== undefined) {
+      updateData.adsLineWebhookUrl = body.adsLineWebhookUrl;
+    }
+
     // Notification flags
     if (body.notifyOnOrder !== undefined) {
       updateData.notifyOnOrder = !!body.notifyOnOrder;
@@ -198,6 +218,9 @@ export async function POST(request: NextRequest) {
       lineNotifyToken: maskToken(settings.lineNotifyToken),
       lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
       lineChannelSecret: maskToken(settings.lineChannelSecret),
+      adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
+      adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
+      adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
       dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
     };
 
