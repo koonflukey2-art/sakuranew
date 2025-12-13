@@ -31,7 +31,7 @@ interface Receipt {
   platform: string;
   amount: number;
   paidAt: string;
-  receiptUrl: string;
+  receiptUrl: string | null;
   qrCodeData: string | null;
   isProcessed: boolean;
   campaign?: {
@@ -118,7 +118,17 @@ export default function UploadReceiptPage() {
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+
+      // ✅ กันสลิปซ้ำ (409)
+      if (response.status === 409 && data?.error === "DUPLICATE_RECEIPT") {
+        toast({
+          title: "⚠️ สลิปซ้ำ",
+          description: data?.message || "สลิปนี้เคยอัพโหลดแล้ว ระบบไม่บันทึกซ้ำ",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || "Upload failed");
@@ -157,11 +167,7 @@ export default function UploadReceiptPage() {
 
       if (!res.ok) throw new Error(data?.error || "Delete failed");
 
-      toast({
-        title: "🗑️ ลบแล้ว",
-        description: "ลบสลิปเรียบร้อย",
-      });
-
+      toast({ title: "🗑️ ลบแล้ว", description: "ลบสลิปเรียบร้อย" });
       fetchReceipts();
     } catch (err: any) {
       toast({
@@ -354,7 +360,8 @@ export default function UploadReceiptPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => window.open(receipt.receiptUrl, "_blank")}
+                      onClick={() => receipt.receiptUrl && window.open(receipt.receiptUrl, "_blank")}
+                      disabled={!receipt.receiptUrl}
                       title="ดูรูป"
                     >
                       <Eye className="w-4 h-4" />

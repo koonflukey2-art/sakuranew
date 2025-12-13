@@ -449,6 +449,11 @@ model AdReceipt {
   receiptUrl     String?     // URL to uploaded receipt image
   qrCodeData     String?     // Extracted QR code data
 
+
+  fileHash       String      @db.Char(64)
+  qrHash         String?     @db.Char(64)
+
+
   // Processing
   isProcessed    Boolean     @default(false)
   processedAt    DateTime?
@@ -459,6 +464,9 @@ model AdReceipt {
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+
+  @@unique([organizationId, fileHash])
+  @@unique([organizationId, qrHash])
 
   @@index([organizationId])
   @@index([campaignId])
