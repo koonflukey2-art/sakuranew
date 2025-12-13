@@ -92,14 +92,10 @@ export default function UploadReceiptPage() {
       const data = await response.json().catch(() => ({}));
 
       // ✅ duplicate
-      if (response.status === 409) {
-        toast({
-          title: "⚠️ สลิปซ้ำ",
-          description: data?.message || "สลิปนี้เคยอัพโหลดแล้ว",
-          variant: "destructive",
-        });
-        return;
-      }
+   if (response.status === 409 && data?.error === "DUPLICATE_RECEIPT") {
+    throw new Error(data?.message || "สลิปนี้เคยอัพโหลดแล้ว");
+}
+
 
       if (!response.ok) throw new Error(data?.error || "Upload failed");
 
