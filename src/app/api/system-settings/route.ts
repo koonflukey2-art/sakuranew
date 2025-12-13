@@ -12,6 +12,27 @@ function maskToken(token: string | null | undefined): string | null {
   return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
 }
 
+// กันไม่ให้ค่าที่ถูก mask (เช่น "abcd...wxyz") ไปถูก save ทับของจริงใน DB
+function isMaskedValue(v: string): boolean {
+  // รูปแบบที่ maskToken สร้าง: "xxxx...yyyy"
+  return /^[A-Za-z0-9_-]{2,8}\.\.\.[A-Za-z0-9_-]{2,8}$/.test(v);
+}
+
+function toSafeSettings(settings: any) {
+  return {
+    ...settings,
+    lineNotifyToken: maskToken(settings.lineNotifyToken),
+    lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
+    lineChannelSecret: maskToken(settings.lineChannelSecret),
+
+    adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
+    adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
+    adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
+
+    dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
+  };
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
@@ -43,18 +64,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    const safeSettings = {
-      ...settings,
-      lineNotifyToken: maskToken(settings.lineNotifyToken),
-      lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
-      lineChannelSecret: maskToken(settings.lineChannelSecret),
-      adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
-      adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
-      adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
-      dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
-    };
-
-    return NextResponse.json(safeSettings);
+    return NextResponse.json(toSafeSettings(settings));
   } catch (error: any) {
     console.error("GET system settings error:", error);
     return NextResponse.json(
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({} as any));
 
-    // ✅ --- NEW: reset daily summary sent flag ---
+    // ✅ reset daily summary sent flag
     // รองรับ 2 แบบ:
     // 1) { action: "resetDailySummary" }
     // 2) { resetDailySummary: true }
@@ -115,18 +125,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const safeSettings = {
-        ...settings,
-        lineNotifyToken: maskToken(settings.lineNotifyToken),
-        lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
-        lineChannelSecret: maskToken(settings.lineChannelSecret),
-        dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
-      };
-
       return NextResponse.json({
         ok: true,
         action: "resetDailySummary",
-        settings: safeSettings,
+        settings: toSafeSettings(settings),
       });
     }
 
@@ -146,18 +148,18 @@ export async function POST(request: NextRequest) {
       updateData.lineWebhookUrl = body.lineWebhookUrl;
     }
 
-    // update token เฉพาะตอนที่มีการกรอกค่าใหม่ (ไม่ใช่ค่าว่าง)
-    if (typeof body.lineNotifyToken === "string" && body.lineNotifyToken.trim()) {
-      updateData.lineNotifyToken = body.lineNotifyToken.trim();
+    // update token เฉพาะตอนที่มีการกรอกค่าใหม่ (ไม่ใช่ค่าว่าง และไม่ใช่ค่า masked)
+    if (typeof body.lineNotifyToken === "string") {
+      const v = body.lineNotifyToken.trim();
+      if (v && !isMaskedValue(v)) updateData.lineNotifyToken = v;
     }
-    if (
-      typeof body.lineChannelAccessToken === "string" &&
-      body.lineChannelAccessToken.trim()
-    ) {
-      updateData.lineChannelAccessToken = body.lineChannelAccessToken.trim();
+    if (typeof body.lineChannelAccessToken === "string") {
+      const v = body.lineChannelAccessToken.trim();
+      if (v && !isMaskedValue(v)) updateData.lineChannelAccessToken = v;
     }
-    if (typeof body.lineChannelSecret === "string" && body.lineChannelSecret.trim()) {
-      updateData.lineChannelSecret = body.lineChannelSecret.trim();
+    if (typeof body.lineChannelSecret === "string") {
+      const v = body.lineChannelSecret.trim();
+      if (v && !isMaskedValue(v)) updateData.lineChannelSecret = v;
     }
 
     // Optional: lineTargetId
@@ -165,19 +167,20 @@ export async function POST(request: NextRequest) {
       updateData.lineTargetId = body.lineTargetId.trim() || null;
     }
 
-    // Ads LINE tokens (separate from stock LINE)
-    if (typeof body.adsLineNotifyToken === "string" && body.adsLineNotifyToken.trim()) {
-      updateData.adsLineNotifyToken = body.adsLineNotifyToken.trim();
+    // Ads LINE tokens (separate from stock LINE) - กัน masked value ไม่ให้ไปทับของจริง
+    if (typeof body.adsLineNotifyToken === "string") {
+      const v = body.adsLineNotifyToken.trim();
+      if (v && !isMaskedValue(v)) updateData.adsLineNotifyToken = v;
     }
-    if (
-      typeof body.adsLineChannelAccessToken === "string" &&
-      body.adsLineChannelAccessToken.trim()
-    ) {
-      updateData.adsLineChannelAccessToken = body.adsLineChannelAccessToken.trim();
+    if (typeof body.adsLineChannelAccessToken === "string") {
+      const v = body.adsLineChannelAccessToken.trim();
+      if (v && !isMaskedValue(v)) updateData.adsLineChannelAccessToken = v;
     }
-    if (typeof body.adsLineChannelSecret === "string" && body.adsLineChannelSecret.trim()) {
-      updateData.adsLineChannelSecret = body.adsLineChannelSecret.trim();
+    if (typeof body.adsLineChannelSecret === "string") {
+      const v = body.adsLineChannelSecret.trim();
+      if (v && !isMaskedValue(v)) updateData.adsLineChannelSecret = v;
     }
+
     if (body.adsLineWebhookUrl !== undefined) {
       updateData.adsLineWebhookUrl = body.adsLineWebhookUrl;
     }
@@ -213,18 +216,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const safeSettings = {
-      ...settings,
-      lineNotifyToken: maskToken(settings.lineNotifyToken),
-      lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
-      lineChannelSecret: maskToken(settings.lineChannelSecret),
-      adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
-      adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
-      adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
-      dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
-    };
-
-    return NextResponse.json(safeSettings);
+    return NextResponse.json(toSafeSettings(settings));
   } catch (error: any) {
     console.error("POST system settings error:", error);
     return NextResponse.json(
