@@ -6,8 +6,7 @@ import { join } from "path";
 export const runtime = "nodejs";
 
 function getUploadDir() {
-  // ✅ ให้ตรงกับที่ save: public/uploads
-  return process.env.UPLOAD_DIR || join(process.cwd(), "public", "uploads");
+  return process.env.UPLOAD_DIR || join(process.cwd(), "uploads");
 }
 
 function contentTypeFromName(name: string) {
@@ -31,7 +30,6 @@ export async function GET(
     await stat(filePath);
 
     const stream = createReadStream(filePath);
-
     return new NextResponse(stream as any, {
       headers: {
         "Content-Type": contentTypeFromName(filename),
