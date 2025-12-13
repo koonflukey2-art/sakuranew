@@ -149,7 +149,7 @@ model User {
   aiProductSuggestions AIProductSuggestion[]
 
   // BudgetRequest เป็นฝั่ง requester
-  budgetRequests BudgetRequest[]  @relation("BudgetRequestRequester")
+  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
   AutomationRule AutomationRule[]
   MetricsPlan    MetricsPlan[]
 
@@ -198,7 +198,7 @@ model Promotion {
 
   startDate DateTime?
   endDate   DateTime?
-  isActive  Boolean   @default(true)
+  isActive  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -271,7 +271,7 @@ model CapitalBudget {
   updatedAt      DateTime @updatedAt
   createdBy      String
 
-  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   transactions CapitalBudgetTransaction[]
 
   @@index([organizationId])
@@ -310,7 +310,7 @@ model BudgetRequest {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   requesterId String
-  requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requester   User @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
 
   reviewedBy String?
   reviewedAt DateTime?
@@ -449,10 +449,9 @@ model AdReceipt {
   receiptUrl     String?     // URL to uploaded receipt image
   qrCodeData     String?     // Extracted QR code data
 
-
-  fileHash       String      @db.Char(64)
+  // ✅ สำคัญ: ทำให้ optional ก่อน เพื่อกัน migrate error ตอนมีข้อมูลเก่า
+  fileHash       String?     @db.Char(64)
   qrHash         String?     @db.Char(64)
-
 
   // Processing
   isProcessed    Boolean     @default(false)
@@ -465,6 +464,7 @@ model AdReceipt {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+  // ✅ กันซ้ำแบบ unique ต่อ org (NULL จะซ้ำได้ → เหมาะกับข้อมูลเก่าที่ยังไม่มี hash)
   @@unique([organizationId, fileHash])
   @@unique([organizationId, qrHash])
 
@@ -780,14 +780,14 @@ model Order {
   amount    Float
   unitPrice Float @default(0)
 
-  orderDate      DateTime     @default(now())
-  status         OrderStatus  @default(PENDING)
+  orderDate      DateTime    @default(now())
+  status         OrderStatus @default(PENDING)
   notes          String?
   rawMessage     String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([organizationId])
   @@index([orderDate])
@@ -830,6 +830,7 @@ model DailySummary {
 
   createdAt  DateTime @default(now())
   cutOffTime DateTime
+
   @@unique([organizationId, date]) // ✅ เพิ่มอันนี้
   @@index([organizationId, date])
   @@index([date])
@@ -847,12 +848,12 @@ model SystemSettings {
   dailyCutOffMinute Int @default(59)
 
   dailySummaryLastSentAt DateTime?
-  
+
   lineNotifyToken        String?
   lineChannelAccessToken String?
   lineChannelSecret      String?
   lineWebhookUrl         String?
-  lineTargetId String? // ✅ เพิ่มบรรทัดนี้
+  lineTargetId           String? // ✅ เพิ่มบรรทัดนี้
 
   adminEmails String?
 
