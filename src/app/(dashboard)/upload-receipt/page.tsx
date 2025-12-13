@@ -19,8 +19,8 @@ import {
   TrendingUp,
   Loader2,
   Check,
-  X,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -32,7 +32,7 @@ interface Receipt {
   amount: number;
   paidAt: string;
   receiptUrl: string;
-  qrCodeData: string;
+  qrCodeData?: string | null;
   isProcessed: boolean;
   campaign?: {
     campaignName: string;
@@ -42,6 +42,7 @@ interface Receipt {
 export default function UploadReceiptPage() {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
@@ -71,7 +72,6 @@ export default function UploadReceiptPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
         title: "ไฟล์ไม่ถูกต้อง",
@@ -81,7 +81,6 @@ export default function UploadReceiptPage() {
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "ไฟล์ใหญ่เกินไป",
@@ -108,38 +107,32 @@ export default function UploadReceiptPage() {
     try {
       setUploading(true);
 
-      // Create form data
       const formData = new FormData();
       formData.append("receipt", selectedFile);
       formData.append("platform", "META_ADS");
 
-      // Upload receipt
       const response = await fetch("/api/ads/receipts/upload", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
+      if (!response.ok) throw new Error("Upload failed");
       const data = await response.json();
 
       toast({
-        title: "✅ อัพโหลดสำเร็จ",
-        description: `อ่านยอดเงินได้ ฿${data.amount.toLocaleString()}`,
+        title: data.amountDetected ? "✅ อัพโหลดสำเร็จ" : "⚠️ อัพโหลดสำเร็จ แต่ต้องยืนยันยอด",
+        description: data.amountDetected
+          ? `อ่านยอดเงินได้ ฿${Number(data.amount).toLocaleString()} (${data.detectMethod})`
+          : `อ่านยอดไม่ได้ (${data.reason || "unknown"})`,
+        variant: data.amountDetected ? "default" : "destructive",
       });
 
-      // Reset form
       setSelectedFile(null);
       setPreviewUrl("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
 
-      // Refresh receipts list
       fetchReceipts();
-    } catch (error) {
+    } catch {
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถอัพโหลดสลิปได้",
@@ -150,9 +143,34 @@ export default function UploadReceiptPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    const ok = window.confirm("ต้องการลบสลิปนี้ใช่ไหม? การลบจะย้อนกลับไม่ได้");
+    if (!ok) return;
+
+    try {
+      setDeletingId(id);
+      const res = await fetch(`/api/ads/receipts/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+
+      toast({
+        title: "🗑️ ลบสำเร็จ",
+        description: "ลบสลิปออกจากระบบแล้ว",
+      });
+
+      fetchReceipts();
+    } catch {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบสลิปได้",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
           อัพโหลดสลิปโฆษณา
@@ -162,7 +180,6 @@ export default function UploadReceiptPage() {
         </p>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
@@ -172,12 +189,8 @@ export default function UploadReceiptPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-400">
-              {receipts.length}
-            </div>
-            <p className="text-xs text-blue-300 mt-1">
-              ทั้งหมดในระบบ
-            </p>
+            <div className="text-3xl font-bold text-blue-400">{receipts.length}</div>
+            <p className="text-xs text-blue-300 mt-1">ทั้งหมดในระบบ</p>
           </CardContent>
         </Card>
 
@@ -192,9 +205,7 @@ export default function UploadReceiptPage() {
             <div className="text-3xl font-bold text-green-400">
               ฿{totalAmount.toLocaleString()}
             </div>
-            <p className="text-xs text-green-300 mt-1">
-              จากการอัพโหลดสลิป
-            </p>
+            <p className="text-xs text-green-300 mt-1">จากการอัพโหลดสลิป</p>
           </CardContent>
         </Card>
 
@@ -209,24 +220,18 @@ export default function UploadReceiptPage() {
             <div className="text-3xl font-bold text-purple-400">
               ฿{totalProfit.toLocaleString()}
             </div>
-            <p className="text-xs text-purple-300 mt-1">
-              จากการยิงโฆษณา
-            </p>
+            <p className="text-xs text-purple-300 mt-1">จากการยิงโฆษณา</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Upload Section */}
       <Card>
         <CardHeader>
           <CardTitle>อัพโหลดสลิปใหม่</CardTitle>
-          <CardDescription>
-            รองรับไฟล์ภาพ JPG, PNG (ขนาดไม่เกิน 5MB)
-          </CardDescription>
+          <CardDescription>รองรับไฟล์ภาพ JPG, PNG (ขนาดไม่เกิน 5MB)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* File Input */}
             <div>
               <Label>เลือกรูปภาพสลิป</Label>
               <Input
@@ -238,7 +243,6 @@ export default function UploadReceiptPage() {
               />
             </div>
 
-            {/* Preview */}
             {previewUrl && (
               <div className="border rounded-lg p-4">
                 <p className="text-sm font-medium mb-2">ตัวอย่าง:</p>
@@ -249,17 +253,13 @@ export default function UploadReceiptPage() {
                     width={400}
                     height={600}
                     className="rounded-lg"
+                    unoptimized
                   />
                 </div>
               </div>
             )}
 
-            {/* Upload Button */}
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              className="w-full"
-            >
+            <Button onClick={handleUpload} disabled={!selectedFile || uploading} className="w-full">
               {uploading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -274,27 +274,22 @@ export default function UploadReceiptPage() {
             </Button>
 
             <p className="text-xs text-muted-foreground text-center">
-              ระบบจะอ่าน QR Code และข้อมูลจากสลิปอัตโนมัติ
+              ระบบจะพยายามอ่าน QR ก่อน ถ้าไม่มีจำนวนเงินจะใช้ OCR อ่านจากรูป
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Receipts History */}
       <Card>
         <CardHeader>
           <CardTitle>ประวัติการอัพโหลด</CardTitle>
-          <CardDescription>
-            รายการสลิปที่อัพโหลดทั้งหมด
-          </CardDescription>
+          <CardDescription>รายการสลิปที่อัพโหลดทั้งหมด</CardDescription>
         </CardHeader>
         <CardContent>
           {receipts.length === 0 ? (
             <div className="text-center py-12">
               <FileImage className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                ยังไม่มีประวัติการอัพโหลด
-              </p>
+              <p className="text-muted-foreground">ยังไม่มีประวัติการอัพโหลด</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -312,14 +307,13 @@ export default function UploadReceiptPage() {
                           width={64}
                           height={64}
                           className="object-cover w-full h-full"
+                          unoptimized
                         />
                       )}
                     </div>
 
                     <div>
-                      <p className="font-semibold">
-                        {receipt.receiptNumber}
-                      </p>
+                      <p className="font-semibold">{receipt.receiptNumber}</p>
                       <p className="text-sm text-muted-foreground">
                         {new Date(receipt.paidAt).toLocaleDateString("th-TH")}
                       </p>
@@ -331,18 +325,12 @@ export default function UploadReceiptPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
                       <p className="text-2xl font-bold">
-                        ฿{receipt.amount.toLocaleString()}
+                        ฿{Number(receipt.amount || 0).toLocaleString()}
                       </p>
-                      <Badge
-                        className={
-                          receipt.isProcessed
-                            ? "bg-green-500"
-                            : "bg-yellow-500"
-                        }
-                      >
+                      <Badge className={receipt.isProcessed ? "bg-green-500" : "bg-yellow-500"}>
                         {receipt.isProcessed ? (
                           <>
                             <Check className="w-3 h-3 mr-1" />
@@ -360,11 +348,25 @@ export default function UploadReceiptPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() =>
-                        window.open(receipt.receiptUrl, "_blank")
-                      }
+                      onClick={() => window.open(receipt.receiptUrl, "_blank")}
+                      aria-label="View receipt"
                     >
                       <Eye className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(receipt.id)}
+                      disabled={deletingId === receipt.id}
+                      aria-label="Delete receipt"
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      {deletingId === receipt.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
                 </div>

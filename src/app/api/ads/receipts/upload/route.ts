@@ -7,8 +7,32 @@ import { existsSync } from "fs";
 
 import sharp from "sharp";
 import jsQR from "jsqr";
+import { createWorker } from "tesseract.js";
 
-export const runtime = "nodejs"; // ให้แน่ใจว่าใช้ fs ได้
+export const runtime = "nodejs";
+
+// -------- OCR worker singleton (กันช้า/กันสร้างซ้ำ) --------
+// แก้ปัญหา type ที่คุณเจอ: ใช้ `any` + `reinitialize()` แทน loadLanguage/initialize
+let workerPromise: Promise<any> | null = null;
+
+async function getOcrWorker() {
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      const w: any = await createWorker();
+      // ในบางเวอร์ชัน typings จะมี reinitialize แทน
+      if (typeof w.reinitialize === "function") {
+        await w.reinitialize("eng");
+      }
+      if (typeof w.setParameters === "function") {
+        await w.setParameters({
+          tessedit_char_whitelist: "0123456789.,",
+        });
+      }
+      return w;
+    })();
+  }
+  return workerPromise;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +41,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ หา organizationId จาก DB (อย่า default เป็น default-org ถ้าเป็นระบบจริง)
     const dbUser = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
       select: { organizationId: true },
@@ -55,17 +78,17 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ตั้งชื่อไฟล์ให้ปลอดภัย (ไม่ใช้ชื่อเดิมตรง ๆ)
     const safeExt = extname(file.name) || guessExtFromMime(file.type);
-    const filename = `receipt-${Date.now()}-${Math.floor(Math.random() * 1000)}${safeExt}`;
+    const filename = `receipt-${Date.now()}-${Math.floor(
+      Math.random() * 1000
+    )}${safeExt}`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
     const receiptUrl = `/uploads/${filename}`;
 
-    // ✅ อ่าน QR + ดึง amount (Tag 54 เท่านั้น)
-    const { amount, qrText, amountDetected, reason } =
-      await extractAmountFromReceipt(buffer);
+    // ✅ อ่านยอดเงิน: Tag54 ก่อน -> ถ้าไม่มีค่อย OCR
+    const result = await extractAmountFromReceipt(buffer);
 
     // Create receipt record
     const receipt = await prisma.adReceipt.create({
@@ -73,15 +96,12 @@ export async function POST(request: NextRequest) {
         organizationId: orgId,
         campaignId,
         receiptNumber: `RCP-${Date.now()}`,
-        platform: platform || "META_ADS",
+        platform,
         paymentMethod: "QR_CODE",
-
-        // ถ้าอ่านไม่ได้ ให้ 0 เพื่อไม่เพี้ยน
-        amount: amount ?? 0,
+        amount: result.amount ?? 0, // อ่านไม่ได้เป็น 0 กันเพี้ยน
         currency: "THB",
-
         receiptUrl,
-        qrCodeData: qrText,
+        qrCodeData: result.qrText,
         isProcessed: false,
         paidAt: new Date(),
       },
@@ -90,17 +110,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       receipt,
-      amount: amount ?? 0,
-      amountDetected,
-      needsManualAmount: !amountDetected, // ✅ ให้หน้าเว็บเอาไปบังคับกรอก/ยืนยันได้
-      reason: amountDetected ? undefined : reason,
+      amount: result.amount ?? 0,
+      amountDetected: result.amountDetected,
+      detectMethod: result.method, // "EMV_TAG_54" | "OCR" | "NONE"
+      needsManualAmount: !result.amountDetected,
+      reason: result.amountDetected ? undefined : result.reason,
     });
   } catch (error: any) {
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Upload failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error?.message || "Upload failed" }, { status: 500 });
   }
 }
 
@@ -110,62 +128,48 @@ function guessExtFromMime(mime: string) {
   return ".jpg";
 }
 
-/**
- * อ่าน QR จากรูป แล้วดึง amount จาก EMV Tag 54 เท่านั้น
- * - ถ้า QR ไม่มี tag 54 (QR แบบ static) => ไม่เดา amount
- */
 async function extractAmountFromReceipt(buffer: Buffer): Promise<{
   amount: number | null;
   qrText: string | null;
   amountDetected: boolean;
+  method: "EMV_TAG_54" | "OCR" | "NONE";
   reason?: string;
 }> {
-  // 1) decode QR
+  // 1) decode QR (ถ้ามี)
   let qrText: string | null = null;
   try {
     qrText = await decodeQrFromImageBuffer(buffer);
-  } catch (e) {
+  } catch {
     qrText = null;
   }
 
-  if (!qrText) {
-    return { amount: null, qrText: null, amountDetected: false, reason: "No QR detected in image" };
+  // 2) Try EMV Tag 54
+  if (qrText) {
+    const tlv = parseTlv2Len2(qrText);
+    const amountStr = tlv["54"];
+    if (amountStr) {
+      const amount = Number(amountStr);
+      if (Number.isFinite(amount) && amount > 0) {
+        return { amount, qrText, amountDetected: true, method: "EMV_TAG_54" };
+      }
+    }
   }
 
-  // 2) parse EMV TLV only if numeric string
-  if (!/^\d+$/.test(qrText)) {
-    return {
-      amount: null,
-      qrText,
-      amountDetected: false,
-      reason: "QR is not EMV TLV numeric payload (cannot safely extract amount)",
-    };
+  // 3) Fallback OCR สำหรับสลิปธนาคาร (QR ตรวจสอบสลิปมักไม่มี amount)
+  const ocrAmount = await extractAmountByOcr(buffer);
+  if (ocrAmount !== null) {
+    return { amount: ocrAmount, qrText, amountDetected: true, method: "OCR" };
   }
 
-  const tlv = parseEmvTlv(qrText);
-
-  // Tag 54 = transaction amount
-  const amountStr = tlv["54"];
-  if (!amountStr) {
-    return {
-      amount: null,
-      qrText,
-      amountDetected: false,
-      reason: "EMV payload has no tag 54 (amount not embedded). Ask user to input amount.",
-    };
-  }
-
-  const amount = Number(amountStr);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return {
-      amount: null,
-      qrText,
-      amountDetected: false,
-      reason: "Invalid amount in EMV tag 54",
-    };
-  }
-
-  return { amount, qrText, amountDetected: true };
+  return {
+    amount: null,
+    qrText,
+    amountDetected: false,
+    method: qrText ? "OCR" : "NONE",
+    reason: qrText
+      ? "QR has no amount. OCR could not confidently read amount."
+      : "No QR detected and OCR could not read amount.",
+  };
 }
 
 /** decode QR using sharp + jsqr */
@@ -179,18 +183,20 @@ async function decodeQrFromImageBuffer(buffer: Buffer): Promise<string | null> {
   return code?.data ?? null;
 }
 
-/** EMV TLV parser: [tag(2)][len(2)][value...] */
-function parseEmvTlv(payload: string): Record<string, string> {
+/**
+ * TLV parser: tag(2 chars) + length(2 digits) + value(length)
+ * รองรับ payload ที่มีตัวอักษรด้วย (เช่น APM / TH)
+ */
+function parseTlv2Len2(payload: string): Record<string, string> {
   const out: Record<string, string> = {};
   let i = 0;
 
   while (i + 4 <= payload.length) {
     const tag = payload.slice(i, i + 2);
     const lenStr = payload.slice(i + 2, i + 4);
+    if (!/^\d{2}$/.test(lenStr)) break;
+
     const len = Number(lenStr);
-
-    if (!Number.isFinite(len) || len < 0) break;
-
     const start = i + 4;
     const end = start + len;
     if (end > payload.length) break;
@@ -198,6 +204,43 @@ function parseEmvTlv(payload: string): Record<string, string> {
     out[tag] = payload.slice(start, end);
     i = end;
   }
-
   return out;
+}
+
+/**
+ * OCR อ่านโซนล่างซ้าย (ตัดขวาที่เป็น QR ออก) แล้วหาเลข > 0
+ * เลือก "มากที่สุด" ในโซนนี้ (มักเจอ 500.00 กับ 0.00 ค่าธรรมเนียม)
+ */
+async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
+  const img = sharp(buffer);
+  const meta = await img.metadata();
+  const w = meta.width ?? 0;
+  const h = meta.height ?? 0;
+  if (!w || !h) return null;
+
+  const crop = await img
+    .extract({
+      left: 0,
+      top: Math.floor(h * 0.55),
+      width: Math.floor(w * 0.75),
+      height: Math.floor(h * 0.45),
+    })
+    .grayscale()
+    .normalize()
+    .threshold(180)
+    .png()
+    .toBuffer();
+
+  const worker = await getOcrWorker();
+  const res = await worker.recognize(crop);
+  const text = String(res?.data?.text || "").replace(/\s+/g, " ");
+
+  const matches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?/g)];
+  const nums = matches
+    .map((m) => Number(String(m[0]).replace(/,/g, "")))
+    .filter((n) => Number.isFinite(n))
+    .filter((n) => n > 0 && n < 1_000_000);
+
+  if (nums.length === 0) return null;
+  return Math.max(...nums);
 }
