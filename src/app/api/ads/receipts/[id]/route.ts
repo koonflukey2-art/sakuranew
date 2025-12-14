@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { join } from "path";
 import { unlink } from "fs/promises";
 import { existsSync } from "fs";
@@ -36,17 +36,13 @@ export async function DELETE(
     });
     if (!receipt) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // ลบ DB ก่อน
     await prisma.adReceipt.delete({ where: { id: receipt.id } });
 
-    // ลบไฟล์ (ถ้ามี) — ตอนนี้ receiptUrl เป็น /api/uploads/<filename>
-    const url = receipt.receiptUrl || "";
-    if (url.startsWith("/api/uploads/")) {
-      const filename = url.replace("/api/uploads/", "");
+    // ลบไฟล์ ถ้า receiptUrl เป็น /api/uploads/<filename>
+    if (receipt.receiptUrl?.startsWith("/api/uploads/")) {
+      const filename = receipt.receiptUrl.replace("/api/uploads/", "");
       const fullpath = join(getUploadDir(), filename);
-      if (existsSync(fullpath)) {
-        await unlink(fullpath).catch(() => {});
-      }
+      if (existsSync(fullpath)) await unlink(fullpath).catch(() => {});
     }
 
     return NextResponse.json({ success: true });

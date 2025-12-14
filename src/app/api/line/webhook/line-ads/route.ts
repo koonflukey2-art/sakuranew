@@ -49,20 +49,27 @@ async function getLineAdsSettings(organizationId: string) {
 // =====================
 // 2) SIGNATURE VERIFY (LINE)
 // =====================
-function verifyLineSignature(rawBody: string, channelSecret: string, signature: string) {
-  const hmac = createHmac("sha256", channelSecret).update(rawBody).digest("base64");
+function verifyLineSignature(
+  rawBody: string,
+  channelSecret: string,
+  signature: string
+) {
+  const hmac = createHmac("sha256", channelSecret)
+    .update(rawBody)
+    .digest("base64");
   return hmac === signature;
 }
 
 // =====================
 // 3) DOWNLOAD IMAGE FROM LINE
 // =====================
-async function fetchLineMessageContent(messageId: string, accessToken: string): Promise<Buffer> {
+async function fetchLineMessageContent(
+  messageId: string,
+  accessToken: string
+): Promise<Buffer> {
   const url = `https://api-data.line.me/v2/bot/message/${messageId}/content`;
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
@@ -90,7 +97,9 @@ async function saveToPublicUploads(imageBuf: Buffer, ext = ".jpg") {
   if (!existsSync(uploadsDir)) {
     await mkdir(uploadsDir, { recursive: true });
   }
-  const filename = `ads-slip-${Date.now()}-${Math.floor(Math.random() * 1000)}${ext}`;
+  const filename = `ads-slip-${Date.now()}-${Math.floor(
+    Math.random() * 1000
+  )}${ext}`;
   const filepath = join(uploadsDir, filename);
   await writeFile(filepath, imageBuf);
   return `/uploads/${filename}`;
@@ -102,6 +111,7 @@ async function saveToPublicUploads(imageBuf: Buffer, ext = ".jpg") {
 async function safeDecodeQr(buffer: Buffer): Promise<string | null> {
   try {
     const { data, info } = await sharp(buffer)
+      .rotate() // ✅ สำคัญ: รูปจาก LINE บางทีหมุน
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
@@ -155,16 +165,17 @@ async function getOcrWorker() {
       const mod: any = await import("tesseract.js");
       const createWorker: any = mod.createWorker;
 
-      const w: any = await createWorker(); // ✅ no logger callbacks
+      const w: any = await createWorker(); // ✅ ห้ามส่ง callback กัน DataCloneError
 
-      // ใช้ eng ก็พอ เพราะเราจะอ่าน “ตัวเลข” เป็นหลัก
+      // อ่านตัวเลขเป็นหลัก
       if (typeof w.loadLanguage === "function") await w.loadLanguage("eng");
       if (typeof w.initialize === "function") await w.initialize("eng");
       if (typeof w.reinitialize === "function") await w.reinitialize("eng");
 
       if (typeof w.setParameters === "function") {
         await w.setParameters({
-          tessedit_char_whitelist: "0123456789.,",
+          // ✅ เปิดโอกาสให้เจอคำไทย/label บ้าง (ช่วยคัดกรอง)
+          tessedit_char_whitelist: "0123456789.,Amountบาทจำนวน:： ",
           tessedit_pageseg_mode: "6",
           preserve_interword_spaces: "1",
         });
@@ -183,38 +194,57 @@ function normalizeNumberToken(token: string) {
   return t;
 }
 
-function parseMoney(s: string): number | null {
-  const n = Number(normalizeNumberToken(s).replace(/,/g, ""));
+// ✅ เข้มงวด: ต้องเป็นเลขเงินทศนิยม 2 ตำแหน่งเท่านั้น
+function parseMoneyStrictDecimal(token: string): number | null {
+  const t = normalizeNumberToken(token).replace(/,/g, "").trim();
+
+  // ต้องเป็น xxx.xx เท่านั้น (กันเลขอ้างอิงที่ OCR ใส่จุดมั่ว ๆ)
+  if (!/^\d+(\.\d{2})$/.test(t)) return null;
+
+  // กันเลขยาวผิดปกติ (เช่น 0153460.12)
+  const digits = t.replace(/\D/g, "");
+  if (digits.length > 7) return null; // ✅ สำคัญ
+
+  const n = Number(t);
   if (!Number.isFinite(n)) return null;
-  if (n <= 0 || n >= 10_000_000) return null;
+  if (n <= 0) return null;
+
+  // กันหลุดเป็นหลักแสน/ล้าน
+  if (n > 500_000) return null;
+
   return n;
 }
 
+// =====================
+// 7) OCR AMOUNT (แก้ไม่ให้มั่ว)
+// =====================
 /**
- * ✅ OCR แบบ “ไม่มั่ว”
- * - หาเลขที่เป็นเงินรูปแบบ 500.00 / 1,234.00
- * - เลือกตัวที่ “อยู่ล่างสุด” ใน crop (โดย y มากสุด)
- * - กันหลงเลขใหญ่ ๆ ด้านบน
+ * ✅ OCR แบบ “กันเลขอ้างอิง”
+ * - รับเฉพาะเลขรูปแบบ 500.00 / 1,234.00
+ * - ตัด candidates ที่ digits > 7
+ * - เลือกตัวที่ “อยู่ล่าง + อยู่ขวา” (ตำแหน่งยอดเงินบนสลิป K+)
+ * - ตัด 0.00 ทิ้ง
  */
 async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
-  const img = sharp(buffer);
+  const img = sharp(buffer).rotate();
   const meta = await img.metadata();
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
   if (!w || !h) return null;
 
-  // โฟกัสช่วงล่าง (บรรทัดจำนวน/ค่าธรรมเนียมอยู่ล่าง)
+  // ✅ โฟกัสเฉพาะโซน “จำนวนเงิน” (ล่าง ๆ) และตัด QR ขวาออก
   const crops = [
     {
-      left: Math.floor(w * 0.05),
-      top: Math.floor(h * 0.68),
-      width: Math.floor(w * 0.72), // ตัด QR ขวา
-      height: Math.floor(h * 0.22),
+      left: Math.floor(w * 0.10),
+      top: Math.floor(h * 0.70),
+      width: Math.floor(w * 0.70),
+      height: Math.floor(h * 0.18),
     },
     {
+      // fallback กว้างขึ้นนิด
       left: Math.floor(w * 0.05),
-      top: Math.floor(h * 0.62),
-      width: Math.floor(w * 0.72),
+      top: Math.floor(h * 0.63),
+      width: Math.floor(w * 0.75),
       height: Math.floor(h * 0.30),
     },
   ];
@@ -225,7 +255,7 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
     const cropBuf = await img
       .clone()
       .extract(r)
-      .resize({ width: Math.max(1000, r.width * 2) })
+      .resize({ width: Math.max(1200, r.width * 2) })
       .grayscale()
       .normalize()
       .threshold(170)
@@ -237,28 +267,48 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 
     const words = (res?.data?.words || []) as Array<{
       text: string;
-      bbox: { x0: number; y0: number; x1: number; y1: number };
+      bbox?: { x0: number; y0: number; x1: number; y1: number };
     }>;
 
-    const candidates: { value: number; y: number; raw: string }[] = [];
+    // candidate: เงินทศนิยม 2 ตำแหน่งเท่านั้น
+    const candidates: Array<{
+      value: number;
+      x: number;
+      y: number;
+      raw: string;
+    }> = [];
 
     for (const ww of words) {
-      const t = (ww.text || "").trim();
+      const raw = (ww.text || "").trim();
 
-      // เงิน: 500.00 / 1,234.00
-      if (!/^\d{1,3}(?:,\d{3})*(?:[.,]\d{2})$/.test(t)) continue;
+      // รับเฉพาะรูปแบบที่มี .xx หรือ ,xxx.xx
+      if (!/^\d{1,3}(?:,\d{3})*(?:[.,]\d{2})$/.test(raw)) continue;
 
-      const value = parseMoney(t);
+      const value = parseMoneyStrictDecimal(raw);
       if (value === null) continue;
 
+      // ตัด 0.00 ออก
+      if (value <= 0) continue;
+
+      const x = ww.bbox?.x0 ?? 0;
       const y = ww.bbox?.y0 ?? 0;
-      candidates.push({ value, y, raw: t });
+
+      candidates.push({ value, x, y, raw });
     }
 
-    const positive = candidates.filter((c) => c.value > 0);
-    if (positive.length > 0) {
-      positive.sort((a, b) => b.y - a.y); // ✅ ล่างสุดก่อน
-      return positive[0].value;
+    if (candidates.length > 0) {
+      // ✅ เลือก “ล่าง + ขวา” เป็นหลัก
+      // score = y*0.7 + x*0.3 (ยิ่งมากยิ่งดี)
+      candidates.sort((a, b) => {
+        const sa = a.y * 0.7 + a.x * 0.3;
+        const sb = b.y * 0.7 + b.x * 0.3;
+        return sb - sa;
+      });
+
+      // กันเคส OCR เจอหลายตัว (เช่น 0.00, 500.00)
+      // เลือกตัวแรกที่ >= 1
+      const best = candidates.find((c) => c.value >= 1);
+      if (best) return best.value;
     }
   }
 
@@ -266,7 +316,7 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 }
 
 // =====================
-// 7) AMOUNT EXTRACT (EMV Tag54 -> OCR)
+// 8) AMOUNT EXTRACT (EMV Tag54 -> OCR)
 // =====================
 async function extractAmountFromReceipt(buffer: Buffer, qrText: string | null) {
   // 1) try EMV Tag54 เฉพาะ EMV payment QR จริงเท่านั้น
@@ -275,8 +325,12 @@ async function extractAmountFromReceipt(buffer: Buffer, qrText: string | null) {
     const amountStr = tlv["54"];
     if (amountStr) {
       const amount = Number(amountStr);
-      if (Number.isFinite(amount) && amount > 0) {
-        return { amount, method: "EMV_TAG_54" as const, amountDetected: true as const };
+      if (Number.isFinite(amount) && amount > 0 && amount < 1_000_000) {
+        return {
+          amount,
+          method: "EMV_TAG_54" as const,
+          amountDetected: true as const,
+        };
       }
     }
   }
@@ -291,7 +345,7 @@ async function extractAmountFromReceipt(buffer: Buffer, qrText: string | null) {
 }
 
 // =====================
-// 8) MAIN WEBHOOK
+// 9) MAIN WEBHOOK
 // =====================
 export async function POST(req: NextRequest) {
   let rawBody = "";
@@ -326,7 +380,11 @@ export async function POST(req: NextRequest) {
 
     // ✅ verify signature
     const signature = req.headers.get("x-line-signature") || "";
-    const okSig = verifyLineSignature(rawBody, adsSettings.adsLineChannelSecret, signature);
+    const okSig = verifyLineSignature(
+      rawBody,
+      adsSettings.adsLineChannelSecret,
+      signature
+    );
     if (!okSig) {
       console.warn("❌ LINE signature invalid");
       return NextResponse.json({ ok: true }, { status: 200 });
@@ -375,18 +433,32 @@ export async function POST(req: NextRequest) {
           `จำนวนเงิน: ฿${Number(existing.amount || 0).toLocaleString("th-TH")}`;
 
         if (replyToken) {
-          await replyLineMessage(replyToken, adsSettings.adsLineChannelAccessToken, msg);
+          await replyLineMessage(
+            replyToken,
+            adsSettings.adsLineChannelAccessToken,
+            msg
+          );
         } else if (adsSettings.lineTargetId) {
-          await pushLineMessage(adsSettings.lineTargetId, adsSettings.adsLineChannelAccessToken, msg);
+          await pushLineMessage(
+            adsSettings.lineTargetId,
+            adsSettings.adsLineChannelAccessToken,
+            msg
+          );
         }
         continue;
       }
 
-      // 5) save image file (optional แต่ช่วยให้ดูสลิปย้อนหลังได้)
+      // 5) save image file
       const receiptUrl = await saveToPublicUploads(imageBuf, ".jpg");
 
       // 6) extract amount
       const amountResult = await extractAmountFromReceipt(imageBuf, qrText);
+
+      // ✅ ถ้า OCR อ่านได้ “ใหญ่ผิดปกติ” ให้ mark ว่าไม่ชัวร์ (กันตัดสินใจผิด)
+      const suspicious =
+        amountResult.amountDetected &&
+        typeof amountResult.amount === "number" &&
+        amountResult.amount > 200_000;
 
       // 7) create adReceipt
       const receiptNumber = `ADS-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -397,7 +469,7 @@ export async function POST(req: NextRequest) {
           receiptNumber,
           platform: "META_ADS",
           paymentMethod: "QR_CODE",
-          amount: amountResult.amount ?? 0,
+          amount: suspicious ? 0 : (amountResult.amount ?? 0),
           currency: "THB",
           receiptUrl,
           qrCodeData: qrText,
@@ -405,17 +477,23 @@ export async function POST(req: NextRequest) {
           qrHash,
           isProcessed: false,
           paidAt: new Date(),
+          notes: suspicious
+            ? `Suspicious OCR amount: ${amountResult.amount} method=${amountResult.method}`
+            : undefined,
         },
       });
 
       // 8) reply
+      const shownAmount = suspicious ? 0 : Number(created.amount || 0);
+
       const msg =
         `✅ รับสลิปแล้ว!\n\n` +
         `เลขที่: ${created.receiptNumber}\n` +
-        `จำนวนเงิน: ฿${Number(created.amount || 0).toLocaleString("th-TH")}\n` +
+        `จำนวนเงิน: ฿${shownAmount.toLocaleString("th-TH")}\n` +
         `แพลตฟอร์ม: ${created.platform}\n\n` +
         `ดูสลิป: ${receiptUrl}\n` +
-        `วิธีตรวจ: ${amountResult.method}${amountResult.amountDetected ? "" : " (อ่านไม่ชัวร์)"}`;
+        `วิธีตรวจ: ${amountResult.method}` +
+        (suspicious ? "\n⚠️ ยอดที่อ่านได้ผิดปกติ ระบบตั้งเป็น 0 ให้ตรวจเอง" : "");
 
       if (replyToken) {
         await replyLineMessage(replyToken, adsSettings.adsLineChannelAccessToken, msg);

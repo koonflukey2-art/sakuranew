@@ -30,6 +30,7 @@ export async function GET(
     await stat(filePath);
 
     const stream = createReadStream(filePath);
+
     return new NextResponse(stream as any, {
       headers: {
         "Content-Type": contentTypeFromName(filename),

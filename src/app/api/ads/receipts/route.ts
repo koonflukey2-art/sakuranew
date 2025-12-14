@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -17,15 +17,11 @@ export async function GET(_request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
     const orgId = dbUser.organizationId;
 
-    // 1) ดึงรายการล่าสุด
     const receipts = await prisma.adReceipt.findMany({
       where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
@@ -43,30 +39,20 @@ export async function GET(_request: NextRequest) {
       },
     });
 
-    // 2) รวมยอดจาก DB (เร็ว/แม่นกว่า reduce ถ้าข้อมูลเยอะ)
     const agg = await prisma.adReceipt.aggregate({
       where: { organizationId: orgId },
       _sum: { amount: true },
     });
 
     const totalAmount = Number(agg._sum.amount ?? 0);
-
-    // totalProfit ถ้าจะทำจริงต้อง join ไป campaign/metrics (ตอนนี้คง 0 เหมือนเดิม)
     const totalProfit = 0;
 
     return NextResponse.json(
       { receipts, totalAmount, totalProfit },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
+      { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e: any) {
     console.error("[RECEIPTS][GET] error:", e?.message || e, e?.stack);
-    return NextResponse.json(
-      { error: e?.message || "Failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
   }
 }
