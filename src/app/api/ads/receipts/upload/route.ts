@@ -1,5 +1,3 @@
-// app/api/.../route.ts  (ไฟล์อัปโหลดสลิป Ads)
-// ✅ Node runtime (sharp/tesseract)
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
@@ -26,7 +24,7 @@ function guessExtFromMime(mime: string) {
 }
 
 function getUploadDir() {
-  // ✅ แนะนำให้ตั้งบน Render เป็น /opt/render/project/src/uploads
+  // ถ้าคุณมี route เสิร์ฟไฟล์แบบ /api/uploads/[filename] แล้วตั้ง UPLOAD_DIR ให้ตรงกัน
   return process.env.UPLOAD_DIR || join(process.cwd(), "uploads");
 }
 
@@ -50,7 +48,8 @@ async function getOcrWorker() {
       if (typeof w.setParameters === "function") {
         await w.setParameters({
           // ให้ OCR โฟกัสแค่ชุดตัวอักษรที่จำเป็น
-          tessedit_char_whitelist: "0123456789.,บาทจำนวน:Amount",
+          // (ภาษา eng อาจอ่านไทยไม่เป๊ะ แต่ตัวเลขจะอ่านดีขึ้น)
+          tessedit_char_whitelist: "0123456789.,:AmountamountTHBบาท",
         });
       }
 
@@ -117,13 +116,12 @@ export async function POST(request: NextRequest) {
 
     // decode QR ก่อน
     const qrText = await safeDecodeQr(buffer);
+    const qrHash = qrText ? sha256Hex(qrText) : null;
 
     console.log("[QR] length:", qrText?.length ?? 0);
-    console.log("[QR] head:", qrText ? qrText.slice(0, 30) : null);
-    console.log("[QR] tail:", qrText ? qrText.slice(-30) : null);
+    console.log("[QR] head:", qrText ? qrText.slice(0, 40) : null);
+    console.log("[QR] tail:", qrText ? qrText.slice(-40) : null);
     console.log("[QR] isValidEMV:", qrText ? isValidEmvCoPayload(qrText) : false);
-
-    const qrHash = qrText ? sha256Hex(qrText) : null;
 
     // ✅ กันสลิปซ้ำ: fileHash หรือ qrHash (ถ้ามี)
     const existing = await prisma.adReceipt.findFirst({
@@ -167,12 +165,19 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, buffer);
 
     // ✅ ถ้าคุณมี route เสิร์ฟไฟล์แบบ /api/uploads/[filename] ให้ใช้แบบนี้
-    // (ตรงกับไฟล์ server ที่คุณส่งมาก่อนหน้า)
+    // ถ้าคุณ serve จาก public/uploads ให้เปลี่ยนเป็น `/uploads/${filename}`
     const receiptUrl = `/api/uploads/${filename}`;
     console.log("[UPLOAD] saved:", receiptUrl);
 
-    // ✅ อ่านยอดเงิน: EMV Tag54 (เฉพาะ valid CRC) -> OCR
+    // ✅ อ่านยอดเงิน: EMV Tag54 (เฉพาะ valid EMV) + OCR เสมอ + กันเลขหลายหมื่น
     const result = await extractAmountFromReceipt(buffer, qrText);
+
+    console.log("[AMOUNT] detected:", {
+      amount: result.amount,
+      method: result.method,
+      amountDetected: result.amountDetected,
+      reason: result.reason,
+    });
 
     // Create receipt
     const receipt = await prisma.adReceipt.create({
@@ -221,20 +226,38 @@ async function extractAmountFromReceipt(
   method: "EMV_TAG_54" | "OCR" | "NONE";
   reason?: string;
 }> {
-  // ✅ 1) ใช้ Tag54 เฉพาะ EMVCo ที่ valid ด้วย CRC เท่านั้น
+  let emvAmount: number | null = null;
+
+  // 1) EMV Tag54 (เฉพาะ valid EMV จริง)
   if (qrText && isValidEmvCoPayload(qrText)) {
     const tlv = parseTlv2Len2(qrText);
     const amountStr = tlv["54"];
     if (amountStr && /^\d+(\.\d{2})?$/.test(amountStr)) {
-      const amount = Number(amountStr);
-      if (Number.isFinite(amount) && amount > 0 && amount < 1_000_000) {
-        return { amount, amountDetected: true, method: "EMV_TAG_54" };
-      }
+      const a = Number(amountStr);
+      if (Number.isFinite(a) && a > 0 && a < 1_000_000) emvAmount = a;
     }
   }
 
-  // ✅ 2) fallback OCR เสมอ
+  // 2) ทำ OCR เสมอ (กัน QR ตรวจสอบสลิป + กัน EMV/Tag54 เพี้ยน)
   const ocrAmount = await extractAmountByOcr(buffer);
+
+  // 3) ตัดสินใจ
+  if (emvAmount !== null && ocrAmount !== null) {
+    const big = Math.max(emvAmount, ocrAmount);
+    const small = Math.min(emvAmount, ocrAmount);
+
+    // ถ้าห่างกัน “ผิดปกติ” มาก (เช่น 500 vs 30000) => เลือกค่าที่เล็กกว่า
+    if (big >= small * 3) {
+      return { amount: small, amountDetected: true, method: "OCR" };
+    }
+
+    // ใกล้กัน => ใช้ EMV
+    return { amount: emvAmount, amountDetected: true, method: "EMV_TAG_54" };
+  }
+
+  if (emvAmount !== null) {
+    return { amount: emvAmount, amountDetected: true, method: "EMV_TAG_54" };
+  }
   if (ocrAmount !== null) {
     return { amount: ocrAmount, amountDetected: true, method: "OCR" };
   }
@@ -291,27 +314,35 @@ function parseTlv2Len2(payload: string): Record<string, string> {
   return out;
 }
 
-// --------------------- EMVCo validate (CRC) ---------------------
+// --------------------- EMVCo validate (เข้ม + CRC) ---------------------
 function isValidEmvCoPayload(payload: string): boolean {
   if (!payload) return false;
 
-  // EMVCo ต้องเป็นตัวเลขล้วน
+  // EMVCo ปกติเป็นตัวเลขล้วน และขึ้นต้นด้วย 000201
   if (!/^\d+$/.test(payload)) return false;
-
-  // ✅ ต้องขึ้นต้นด้วย "000201"
   if (!payload.startsWith("000201")) return false;
 
-  // ✅ ต้องลงท้ายด้วย "6304" + CRC 4 hex
-  // (payload เป็นตัวเลขล้วน => CRC ที่มี A-F จะทำให้ fail → ถูกต้อง เพราะไม่ใช่ EMV)
+  // ต้องมี CRC tag63 length04 อยู่ท้าย
   const m = payload.match(/6304([0-9A-Fa-f]{4})$/);
   if (!m) return false;
 
   const tlv = parseTlv2Len2(payload);
+
+  // tag จำเป็นของ EMVCo
   if (tlv["00"] !== "01") return false;
   if (!tlv["01"] || (tlv["01"] !== "11" && tlv["01"] !== "12")) return false;
-  if (!tlv["63"] || tlv["63"].length !== 4) return false;
 
-  const expected = tlv["63"].toUpperCase();
+  // ✅ กัน string มั่ว ๆ ผ่าน: QR ไทยควรมี currency 764 และประเทศ TH
+  if (tlv["53"] !== "764") return false;
+  if (tlv["58"] !== "TH") return false;
+
+  // ✅ merchant name (tag59) ควรมี
+  if (!tlv["59"] || tlv["59"].trim().length < 2) return false;
+
+  // CRC check (CCITT-FALSE)
+  const expected = (tlv["63"] || "").toUpperCase();
+  if (expected.length !== 4) return false;
+
   const withoutCrcValue = payload.slice(0, payload.length - 4);
   const computed = crc16ccittFalseAscii(withoutCrcValue).toUpperCase();
 
@@ -340,19 +371,19 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
   const h = meta.height ?? 0;
   if (!w || !h) return null;
 
-  // ✅ OCR 2 pass: โซน “จำนวนเงิน” ก่อน แล้วค่อย fallback
+  // OCR 2 pass: โซน “จำนวนเงิน” ก่อน แล้วค่อย fallback
   const crops = [
     {
-      left: Math.floor(w * 0.18),
-      top: Math.floor(h * 0.60),
-      width: Math.floor(w * 0.58),
-      height: Math.floor(h * 0.25),
+      left: Math.floor(w * 0.10),
+      top: Math.floor(h * 0.52),
+      width: Math.floor(w * 0.70), // ตัด QR ด้านขวาออก
+      height: Math.floor(h * 0.30),
     },
     {
       left: 0,
-      top: Math.floor(h * 0.50),
-      width: Math.floor(w * 0.78),
-      height: Math.floor(h * 0.50),
+      top: Math.floor(h * 0.45),
+      width: Math.floor(w * 0.80),
+      height: Math.floor(h * 0.55),
     },
   ];
 
@@ -362,10 +393,10 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
     const cropBuf = await img
       .clone()
       .extract(r)
-      .resize({ width: Math.max(700, r.width * 2) })
+      .resize({ width: Math.max(900, r.width * 2) })
       .grayscale()
       .normalize()
-      .threshold(170)
+      .threshold(175)
       .png()
       .toBuffer();
 
@@ -375,11 +406,14 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
     const rawText = String(res?.data?.text || "");
     const text = rawText.replace(/\s+/g, " ").trim();
 
-    console.log(`[OCR] pass ${pass + 1} text:`, text.slice(0, 220));
+    console.log(`[OCR] pass ${pass + 1} text:`, text.slice(0, 260));
 
+    // 1) ใกล้ label
     const byLabel =
-      pickMoneyNearLabel(text, ["จำนวน", "Amount"]) ??
+      pickMoneyNearLabel(text, ["จำนวนเงิน", "ยอดโอน", "ยอดชำระ", "Amount", "TOTAL", "Total"]) ??
+      // 2) ก่อนคำว่า บาท
       pickMoneyBeforeBaht(text) ??
+      // 3) heuristic ที่กัน Balance/คงเหลือ + ไม่เลือกเลขใหญ่สุด
       pickBestAmountFromText(text);
 
     if (byLabel !== null) {
@@ -394,6 +428,7 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 
 function normalizeNumberToken(token: string) {
   const t = token.trim();
+  // กรณี OCR อ่าน 500,00 -> 500.00
   if (/,(\d{2})$/.test(t) && !/\./.test(t)) return t.replace(",", ".");
   return t;
 }
@@ -407,6 +442,7 @@ function parseMoney(s: string): number | null {
 
 function pickMoneyNearLabel(text: string, labels: string[]): number | null {
   for (const label of labels) {
+    // เช่น "จำนวนเงิน: 500.00" / "Amount 500.00"
     const re = new RegExp(
       `${label}\\s*[:：]?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:[\\.,][0-9]{2})?)`,
       "i"
@@ -427,36 +463,39 @@ function pickMoneyBeforeBaht(text: string): number | null {
   return null;
 }
 
+// ✅ แก้หลัก ๆ: กัน “คงเหลือ/Balance” และ fallback เลือก “เลขที่เล็กสุด”
 function pickBestAmountFromText(text: string): number | null {
-  const tokens = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)([.,]\d{2})?/g)].map(
-    (m) => m[0]
-  );
+  const badContext = /(คงเหลือ|balance|available|ยอดคงเหลือ)/i;
+  const goodContext = /(จำนวนเงิน|ยอดโอน|ยอดชำระ|amount|total|รวม)/i;
 
-  const filtered = tokens
-    .map((s) => s.trim())
-    .filter((s) => s.replace(/[^\d]/g, "").length <= 7)
-    .filter((s) => {
-      const n = Number(normalizeNumberToken(s).replace(/,/g, ""));
-      if (!Number.isFinite(n)) return false;
-      if (n >= 2000 && n <= 2700) return false;
-      return true;
-    });
+  const lines = text
+    .split(/[\n\r]+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  if (filtered.length === 0) return null;
+  const candidates: number[] = [];
 
-  const decimals = filtered
-    .filter((s) => /[.,]\d{2}$/.test(s))
-    .map((s) => parseMoney(s))
-    .filter((n): n is number => n !== null)
-    .filter((n) => n > 0.01);
+  for (const line of lines) {
+    if (badContext.test(line)) continue;
 
-  if (decimals.length > 0) return Math.max(...decimals);
+    const ms = [...line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?)/g)].map(
+      (m) => m[1]
+    );
 
-  const ints = filtered
-    .filter((s) => !/[.,]\d{2}$/.test(s))
-    .map((s) => parseMoney(s))
-    .filter((n): n is number => n !== null);
+    for (const token of ms) {
+      const n = parseMoney(token);
+      if (n === null) continue;
 
-  if (ints.length === 0) return null;
-  return Math.max(...ints);
+      // ถ้าบรรทัดมี label ดี ให้คืนทันที
+      if (goodContext.test(line)) return n;
+
+      candidates.push(n);
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // fallback: เลือก “ค่าที่เล็กสุด” กันไปหยิบยอดคงเหลือ
+  candidates.sort((a, b) => a - b);
+  return candidates[0];
 }
