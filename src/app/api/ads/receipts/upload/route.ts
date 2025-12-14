@@ -24,12 +24,10 @@ function guessExtFromMime(mime: string) {
 }
 
 function getUploadDir() {
-  // ✅ แนะนำให้ตั้งบน Render เป็น /opt/render/project/src/uploads
   return process.env.UPLOAD_DIR || join(process.cwd(), "uploads");
 }
 
 // --------------------- OCR worker singleton ---------------------
-// ✅ ห้ามส่ง logger/errorHandler callback เข้า createWorker (กัน DataCloneError)
 let workerPromise: Promise<any> | null = null;
 
 async function getOcrWorker() {
@@ -40,14 +38,12 @@ async function getOcrWorker() {
 
       const w: any = await createWorker(); // ✅ no callbacks
 
-      // ✅ พยายามใช้ eng+tha ก่อน (อ่าน "จำนวน/บาท" ได้)
-      // ถ้าเครื่องคุณโหลดภาษาไทยไม่ได้ จะ fallback เป็น eng อัตโนมัติ
+      // eng+tha จะอ่านคำว่า "จำนวน/บาท" ได้ดีขึ้น
       let lang = "eng+tha";
       try {
         if (typeof w.loadLanguage === "function") await w.loadLanguage(lang);
         if (typeof w.initialize === "function") await w.initialize(lang);
-      } catch (e: any) {
-        console.warn("[OCR] cannot load eng+tha, fallback to eng:", e?.message || e);
+      } catch {
         lang = "eng";
         if (typeof w.loadLanguage === "function") await w.loadLanguage(lang);
         if (typeof w.initialize === "function") await w.initialize(lang);
@@ -73,8 +69,6 @@ async function getOcrWorker() {
 // --------------------- main handler ---------------------
 export async function POST(request: NextRequest) {
   try {
-    console.log("[UPLOAD] start");
-
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -102,41 +96,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    console.log("[UPLOAD] file:", { name: file.name, type: file.type, size: file.size });
-
     if (!file.type.startsWith("image/")) {
       return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
+      return NextResponse.json(
+        { error: "File too large (max 5MB)" },
+        { status: 400 }
+      );
     }
 
-    // อ่าน buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // hash กันซ้ำ (ทำก่อน save)
     const fileHash = sha256Hex(buffer);
 
     // decode QR ก่อน
     const qrText = await safeDecodeQr(buffer);
-    if (qrText) console.log("[QR] data:", qrText.slice(0, 40) + "...");
-
     const qrHash = qrText ? sha256Hex(qrText) : null;
 
-    // ✅ กันสลิปซ้ำ: fileHash หรือ qrHash (ถ้ามี)
+    // กันสลิปซ้ำ
     const existing = await prisma.adReceipt.findFirst({
       where: {
         organizationId: orgId,
         OR: [{ fileHash }, ...(qrHash ? [{ qrHash }] : [])],
       },
-      select: {
-        id: true,
-        receiptNumber: true,
-        amount: true,
-        receiptUrl: true,
-        createdAt: true,
-      },
+      select: { id: true, receiptNumber: true, amount: true, receiptUrl: true },
     });
 
     if (existing) {
@@ -150,27 +135,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure uploads dir
-    const uploadsDir = getUploadDir();
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
     // Save file
+    const uploadsDir = getUploadDir();
+    if (!existsSync(uploadsDir)) await mkdir(uploadsDir, { recursive: true });
+
     const safeExt = extname(file.name) || guessExtFromMime(file.type);
-    const filename = `receipt-${Date.now()}-${Math.floor(Math.random() * 1000)}${safeExt}`;
+    const filename = `receipt-${Date.now()}-${Math.floor(
+      Math.random() * 1000
+    )}${safeExt}`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
 
-    // ✅ เสิร์ฟผ่าน API route /api/uploads/[filename]
     const receiptUrl = `/api/uploads/${filename}`;
-    console.log("[UPLOAD] saved:", receiptUrl);
 
-    // ✅ อ่านยอดเงิน: Tag54 -> OCR robust
+    // ✅ อ่านยอดเงิน: EMV Tag54 เฉพาะ QR ที่เป็น EMV จริงเท่านั้น -> ไม่งั้น OCR
     const result = await extractAmountFromReceipt(buffer, qrText);
 
-    // Create receipt
     const receipt = await prisma.adReceipt.create({
       data: {
         organizationId: orgId,
@@ -194,13 +175,16 @@ export async function POST(request: NextRequest) {
       receipt,
       amount: result.amount ?? 0,
       amountDetected: result.amountDetected,
-      detectMethod: result.method, // "EMV_TAG_54" | "OCR" | "NONE"
+      detectMethod: result.method,
       needsManualAmount: !result.amountDetected,
       reason: result.amountDetected ? undefined : result.reason,
     });
   } catch (error: any) {
     console.error("[UPLOAD] error:", error);
-    return NextResponse.json({ error: error?.message || "Upload failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || "Upload failed" },
+      { status: 500 }
+    );
   }
 }
 
@@ -214,19 +198,23 @@ async function extractAmountFromReceipt(
   method: "EMV_TAG_54" | "OCR" | "NONE";
   reason?: string;
 }> {
-  // 1) try EMV Tag 54
-  if (qrText) {
+  // ✅ 1) ใช้ EMV Tag54 เฉพาะ QR แบบชำระเงินจริงเท่านั้น
+  if (qrText && isEmvCoPayload(qrText)) {
     const tlv = parseTlv2Len2(qrText);
     const amountStr = tlv["54"];
-    if (amountStr) {
+    if (amountStr && /^\d+(\.\d{2})?$/.test(amountStr)) {
       const amount = Number(amountStr);
-      if (Number.isFinite(amount) && amount > 0) {
+      // ✅ กันค่าหลุด ๆ
+      if (Number.isFinite(amount) && amount > 0 && amount < 1_000_000) {
         return { amount, amountDetected: true, method: "EMV_TAG_54" };
       }
     }
+  } else if (qrText) {
+    // QR บนสลิปตรวจสอบสลิปส่วนใหญ่ไม่ใช่ EMV → ข้าม Tag54
+    // console.log("[AMOUNT] QR is not EMV, skip Tag54");
   }
 
-  // 2) fallback OCR
+  // ✅ 2) fallback OCR
   const ocrAmount = await extractAmountByOcr(buffer);
   if (ocrAmount !== null) {
     return { amount: ocrAmount, amountDetected: true, method: "OCR" };
@@ -237,9 +225,19 @@ async function extractAmountFromReceipt(
     amountDetected: false,
     method: qrText ? "OCR" : "NONE",
     reason: qrText
-      ? "QR has no amount. OCR could not confidently read amount."
+      ? "QR is not EMV or has no amount. OCR could not confidently read amount."
       : "No QR detected and OCR could not read amount.",
   };
+}
+
+// ✅ EMVCo payload ต้องขึ้นต้น 000201 และมี tag สำคัญบางตัว
+function isEmvCoPayload(s: string) {
+  if (!s.startsWith("000201")) return false;
+  // มี tag 53 (currency) และ 58TH บ่อยมากใน QR ไทย
+  if (!s.includes("53")) return false;
+  if (!s.includes("58") && !s.includes("TH")) return false;
+  // และต้อง parse TLV ได้แบบมีรูปแบบเลขความยาว 2 หลัก
+  return /^\d+$/.test(s);
 }
 
 // --------------------- QR decode ---------------------
@@ -252,7 +250,11 @@ async function safeDecodeQr(buffer: Buffer): Promise<string | null> {
 }
 
 async function decodeQrFromImageBuffer(buffer: Buffer): Promise<string | null> {
-  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
   const code = jsQR(new Uint8ClampedArray(data), info.width, info.height);
   return code?.data ?? null;
 }
@@ -280,99 +282,60 @@ function parseTlv2Len2(payload: string): Record<string, string> {
   return out;
 }
 
-// --------------------- OCR amount (robust) ---------------------
+// --------------------- OCR amount (your existing logic) ---------------------
 async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
-  console.log("[OCR] start recognize...");
-
   const img = sharp(buffer);
   const meta = await img.metadata();
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
   if (!w || !h) return null;
 
-  // ✅ ตัดให้เหลือ “บรรทัดจำนวนเงิน” และตัด QR ด้านขวาทิ้ง
+  // โซนล่างซ้าย ตัด QR ขวาออก
   const crops = [
     {
-      name: "amount_row_tight",
       left: 0,
-      top: Math.floor(h * 0.73),
+      top: Math.floor(h * 0.70),
       width: Math.floor(w * 0.72),
-      height: Math.floor(h * 0.10),
+      height: Math.floor(h * 0.15),
     },
     {
-      name: "amount_row_wide",
       left: 0,
-      top: Math.floor(h * 0.68),
+      top: Math.floor(h * 0.58),
       width: Math.floor(w * 0.78),
-      height: Math.floor(h * 0.16),
-    },
-    {
-      name: "fallback_lower_left",
-      left: 0,
-      top: Math.floor(h * 0.55),
-      width: Math.floor(w * 0.78),
-      height: Math.floor(h * 0.45),
+      height: Math.floor(h * 0.40),
     },
   ];
 
-  const preprocessVariants: Array<{
-    name: string;
-    build: (b: Buffer) => Promise<Buffer>;
-  }> = [
-    {
-      name: "A_no_threshold",
-      build: async (src) =>
-        sharp(src)
-          .resize({ width: Math.max(900, Math.floor(w * 1.2)) })
-          .grayscale()
-          .normalize()
-          .png()
-          .toBuffer(),
-    },
-    {
-      name: "B_threshold",
-      build: async (src) =>
-        sharp(src)
-          .resize({ width: Math.max(900, Math.floor(w * 1.2)) })
-          .grayscale()
-          .normalize()
-          .threshold(165)
-          .png()
-          .toBuffer(),
-    },
-  ];
+  for (let pass = 0; pass < crops.length; pass++) {
+    const r = crops[pass];
 
-  for (const c of crops) {
-    const rawCrop = await img.clone().extract(c as any).png().toBuffer();
+    const cropBuf = await img
+      .clone()
+      .extract(r)
+      .resize({ width: Math.max(900, r.width * 2) })
+      .grayscale()
+      .normalize()
+      .threshold(165)
+      .png()
+      .toBuffer();
 
-    for (const pv of preprocessVariants) {
-      const cropBuf = await pv.build(rawCrop);
+    const worker = await getOcrWorker();
+    const res = await worker.recognize(cropBuf);
 
-      const worker = await getOcrWorker();
-      const res = await worker.recognize(cropBuf);
+    const rawText = String(res?.data?.text || "");
+    const text = rawText.replace(/\s+/g, " ").trim();
 
-      const rawText = String(res?.data?.text || "");
-      const text = rawText.replace(/\s+/g, " ").trim();
+    const byLabel =
+      pickMoneyNearLabel(text, ["จำนวน", "Amount"]) ??
+      pickMoneyBeforeBaht(text) ??
+      pickBestAmountFromText(text);
 
-      console.log(`[OCR] crop=${c.name} variant=${pv.name} text:`, text.slice(0, 220));
-
-      const amount =
-        pickMoneyNearLabel(text, ["จำนวน", "Amount"]) ??
-        pickMoneyBeforeBaht(text) ??
-        pickBestAmountFromTextRobust(text);
-
-      if (amount !== null) {
-        console.log(`[OCR] ✅ amount found (${c.name}/${pv.name}):`, amount);
-        return amount;
-      }
-    }
+    if (byLabel !== null) return byLabel;
   }
 
-  console.log("[OCR] ❌ no amount");
   return null;
 }
 
-// --------------------- OCR helpers ---------------------
 function normalizeNumberToken(token: string) {
   const t = token.trim();
   if (/,(\d{2})$/.test(t) && !/\./.test(t)) return t.replace(",", ".");
@@ -389,7 +352,7 @@ function parseMoney(s: string): number | null {
 function pickMoneyNearLabel(text: string, labels: string[]): number | null {
   for (const label of labels) {
     const re = new RegExp(
-      `${label}\\s*[:：]?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:[\\.,][0-9]{2})?|\\d+(?:[\\.,]\\d{2})?)`,
+      `${label}\\s*[:：]?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:[\\.,][0-9]{2})?)`,
       "i"
     );
     const m = text.match(re);
@@ -403,51 +366,42 @@ function pickMoneyNearLabel(text: string, labels: string[]): number | null {
 
 function pickMoneyBeforeBaht(text: string): number | null {
   const re =
-    /([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?|\d+(?:[.,]\d{2})?)\s*บาท/i;
+    /([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?)\s*บาท/i;
   const m = text.match(re);
   if (m?.[1]) return parseMoney(m[1]);
   return null;
 }
 
-/**
- * ✅ robust picker:
- * - ให้คะแนน “เลขที่ดูเหมือนเงิน” มากกว่า “เลขอ้างอิง”
- * - ถ้ามีทศนิยม 2 ตำแหน่ง → ให้ความสำคัญสูงสุด
- * - ถ้าเป็นเลขยาว ๆ (>=6 หลัก) และไม่มีทศนิยม → ลดคะแนน (มักเป็นเลขรายการ)
- */
-function pickBestAmountFromTextRobust(text: string): number | null {
-  const matches = [...text.matchAll(/\d[\d,]*(?:[.,]\d{2})?/g)].map((m) => m[0]);
+// ✅ เดิมคุณใช้ max(...) ทำให้หลุดไปเอาเลขใหญ่ได้ง่าย
+// ปรับให้ “ถ้ามีทศนิยม 2 ตำแหน่ง เลือกอันนั้นก่อน”
+function pickBestAmountFromText(text: string): number | null {
+  const tokens = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)([.,]\d{2})?/g)].map(
+    (m) => m[0]
+  );
 
-  const candidates = matches
+  const filtered = tokens
     .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => {
-      const digitsOnly = s.replace(/[^\d]/g, "");
-      const has2Dec = /[.,]\d{2}$/.test(s);
-      const n = parseMoney(s);
-      return n === null
-        ? null
-        : {
-            raw: s,
-            n,
-            digitsLen: digitsOnly.length,
-            has2Dec,
-          };
-    })
-    .filter((x): x is NonNullable<typeof x> => !!x)
-    .filter((x) => !(x.n >= 2000 && x.n <= 2700)); // กันปี
+    .filter((s) => s.replace(/[^\d]/g, "").length <= 7);
 
-  if (candidates.length === 0) return null;
+  if (filtered.length === 0) return null;
 
-  const scored = candidates.map((c) => {
-    let score = 0;
-    if (c.has2Dec) score += 10;
-    if (c.n > 0.01) score += 2;
-    if (c.digitsLen >= 8) score -= 6;
-    if (!c.has2Dec && c.digitsLen >= 6) score -= 3;
-    return { ...c, score };
-  });
+  const decimals = filtered
+    .filter((s) => /[.,]\d{2}$/.test(s))
+    .map((s) => parseMoney(s))
+    .filter((n): n is number => n !== null);
 
-  scored.sort((a, b) => (b.score - a.score) || (b.n - a.n));
-  return scored[0].n;
+  if (decimals.length > 0) {
+    // เลือกค่าที่ “สมเหตุสมผล” มากกว่า ไม่เอาเลขใหญ่สุดเสมอ
+    decimals.sort((a, b) => a - b);
+    return decimals[0]; // ✅ สำหรับสลิปยอดมักอยู่บรรทัดเดียว เลือกตัวแรกที่เจอได้ดี
+  }
+
+  const ints = filtered
+    .filter((s) => !/[.,]\d{2}$/.test(s))
+    .map((s) => parseMoney(s))
+    .filter((n): n is number => n !== null);
+
+  if (ints.length === 0) return null;
+  ints.sort((a, b) => a - b);
+  return ints[0];
 }
