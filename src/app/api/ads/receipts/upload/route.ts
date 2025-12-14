@@ -1,284 +1,124 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
-
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import { join, extname } from "path";
-import { createHash } from "crypto";
-
+import { prisma } from "@/lib/prisma";
 import sharp from "sharp";
 import jsQR from "jsqr";
+import { createHash } from "crypto";
 
 export const runtime = "nodejs";
 
-// --------------------- utils ---------------------
+// --------------------- helpers: hash ---------------------
 function sha256Hex(input: Buffer | string) {
   return createHash("sha256").update(input).digest("hex");
 }
 
-function guessExtFromMime(mime: string) {
-  if (mime === "image/png") return ".png";
-  if (mime === "image/webp") return ".webp";
-  return ".jpg";
+// --------------------- helpers: LINE download image ---------------------
+// ดึงรูปต้นฉบับจาก LINE Messaging API
+async function downloadLineMessageContent(
+  messageId: string,
+  channelAccessToken: string
+): Promise<Buffer> {
+  const res = await fetch(
+    `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+    {
+      headers: { Authorization: `Bearer ${channelAccessToken}` },
+    }
+  );
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`LINE content download failed: ${res.status} ${t}`);
+  }
+
+  const arr = await res.arrayBuffer();
+  return Buffer.from(arr);
 }
 
-// --------------------- OCR worker singleton ---------------------
-// ✅ ไม่ส่ง callback เข้า createWorker กัน DataCloneError
-let workerPromise: Promise<any> | null = null;
-
-async function getOcrWorker() {
-  if (!workerPromise) {
-    workerPromise = (async () => {
-      const mod: any = await import("tesseract.js");
-      const createWorker: any = mod.createWorker;
-
-      const w: any = await createWorker();
-
-      // ✅ พยายามใช้ THA+ENG ก่อน (อ่าน "บาท/จำนวน" ได้)
-      // ถ้าโหลดภาษาไทยไม่ได้ จะ fallback เป็น ENG
-      const tryLangs = ["tha+eng", "eng"];
-      let initialized = false;
-
-      for (const lang of tryLangs) {
-        try {
-          if (typeof w.loadLanguage === "function") await w.loadLanguage(lang);
-          if (typeof w.initialize === "function") await w.initialize(lang);
-          if (typeof w.reinitialize === "function") await w.reinitialize(lang);
-
-          if (typeof w.setParameters === "function") {
-            await w.setParameters({
-              // โหมดอ่านข้อความเป็นบล็อก
-              tessedit_pageseg_mode: "6",
-              // อย่า whitelist แคบเกินไป ไม่งั้นไทยหาย
-              preserve_interword_spaces: "1",
-            });
-          }
-
-          initialized = true;
-          console.log("[OCR] initialized lang =", lang);
-          break;
-        } catch (e) {
-          console.warn("[OCR] init failed for lang =", lang);
-        }
-      }
-
-      if (!initialized) {
-        console.warn("[OCR] cannot init any language");
-      }
-
-      return w;
-    })();
-  }
-  return workerPromise;
+// --------------------- helpers: LINE push/reply ---------------------
+async function replyLineMessage(
+  replyToken: string,
+  channelAccessToken: string,
+  text: string
+) {
+  await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${channelAccessToken}`,
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ type: "text", text }],
+    }),
+  }).catch(() => {});
 }
 
-// --------------------- main handler ---------------------
-export async function POST(request: NextRequest) {
-  try {
-    console.log("[UPLOAD] start");
-
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const dbUser = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-      select: { organizationId: true },
-    });
-
-    if (!dbUser?.organizationId) {
-      return NextResponse.json(
-        { error: "Organization not found for this user" },
-        { status: 404 }
-      );
-    }
-    const orgId = dbUser.organizationId;
-
-    const formData = await request.formData();
-    const file = formData.get("receipt") as File | null;
-    const platform = (formData.get("platform") as string) || "META_ADS";
-    const campaignId = (formData.get("campaignId") as string) || null;
-
-    // ✅ เผื่อแก้ OCR แล้วอยากให้ “รูปเดิม” OCR ใหม่
-    const forceReprocess =
-      (formData.get("forceReprocess") as string) === "1" ||
-      (formData.get("forceReprocess") as string) === "true";
-
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
-
-    console.log("[UPLOAD] file:", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
-
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File too large (max 5MB)" },
-        { status: 400 }
-      );
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const fileHash = sha256Hex(buffer);
-
-    // decode QR
-    const qrText = await safeDecodeQr(buffer);
-    if (qrText) console.log("[QR] data:", qrText.slice(0, 40) + "...");
-    const qrHash = qrText ? sha256Hex(qrText) : null;
-
-    // ✅ กันสลิปซ้ำ (แต่ถ้า forceReprocess ให้ข้าม)
-    if (!forceReprocess) {
-      const existing = await prisma.adReceipt.findFirst({
-        where: {
-          organizationId: orgId,
-          OR: [{ fileHash }, ...(qrHash ? [{ qrHash }] : [])],
-        },
-        select: {
-          id: true,
-          receiptNumber: true,
-          amount: true,
-          receiptUrl: true,
-          createdAt: true,
-        },
-      });
-
-      if (existing) {
-        return NextResponse.json(
-          {
-            error: "DUPLICATE_RECEIPT",
-            message: `สลิปนี้เคยอัพโหลดแล้ว (${existing.receiptNumber})`,
-            existing,
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    // Ensure uploads dir
-    const uploadsDir = join(process.cwd(), "public", "uploads");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Save file
-    const safeExt = extname(file.name) || guessExtFromMime(file.type);
-    const filename = `receipt-${Date.now()}-${Math.floor(
-      Math.random() * 1000
-    )}${safeExt}`;
-    const filepath = join(uploadsDir, filename);
-
-    await writeFile(filepath, buffer);
-
-    const receiptUrl = `/uploads/${filename}`;
-    console.log("[UPLOAD] saved:", receiptUrl);
-
-    // ✅ อ่านยอดเงิน: พยายาม Tag54 -> OCR (OCR เราแก้ให้จับ 500 ได้)
-    const result = await extractAmountFromReceipt(buffer, qrText);
-
-    const receipt = await prisma.adReceipt.create({
-      data: {
-        organizationId: orgId,
-        campaignId,
-        receiptNumber: `RCP-${Date.now()}`,
-        platform,
-        paymentMethod: "QR_CODE",
-        amount: result.amount ?? 0,
-        currency: "THB",
-        receiptUrl,
-        qrCodeData: qrText,
-        fileHash,
-        qrHash,
-        isProcessed: false,
-        paidAt: new Date(),
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      receipt,
-      amount: result.amount ?? 0,
-      amountDetected: result.amountDetected,
-      detectMethod: result.method, // "EMV_TAG_54" | "OCR" | "NONE"
-      needsManualAmount: !result.amountDetected,
-      reason: result.amountDetected ? undefined : result.reason,
-    });
-  } catch (error: any) {
-    console.error("[UPLOAD] error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Upload failed" },
-      { status: 500 }
-    );
-  }
+async function pushLineMessage(
+  to: string,
+  channelAccessToken: string,
+  text: string
+) {
+  await fetch("https://api.line.me/v2/bot/message/push", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${channelAccessToken}`,
+    },
+    body: JSON.stringify({
+      to,
+      messages: [{ type: "text", text }],
+    }),
+  }).catch(() => {});
 }
 
-// --------------------- amount extraction ---------------------
-async function extractAmountFromReceipt(
-  buffer: Buffer,
-  qrText: string | null
-): Promise<{
-  amount: number | null;
-  amountDetected: boolean;
-  method: "EMV_TAG_54" | "OCR" | "NONE";
-  reason?: string;
-}> {
-  // 1) try EMV Tag 54 (แต่หลายสลิป Tag54 ไม่มี amount หรือเป็น 0)
-  if (qrText) {
-    const tlv = parseTlv2Len2(qrText);
-    const amountStr = tlv["54"];
-    if (amountStr) {
-      const amount = Number(amountStr);
-      if (Number.isFinite(amount) && amount > 0) {
-        // ✅ กันกรณี Tag54 อ่านได้เป็นเลขแปลกๆ ใหญ่ผิดปกติ
-        if (amount > 0 && amount <= 500_000) {
-          return { amount, amountDetected: true, method: "EMV_TAG_54" };
-        }
-      }
-    }
-  }
+// --------------------- helpers: org + settings ---------------------
+async function getActiveOrgFromSystemSettings() {
+  const s = await prisma.systemSettings.findFirst({
+    select: { organizationId: true },
+  });
+  return s?.organizationId || null;
+}
 
-  // 2) fallback OCR
-  const ocrAmount = await extractAmountByOcr(buffer);
-  if (ocrAmount !== null) {
-    return { amount: ocrAmount, amountDetected: true, method: "OCR" };
-  }
+async function getAdsLineSettings(organizationId: string) {
+  // ✅ สำคัญ: ต้อง select ฟิลด์ adsLine... ให้ครบ ไม่งั้น TS จะฟ้องว่าไม่มี property
+  const s = await prisma.systemSettings.findUnique({
+    where: { organizationId },
+    select: {
+      organizationId: true,
+      adsLineChannelAccessToken: true,
+      adsLineChannelSecret: true,
+      adsLineNotifyToken: true,
+      adsLineWebhookUrl: true,
+      lineTargetId: true, // เผื่อคุณใช้ targetId เดิมหรือ bind แยกเอง
+    },
+  });
 
-  return {
-    amount: null,
-    amountDetected: false,
-    method: qrText ? "OCR" : "NONE",
-    reason: qrText
-      ? "QR has no usable amount. OCR could not confidently read amount."
-      : "No QR detected and OCR could not read amount.",
-  };
+  return s;
+}
+
+function pickTargetIdFromSource(source: any): string | null {
+  if (!source) return null;
+  if (source.type === "group" && source.groupId) return source.groupId;
+  if (source.type === "room" && source.roomId) return source.roomId;
+  if (source.type === "user" && source.userId) return source.userId;
+  return null;
 }
 
 // --------------------- QR decode ---------------------
-async function safeDecodeQr(buffer: Buffer): Promise<string | null> {
-  try {
-    return await decodeQrFromImageBuffer(buffer);
-  } catch {
-    return null;
-  }
-}
-
 async function decodeQrFromImageBuffer(buffer: Buffer): Promise<string | null> {
+  // ✅ rotate() แก้ EXIF orientation จากรูปที่ส่งมาจากมือถือ/LINE
   const { data, info } = await sharp(buffer)
+    .rotate()
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
   const code = jsQR(new Uint8ClampedArray(data), info.width, info.height);
   return code?.data ?? null;
+}
+
+function isPromptPayEmvPayload(qrText: string) {
+  // PromptPay EMV มักขึ้นต้น 000201
+  return typeof qrText === "string" && qrText.startsWith("000201");
 }
 
 /**
@@ -301,97 +141,52 @@ function parseTlv2Len2(payload: string): Record<string, string> {
     out[tag] = payload.slice(start, end);
     i = end;
   }
+
   return out;
 }
 
-// --------------------- OCR (สำคัญที่สุด) ---------------------
-async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
-  console.log("[OCR] start recognize...");
+// --------------------- OCR worker (tha+eng) ---------------------
+let workerPromise: Promise<any> | null = null;
 
-  const img = sharp(buffer);
-  const meta = await img.metadata();
-  const w = meta.width ?? 0;
-  const h = meta.height ?? 0;
-  if (!w || !h) return null;
+async function getOcrWorker() {
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      const mod: any = await import("tesseract.js");
+      const createWorker: any = mod.createWorker;
 
-  // ✅ ทำหลาย crop แบบ “แคบมาก” ตัดเลขอ้างอิงยาวๆ ทิ้ง
-  // จากรูป K+ ของคุณ ยอด 500.00 อยู่ช่วงกลางล่าง
-  const crops = [
-    // โซนแคบเฉพาะ “500.00 บาท”
-    {
-      left: Math.floor(w * 0.30),
-      top: Math.floor(h * 0.64),
-      width: Math.floor(w * 0.45),
-      height: Math.floor(h * 0.16),
-    },
-    // โซนกว้างขึ้น (ตัด QR ขวา)
-    {
-      left: Math.floor(w * 0.12),
-      top: Math.floor(h * 0.58),
-      width: Math.floor(w * 0.66),
-      height: Math.floor(h * 0.28),
-    },
-    // fallback ล่างซ้าย
-    {
-      left: 0,
-      top: Math.floor(h * 0.55),
-      width: Math.floor(w * 0.78),
-      height: Math.floor(h * 0.45),
-    },
-  ];
+      const w: any = await createWorker();
 
-  // ✅ แต่ละ crop ทำ 2 variant: (A) ไม่ threshold (กันจุดทศนิยมหาย) (B) threshold (คม)
-  for (let pass = 0; pass < crops.length; pass++) {
-    const r = crops[pass];
+      // try Thai+Eng first
+      const tryLangs = ["tha+eng", "eng"];
+      for (const lang of tryLangs) {
+        try {
+          if (typeof w.loadLanguage === "function") await w.loadLanguage(lang);
+          if (typeof w.initialize === "function") await w.initialize(lang);
+          if (typeof w.reinitialize === "function") await w.reinitialize(lang);
 
-    const variants: Buffer[] = [];
+          if (typeof w.setParameters === "function") {
+            await w.setParameters({
+              tessedit_pageseg_mode: "6",
+              preserve_interword_spaces: "1",
+            });
+          }
 
-    const base = img.clone().extract(r).resize({ width: Math.max(900, r.width * 2) });
-
-    variants.push(
-      await base.clone().grayscale().normalize().png().toBuffer()
-    );
-
-    variants.push(
-      await base
-        .clone()
-        .grayscale()
-        .normalize()
-        .threshold(170)
-        .png()
-        .toBuffer()
-    );
-
-    for (let v = 0; v < variants.length; v++) {
-      const worker = await getOcrWorker();
-      const res = await worker.recognize(variants[v]);
-
-      const rawText = String(res?.data?.text || "");
-      const text = rawText.replace(/\s+/g, " ").trim();
-
-      console.log(`[OCR] crop ${pass + 1}.${v + 1} text:`, text.slice(0, 220));
-
-      // ✅ โฟกัส: หาตัวเลขแบบ 2 ตำแหน่งก่อน
-      const amount =
-        pickMoneyByKeywords(text) ??
-        pickMoneyBeforeBahtOrTHB(text) ??
-        pickBestDecimalAmount(text) ??
-        pickBestIntegerAmount(text);
-
-      if (amount !== null) {
-        console.log(`[OCR] amount(crop ${pass + 1}.${v + 1}):`, amount);
-        return amount;
+          console.log("[OCR] initialized =", lang);
+          break;
+        } catch {
+          console.warn("[OCR] init failed =", lang);
+        }
       }
-    }
-  }
 
-  console.log("[OCR] no amount");
-  return null;
+      return w;
+    })();
+  }
+  return workerPromise;
 }
 
+// --------------------- amount extraction ---------------------
 function normalizeNumberToken(token: string) {
   const t = token.trim();
-  // 500,00 -> 500.00
   if (/,(\d{2})$/.test(t) && !/\./.test(t)) return t.replace(",", ".");
   return t;
 }
@@ -399,29 +194,20 @@ function normalizeNumberToken(token: string) {
 function parseMoney(s: string): number | null {
   const n = Number(normalizeNumberToken(s).replace(/,/g, ""));
   if (!Number.isFinite(n)) return null;
-
-  // ✅ กันเลขหลุด (เลขอ้างอิง/เลขบัญชี)
+  // ✅ กันเลขอ้างอิง/เลขรายการยาวๆ หลุดมาเป็นหลายหมื่น/แสน
   if (n <= 0 || n > 500_000) return null;
   return n;
 }
 
-// ✅ ถ้าอ่านภาษาไทยได้ จะเจอ "จำนวน" / "Amount" / "รวม"
 function pickMoneyByKeywords(text: string): number | null {
-  const patterns = [
-    /(?:จำนวน|Amount|รวม|Total)\s*[:：]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?)/i,
-  ];
-  for (const re of patterns) {
-    const m = text.match(re);
-    if (m?.[1]) {
-      const n = parseMoney(m[1]);
-      if (n !== null) return n;
-    }
-  }
+  const re =
+    /(?:จำนวน|Amount|รวม|Total)\s*[:：]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?)/i;
+  const m = text.match(re);
+  if (m?.[1]) return parseMoney(m[1]);
   return null;
 }
 
-// ✅ เผื่อจับได้คำว่า “บาท” หรือ “THB”
-function pickMoneyBeforeBahtOrTHB(text: string): number | null {
+function pickMoneyBeforeBaht(text: string): number | null {
   const re =
     /([0-9]{1,3}(?:,[0-9]{3})*(?:[.,][0-9]{2})?)\s*(?:บาท|THB)/i;
   const m = text.match(re);
@@ -429,8 +215,7 @@ function pickMoneyBeforeBahtOrTHB(text: string): number | null {
   return null;
 }
 
-// ✅ ถ้าข้อความมีหลายเลข ให้เลือก “ทศนิยม 2 ตำแหน่ง” ที่มีค่ามากสุด (ตัด 0.00 ทิ้ง)
-function pickBestDecimalAmount(text: string): number | null {
+function pickBestDecimal(text: string): number | null {
   const matches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)[.,]\d{2}/g)].map(
     (m) => m[0]
   );
@@ -440,25 +225,191 @@ function pickBestDecimalAmount(text: string): number | null {
     .filter((n): n is number => n !== null)
     .filter((n) => n > 0.01);
 
-  if (nums.length === 0) return null;
-
-  // ✅ ของคุณ 500.00 จะชนะ fee 0.00
+  if (!nums.length) return null;
   return Math.max(...nums);
 }
 
-// ✅ fallback: integer (กรณีจุดทศนิยมหลุด)
-function pickBestIntegerAmount(text: string): number | null {
-  const tokens = [...text.matchAll(/\b(\d{1,6})\b/g)].map((m) => m[1]); // จำกัด 1-6 หลัก
+async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
+  const img = sharp(buffer).rotate();
+  const meta = await img.metadata();
+  const w = meta.width ?? 0;
+  const h = meta.height ?? 0;
+  if (!w || !h) return null;
 
-  const nums = tokens
-    .map((s) => parseMoney(s))
-    .filter((n): n is number => n !== null);
+  // ✅ crop แคบๆ ตัดเลขอ้างอิง + ตัด QR ขวา
+  const crops = [
+    { left: Math.floor(w * 0.30), top: Math.floor(h * 0.64), width: Math.floor(w * 0.45), height: Math.floor(h * 0.16) },
+    { left: Math.floor(w * 0.12), top: Math.floor(h * 0.58), width: Math.floor(w * 0.66), height: Math.floor(h * 0.28) },
+    { left: 0, top: Math.floor(h * 0.55), width: Math.floor(w * 0.78), height: Math.floor(h * 0.45) },
+  ];
 
-  if (nums.length === 0) return null;
+  for (let pass = 0; pass < crops.length; pass++) {
+    const r = crops[pass];
 
-  // ✅ เลือกค่าที่ “ดูมีเหตุผล” โดยให้ความสำคัญกับเลขที่ลงท้าย 00 บ่อยในสลิป
-  const ending00 = nums.filter((n) => Number.isInteger(n) && n % 100 === 0);
-  if (ending00.length) return Math.max(...ending00);
+    const base = img.clone().extract(r).resize({ width: Math.max(900, r.width * 2) });
 
-  return Math.max(...nums);
+    const variants: Buffer[] = [
+      await base.clone().grayscale().normalize().png().toBuffer(),
+      await base.clone().grayscale().normalize().threshold(170).png().toBuffer(),
+    ];
+
+    for (let v = 0; v < variants.length; v++) {
+      const worker = await getOcrWorker();
+      const res = await worker.recognize(variants[v]);
+
+      const raw = String(res?.data?.text || "");
+      const text = raw.replace(/\s+/g, " ").trim();
+
+      const amt =
+        pickMoneyByKeywords(text) ??
+        pickMoneyBeforeBaht(text) ??
+        pickBestDecimal(text);
+
+      if (amt !== null) return amt;
+    }
+  }
+
+  return null;
+}
+
+async function extractAmountFromReceipt(buffer: Buffer): Promise<{
+  amount: number | null;
+  method: "EMV_TAG_54" | "OCR" | "NONE";
+}> {
+  // 1) QR
+  const qrText = await decodeQrFromImageBuffer(buffer);
+
+  // ✅ ใช้ Tag54 เฉพาะกรณีเป็น EMV PromptPay จริง (ขึ้นต้น 000201)
+  if (qrText && isPromptPayEmvPayload(qrText)) {
+    const tlv = parseTlv2Len2(qrText);
+    const amountStr = tlv["54"];
+    if (amountStr) {
+      const amount = Number(amountStr);
+      if (Number.isFinite(amount) && amount > 0 && amount <= 500_000) {
+        return { amount, method: "EMV_TAG_54" };
+      }
+    }
+  }
+
+  // 2) OCR
+  const ocrAmount = await extractAmountByOcr(buffer);
+  if (ocrAmount !== null) return { amount: ocrAmount, method: "OCR" };
+
+  return { amount: null, method: "NONE" };
+}
+
+// --------------------- MAIN: LINE ADS webhook ---------------------
+export async function POST(req: NextRequest) {
+  let rawBody = "";
+  try {
+    rawBody = await req.text();
+
+    let data: any;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    if (!Array.isArray(data.events) || data.events.length === 0) {
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    const orgId = await getActiveOrgFromSystemSettings();
+    if (!orgId) return NextResponse.json({ ok: true }, { status: 200 });
+
+    const adsSettings = await getAdsLineSettings(orgId);
+    const token = adsSettings?.adsLineChannelAccessToken || "";
+    if (!token) return NextResponse.json({ ok: true }, { status: 200 });
+
+    for (const event of data.events) {
+      const replyToken = event.replyToken;
+      const targetId = pickTargetIdFromSource(event.source);
+
+      // รองรับ bind แบบเร็ว
+      if (event.type === "message" && event.message?.type === "text") {
+        const text = String(event.message.text || "").trim();
+        if (text.toLowerCase().startsWith("#bind")) {
+          if (targetId) {
+            await prisma.systemSettings.update({
+              where: { organizationId: orgId },
+              data: { lineTargetId: targetId },
+            });
+
+            const msg =
+              `✅ ผูกปลายทางรับสลิปโฆษณาแล้ว\n` +
+              `type: ${event.source?.type}\n` +
+              `targetId: ${targetId}`;
+
+            if (replyToken) await replyLineMessage(replyToken, token, msg);
+            else await pushLineMessage(targetId, token, msg);
+          }
+          continue;
+        }
+      }
+
+      // ✅ “รูป” เท่านั้นสำหรับสลิป
+      if (event.type !== "message" || event.message?.type !== "image") continue;
+
+      const messageId = event.message.id;
+      if (!messageId) continue;
+
+      // 1) download image bytes
+      const imgBuf = await downloadLineMessageContent(messageId, token);
+
+      // 2) กันซ้ำด้วย hash (รูปจาก LINE จะ hash ได้)
+      const fileHash = sha256Hex(imgBuf);
+
+      const dup = await prisma.adReceipt.findFirst({
+        where: { organizationId: orgId, fileHash },
+        select: { id: true, receiptNumber: true, amount: true },
+      });
+
+      if (dup) {
+        const dupMsg = `⚠️ สลิปนี้เคยบันทึกแล้ว (${dup.receiptNumber}) ยอด ฿${Number(
+          dup.amount
+        ).toLocaleString("th-TH")}`;
+        if (replyToken) await replyLineMessage(replyToken, token, dupMsg);
+        else if (targetId) await pushLineMessage(targetId, token, dupMsg);
+        continue;
+      }
+
+      // 3) extract amount (QR/ OCR แบบเดียวกับเว็บ)
+      const { amount, method } = await extractAmountFromReceipt(imgBuf);
+
+      const finalAmount = amount ?? 0;
+
+      // 4) save db
+      const receipt = await prisma.adReceipt.create({
+        data: {
+          organizationId: orgId,
+          receiptNumber: `ADS-${Date.now()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`,
+          platform: "META_ADS",
+          paymentMethod: "QR_CODE",
+          amount: finalAmount,
+          currency: "THB",
+          fileHash,
+          paidAt: new Date(),
+          isProcessed: false,
+        },
+        select: { receiptNumber: true, amount: true },
+      });
+
+      const msg =
+        `✅ รับสลิปแล้ว!\n\n` +
+        `เลขที่: ${receipt.receiptNumber}\n` +
+        `จำนวนเงิน: ฿${Number(receipt.amount).toLocaleString("th-TH")}\n` +
+        `method: ${method}`;
+
+      if (replyToken) await replyLineMessage(replyToken, token, msg);
+      else if (targetId) await pushLineMessage(targetId, token, msg);
+    }
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (err: any) {
+    console.error("LINE ADS WEBHOOK ERROR:", err?.message || err);
+    console.error("Raw body:", rawBody);
+    // LINE ต้องได้ 200 เสมอ
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
 }
