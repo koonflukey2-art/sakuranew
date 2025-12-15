@@ -15,7 +15,7 @@ interface ReceiptData {
   qrData: string;
   imageUrl: string;
   confidence: number;
-  extractionMethod: "QR_EMV" | "OCR" | "MOCK";
+  extractionMethod: "QR_EMV" | "OCR";
   metadata?: {
     date?: string;
     refNumber?: string;
