@@ -179,18 +179,20 @@ async function getOcrWorker() {
       // ✅ ห้ามส่ง logger callback เข้าไป (กัน DataCloneError)
       const w: any = await createWorker();
 
-      // อ่านตัวเลขเป็นหลัก
-      if (typeof w.loadLanguage === "function") await w.loadLanguage("eng");
-      if (typeof w.initialize === "function") await w.initialize("eng");
-      if (typeof w.reinitialize === "function") await w.reinitialize("eng");
+      // ✅ FIX: Use Thai+English for Thai receipts!
+      console.log("🔧 Initializing OCR with Thai+English support...");
+      if (typeof w.loadLanguage === "function") await w.loadLanguage("tha+eng");
+      if (typeof w.initialize === "function") await w.initialize("tha+eng");
+      if (typeof w.reinitialize === "function") await w.reinitialize("tha+eng");
 
+      // ✅ FIX: REMOVE character whitelist to allow reading Thai context words like "จำนวน", "บาท"
       if (typeof w.setParameters === "function") {
         await w.setParameters({
-          tessedit_char_whitelist: "0123456789.,",
           tessedit_pageseg_mode: "6",
           preserve_interword_spaces: "1",
         });
       }
+      console.log("✅ OCR worker ready with Thai+English");
 
       return w;
     })();
@@ -243,10 +245,15 @@ function pickBestByPosition(cands: OcrCandidate[]) {
 }
 
 async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
+  console.log("════════════════════════════════════════");
+  console.log("🔍 OCR AMOUNT EXTRACTION START");
+  console.log("════════════════════════════════════════");
+
   const img = sharp(buffer);
   const meta = await img.metadata();
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
+  console.log(`📐 Image dimensions: ${w}x${h}`);
   if (!w || !h) return null;
 
   // ✅ 3 crop: (1) เจาะจงบริเวณจำนวนเงิน (2) กว้างขึ้น (3) fallback กว้างสุดแต่ตัด QR
@@ -277,6 +284,7 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
   const worker = await getOcrWorker();
 
   for (let pass = 0; pass < crops.length; pass++) {
+    console.log(`\n📍 PASS ${pass + 1}/3 - Crop region:`, crops[pass]);
     const r = crops[pass];
 
     const cropBuf = await img
@@ -292,11 +300,24 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 
     const res = await worker.recognize(cropBuf);
 
+    // ✅ FIX: Get full text for Thai context matching
+    const fullText = String(res?.data?.text || "").replace(/\s+/g, " ").trim();
+    console.log(`📄 Full OCR text (first 300 chars):\n${fullText.slice(0, 300)}`);
+
+    // ✅ FIX: Try Thai context-based extraction FIRST
+    const contextAmount = extractAmountWithThaiContext(fullText);
+    if (contextAmount !== null) {
+      console.log(`✅ FOUND via Thai context: ฿${contextAmount.toLocaleString()}`);
+      console.log("════════════════════════════════════════\n");
+      return contextAmount;
+    }
+
     const words = (res?.data?.words || []) as Array<{
       text: string;
       bbox: { x0: number; y0: number; x1: number; y1: number };
     }>;
 
+    console.log(`🔢 Total words detected: ${words.length}`);
     const cands: OcrCandidate[] = [];
 
     for (const ww of words) {
@@ -304,13 +325,16 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
       if (!t) continue;
 
       // รองรับทั้งมี/ไม่มี comma และมี/ไม่มีทศนิยม 2 ตำแหน่ง
-      // แต่ “ให้คะแนนดีกว่า” ถ้ามีทศนิยม
+      // แต่ "ให้คะแนนดีกว่า" ถ้ามีทศนิยม
       const isMoneyish = /^\d{1,3}(?:,\d{3})*(?:[.,]\d{2})?$/.test(t) || /^\d+(?:[.,]\d{2})?$/.test(t);
       if (!isMoneyish) continue;
 
       // กันเลขยาว ๆ (เลขรายการ/อ้างอิง)
       const digitLen = t.replace(/[^\d]/g, "").length;
-      if (digitLen >= 8) continue;
+      if (digitLen >= 8) {
+        console.log(`⏭️  Skipping long number (likely reference): ${t} (${digitLen} digits)`);
+        continue;
+      }
 
       const value = parseMoney(t);
       if (value === null) continue;
@@ -324,23 +348,69 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 
       const hasDecimal = /[.,]\d{2}$/.test(t);
 
+      console.log(`  💰 Candidate: ฿${value.toLocaleString()} (${t}) at (${x.toFixed(2)}, ${y.toFixed(2)}) decimal=${hasDecimal}`);
       cands.push({ value, x, y, raw: t, hasDecimal });
     }
 
-    // ✅ เลือกที่ “ตำแหน่งเหมือนยอดเงินจริง” มากสุด
+    console.log(`\n📊 Total candidates: ${cands.length}`);
+
+    // ✅ เลือกที่ "ตำแหน่งเหมือนยอดเงินจริง" มากสุด
     const best = pickBestByPosition(cands);
     if (best) {
-      console.log(`[OCR] pass ${pass + 1} best:`, best.value, best.raw, best.x, best.y);
+      console.log(`✅ BEST PICK: ฿${best.value.toLocaleString()} (${best.raw}) at position (${best.x.toFixed(2)}, ${best.y.toFixed(2)})`);
+      console.log("════════════════════════════════════════\n");
       return best.value;
     }
 
     // fallback text-based (กันหลุด)
-    const rawText = String(res?.data?.text || "").replace(/\s+/g, " ").trim();
-    console.log(`[OCR] pass ${pass + 1} text:`, rawText.slice(0, 160));
-    const m = rawText.match(/(\d{1,3}(?:,\d{3})*(?:[.,]\d{2}))/);
+    console.log(`⚠️ No candidates found, trying fallback regex...`);
+    const m = fullText.match(/(\d{1,3}(?:,\d{3})*(?:[.,]\d{2}))/);
     if (m?.[1]) {
       const n = parseMoney(m[1]);
-      if (n !== null) return n;
+      if (n !== null) {
+        console.log(`⚠️ FALLBACK: Found ฿${n.toLocaleString()} via regex`);
+        console.log("════════════════════════════════════════\n");
+        return n;
+      }
+    }
+  }
+
+  console.log("❌ NO AMOUNT FOUND in any pass");
+  console.log("════════════════════════════════════════\n");
+  return null;
+}
+
+/**
+ * ✅ NEW: Extract amount using Thai context words
+ * Priority patterns for Thai receipt formats
+ */
+function extractAmountWithThaiContext(text: string): number | null {
+  // Thai receipt patterns (in priority order)
+  const patterns = [
+    // "จำนวน" followed by number
+    /จำนวน[:\s]*([0-9,]+(?:\.[0-9]{2})?)\s*(?:บาท)?/i,
+    // "ยอดชำระ" followed by number
+    /ยอดชำระ[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,
+    // "จำนวนเงิน" followed by number
+    /จำนวนเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,
+    // "ชำระเงิน" followed by number
+    /ชำระเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,
+    // "ยอดรวม" followed by number
+    /ยอดรวม[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,
+    // Number followed by "บาท"
+    /([0-9,]+(?:\.[0-9]{2})?)\s*บาท/i,
+    // "THB" or "฿" with number
+    /(?:THB|฿)\s*([0-9,]+(?:\.[0-9]{2})?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const value = parseMoney(match[1]);
+      if (value !== null && value >= 100 && value < 100000) {
+        console.log(`  ✨ Thai context match: "${match[0]}" → ฿${value.toLocaleString()}`);
+        return value;
+      }
     }
   }
 
@@ -351,24 +421,48 @@ async function extractAmountByOcr(buffer: Buffer): Promise<number | null> {
 // 7) AMOUNT EXTRACT (EMV Tag54 -> OCR)
 // =====================
 async function extractAmountFromReceipt(buffer: Buffer, qrText: string | null) {
+  console.log("\n🎯 ═══════════════════════════════════════════");
+  console.log("🎯 RECEIPT AMOUNT EXTRACTION PIPELINE");
+  console.log("🎯 ═══════════════════════════════════════════");
+
   // 1) try EMV Tag54 เฉพาะ EMV payment QR จริงเท่านั้น
-  if (qrText && isEmvPaymentQr(qrText)) {
-    const tlv = parseTlv2Len2(qrText);
-    const amountStr = tlv["54"];
-    if (amountStr) {
-      const amount = Number(amountStr);
-      if (Number.isFinite(amount) && amount > 0) {
-        return { amount, method: "EMV_TAG_54" as const, amountDetected: true as const };
+  if (qrText) {
+    console.log("📱 QR Code found, checking if EMV PromptPay...");
+    if (isEmvPaymentQr(qrText)) {
+      console.log("✅ Valid EMV PromptPay QR detected");
+      const tlv = parseTlv2Len2(qrText);
+      console.log("🔍 EMV Tags found:", Object.keys(tlv).join(", "));
+      const amountStr = tlv["54"];
+      if (amountStr) {
+        const amount = Number(amountStr);
+        console.log(`💰 Tag 54 (amount): "${amountStr}" → ฿${amount.toLocaleString()}`);
+        if (Number.isFinite(amount) && amount > 0) {
+          console.log("✅ AMOUNT EXTRACTED via EMV Tag 54");
+          console.log("═══════════════════════════════════════════\n");
+          return { amount, method: "EMV_TAG_54" as const, amountDetected: true as const };
+        }
+      } else {
+        console.log("⚠️ Tag 54 not found in EMV payload");
       }
+    } else {
+      console.log("⚠️ QR is not EMV PromptPay format, skipping tag extraction");
+      console.log("   QR preview:", qrText.slice(0, 100));
     }
+  } else {
+    console.log("ℹ️ No QR code detected in image");
   }
 
   // 2) OCR
+  console.log("\n🔍 Falling back to OCR extraction...");
   const ocrAmount = await extractAmountByOcr(buffer);
   if (ocrAmount !== null) {
+    console.log("✅ AMOUNT EXTRACTED via OCR");
+    console.log("═══════════════════════════════════════════\n");
     return { amount: ocrAmount, method: "OCR" as const, amountDetected: true as const };
   }
 
+  console.log("❌ EXTRACTION FAILED - No amount found via QR or OCR");
+  console.log("═══════════════════════════════════════════\n");
   return { amount: null, method: "NONE" as const, amountDetected: false as const };
 }
 
