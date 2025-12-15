@@ -48,6 +48,10 @@ function pickTargetIdFromSource(source: any): string | null {
   return null;
 }
 
+function buildUnknownPhone() {
+  return `UNKNOWN-${Date.now()}`;
+}
+
 export async function POST(req: NextRequest) {
   let rawBody = "";
 
@@ -96,20 +100,10 @@ export async function POST(req: NextRequest) {
       console.log("📨 Processing event type: message");
       console.log("💬 Message text:", text);
 
-      // ✅ LOG SOURCE ให้เห็น groupId / roomId / userId ชัดๆ
-      console.log(
-        "🔎 event.source =",
-        JSON.stringify(event.source ?? null, null, 2)
-      );
-      console.log("🔎 source.type =", event.source?.type);
-      console.log("🔎 source.userId =", event.source?.userId);
-      console.log("🔎 source.groupId =", event.source?.groupId);
-      console.log("🔎 source.roomId =", event.source?.roomId);
-
       const detectedTargetId = pickTargetIdFromSource(event.source);
 
       // ==========================================================
-      // ✅ คำสั่ง #bind  (ผูกกลุ่ม/ห้อง/แชทนี้เป็นปลายทางส่งสรุปยอด)
+      // ✅ คำสั่ง #bind
       // ==========================================================
       if (text.toLowerCase().startsWith("#bind")) {
         if (!detectedTargetId) {
@@ -154,13 +148,13 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // ข้ามข้อความสรุปยอด (กัน parse ผิด)
+      // ข้ามข้อความสรุปยอด
       if (text.includes("ยอดตามทั้งหมด") || text.includes("จำนวนออเดอร์")) {
         console.log("📊 Summary message detected - skipping order creation");
         continue;
       }
 
-      // 1) แปลงข้อความจาก LINE → โครงสร้างออเดอร์
+      // 1) แปลงข้อความจาก LINE
       const parsed = parseLineMessage(text);
 
       if (!parsed) {
@@ -170,7 +164,7 @@ export async function POST(req: NextRequest) {
           await replyLineMessage(
             replyToken,
             systemSettings.lineChannelAccessToken,
-            "รูปแบบข้อความไม่ถูกต้อง\n\nตัวอย่างที่ถูกต้อง:\n1\nยอดเก็บ 390\n\nชื่อลูกค้า\nที่อยู่...\nเบอร์โทร\n\n3 (จำนวน)\n\nหรือพิมพ์ #bind ใน “กลุ่ม” เพื่อผูกกลุ่มรับสรุปยอด"
+            "รูปแบบข้อความไม่ถูกต้อง\n\nตัวอย่างที่ถูกต้อง:\n1\nยอดเก็บ 390\n\nชื่อลูกค้า ที่อยู่... 062-xxx-xxxx\n\n3"
           );
         }
 
@@ -192,28 +186,28 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const safeQuantity =
-        parsed.quantity && parsed.quantity > 0 ? parsed.quantity : 1;
-
+      const safeQuantity = parsed.quantity && parsed.quantity > 0 ? parsed.quantity : 1;
       const unitPrice =
-        parsed.unitPrice && parsed.unitPrice > 0
-          ? parsed.unitPrice
-          : parsed.amount / safeQuantity;
+        parsed.unitPrice && parsed.unitPrice > 0 ? parsed.unitPrice : parsed.amount / safeQuantity;
 
       // 2) ลูกค้า
-      const phone = parsed.phone?.trim() || "";
       const name = parsed.customerName?.trim() || "ลูกค้าไม่ระบุชื่อ";
       const address = parsed.address?.trim() || "";
 
-      let customer = phone
-        ? await prisma.customer.findFirst({ where: { organizationId, phone } })
+      // ✅ ใช้เฉพาะเบอร์ที่เป็น “เลขจริง”
+      const phoneDigits = (parsed.phone || "").replace(/\D/g, "");
+      const hasRealPhone = phoneDigits.startsWith("0") && (phoneDigits.length === 9 || phoneDigits.length === 10);
+      const phoneToSave = hasRealPhone ? phoneDigits : buildUnknownPhone();
+
+      let customer = hasRealPhone
+        ? await prisma.customer.findFirst({ where: { organizationId, phone: phoneDigits } })
         : null;
 
       if (!customer) {
         customer = await prisma.customer.create({
           data: {
             name,
-            phone: phone || "UNKNOWN",
+            phone: phoneToSave,
             address: address || null,
             organizationId,
           },
@@ -287,14 +281,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 7) notify admin (ถ้ายังใช้ notify)
+      // 7) notify admin
       if (systemSettings?.notifyOnOrder && systemSettings?.lineNotifyToken) {
         const notifyMessage =
           `🔔 ออเดอร์ใหม่!\n\n` +
           `📦 เลขที่: ${order.id.slice(0, 8).toUpperCase()}\n` +
-          `🛍️ สินค้า: ${
-            order.productName || `หมายเลข ${order.productType}`
-          }\n` +
+          `🛍️ สินค้า: ${order.productName || `หมายเลข ${order.productType}`}\n` +
           `📊 จำนวน: ${order.quantity} ชิ้น\n` +
           `💰 ยอดเงิน: ฿${order.amount.toLocaleString("th-TH")}\n` +
           `👤 ลูกค้า: ${customer.name}\n` +
