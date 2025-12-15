@@ -115,6 +115,36 @@ const calculateChange = (today: number, weekTotal: number) => {
   return ((today - baseline) / baseline) * 100;
 };
 
+/** ✅ Tooltip สีขาว (แก้ปัญหาตัวหนังสือดำทับ bg) */
+function DarkTooltip({
+  active,
+  payload,
+  label,
+  valueFormatter,
+}: {
+  active?: boolean;
+  payload?: any[];
+  label?: any;
+  valueFormatter?: (v: number) => string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const p = payload[0];
+  const name = p?.name ?? p?.payload?.name ?? label ?? "";
+  const value = Number(p?.value ?? p?.payload?.value ?? 0);
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 shadow-lg">
+      <div className="text-sm text-slate-100 font-semibold">
+        {String(name)}
+      </div>
+      <div className="text-sm text-slate-200 mt-1">
+        {valueFormatter ? valueFormatter(value) : formatCurrency(value)}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [budget, setBudget] = useState<Budget | null>(null);
@@ -165,9 +195,8 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
-  const lowStockCount = products.filter(
-    (p) => p.quantity < p.minStockLevel
-  ).length;
+  const lowStockCount = products.filter((p) => p.quantity < p.minStockLevel)
+    .length;
 
   const todayProfit = stats?.today?.profit ?? 0;
   const todayRevenue = stats?.today?.revenue ?? 0;
@@ -179,12 +208,12 @@ export default function DashboardPage() {
   const profitChange = calculateChange(todayProfit, weekProfit);
   const revenueChange = calculateChange(todayRevenue, weekRevenue);
   const ordersChange = calculateChange(todayOrders, stats?.week?.orders ?? 0);
-  const profitMargin =
-    todayRevenue > 0 ? (todayProfit / todayRevenue) * 100 : 0;
+  const profitMargin = todayRevenue > 0 ? (todayProfit / todayRevenue) * 100 : 0;
 
   const totalBudget = stats?.budget?.total ?? budget?.amount ?? 0;
   const remainingBudget = stats?.budget?.remaining ?? budget?.remaining ?? 0;
-  const spentBudget = stats?.budget?.used ?? Math.max(totalBudget - remainingBudget, 0);
+  const spentBudget =
+    stats?.budget?.used ?? Math.max(totalBudget - remainingBudget, 0);
   const roas = spentBudget > 0 ? todayRevenue / spentBudget : 0;
   const netProfitToday = todayProfit - spentBudget;
 
@@ -200,15 +229,9 @@ export default function DashboardPage() {
   }, [stats?.week?.daily]);
 
   const profitSparkline = chartData.slice(-7).map((d) => ({ value: d.profit }));
-  const revenueSparkline = chartData
-    .slice(-7)
-    .map((d) => ({ value: d.revenue }));
-  const ordersSparkline = chartData
-    .slice(-7)
-    .map((d) => ({ value: d.revenue }));
-  const budgetSparkline = chartData
-    .slice(-7)
-    .map((d) => ({ value: d.expense }));
+  const revenueSparkline = chartData.slice(-7).map((d) => ({ value: d.revenue }));
+  const ordersSparkline = chartData.slice(-7).map((d) => ({ value: d.revenue }));
+  const budgetSparkline = chartData.slice(-7).map((d) => ({ value: d.expense }));
 
   const pieData = Object.entries(stats?.today?.byType || {}).map(
     ([name, data]) => ({
@@ -240,7 +263,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* แถวบนสุด: มีแค่ปุ่มรีเฟรช + ไอคอน ดอกไม้ ชิดขวา */}
+      {/* แถวบนสุด */}
       <div className="flex justify-end">
         <div className="flex items-center gap-3">
           <Button
@@ -258,7 +281,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* การแจ้งเตือน – ขึ้นมาอยู่ด้านบนใต้ปุ่มรีเฟรช */}
+      {/* แจ้งเตือน */}
       {(lowStockCount > 0 ||
         (budget && remainingBudget <= (budget.minThreshold ?? 0))) && (
         <Card className="border border-yellow-500/40 bg-yellow-500/10">
@@ -300,30 +323,31 @@ export default function DashboardPage() {
                     </Button>
                   </Link>
                 )}
-                {budget &&
-                  remainingBudget <= (budget.minThreshold ?? 0) && (
-                    <Link href="/capital-budget">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-yellow-400 text-yellow-100"
-                      >
-                        จัดการงบ
-                      </Button>
-                    </Link>
-                  )}
+                {budget && remainingBudget <= (budget.minThreshold ?? 0) && (
+                  <Link href="/capital-budget">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-yellow-400 text-yellow-100"
+                    >
+                      จัดการงบ
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* การ์ด metric ด้านบน */}
+      {/* การ์ด metric */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
           title="กำไรสุทธิ (หลังหักงบ)"
           value={formatCurrency(netProfitToday)}
-          subtitle={`กำไรก่อนหักงบ ${formatCurrency(todayProfit)} • Margin ${profitMargin.toFixed(1)}%`}
+          subtitle={`กำไรก่อนหักงบ ${formatCurrency(todayProfit)} • Margin ${profitMargin.toFixed(
+            1
+          )}%`}
           change={profitChange}
           icon={<DollarSign className="w-5 h-5 text-green-300" />}
           tone="green"
@@ -350,11 +374,7 @@ export default function DashboardPage() {
         />
         <MetricCard
           title="งบ & ROAS"
-          value={
-            remainingBudget > 0
-              ? formatCurrency(remainingBudget)
-              : formatCurrency(0)
-          }
+          value={remainingBudget > 0 ? formatCurrency(remainingBudget) : formatCurrency(0)}
           subtitle={`ROAS ${roas.toFixed(2)}x`}
           icon={<Wallet className="w-5 h-5 text-indigo-200" />}
           tone="indigo"
@@ -406,20 +426,10 @@ export default function DashboardPage() {
                 <YAxis
                   stroke="#9CA3AF"
                   style={{ fontSize: "12px" }}
-                  tickFormatter={(value) =>
-                    `฿${(value / 1000).toFixed(0)}k`
-                  }
+                  tickFormatter={(value) => `฿${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0b1220",
-                    border: "1px solid #1f2937",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number, name: string) => [
-                    formatCurrency(value),
-                    name,
-                  ]}
+                  content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                 />
                 <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
                 <Line
@@ -449,7 +459,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* ยอดขายตามประเภท (วันนี้) */}
+        {/* ✅ ยอดขายตามประเภท (วันนี้) */}
         <Card className="premium-card">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -474,47 +484,38 @@ export default function DashboardPage() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {pieData.map((entry, index) => (
+                      {pieData.map((_, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={DONUT_COLORS[index % DONUT_COLORS.length]}
                         />
                       ))}
                     </Pie>
+
+                    {/* ✅ แก้ตรงนี้: ใช้ Custom Tooltip สีขาว */}
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0b1220",
-                        border: "1px solid #1f2937",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value: number) => formatCurrency(value)}
+                      content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                     />
                   </PieChart>
                 </ResponsiveContainer>
 
                 <ResponsiveContainer width="100%" height={140}>
-                  <BarChart
-                    data={pieData}
-                    layout="vertical"
-                    margin={{ left: 60 }}
-                  >
+                  <BarChart data={pieData} layout="vertical" margin={{ left: 60 }}>
                     <XAxis type="number" hide />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                      tick={{ fill: "#E5E7EB", fontSize: 12 }} // ✅ เพิ่มความสว่าง
                       width={80}
                     />
+
+                    {/* ✅ แก้ tooltip bar ด้วย */}
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0b1220",
-                        border: "1px solid #1f2937",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value: number) => formatCurrency(value)}
+                      content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                     />
+
                     <Bar dataKey="value" radius={[6, 6, 6, 6]}>
-                      {pieData.map((entry, index) => (
+                      {pieData.map((_, index) => (
                         <Cell
                           key={`bar-${index}`}
                           fill={DONUT_COLORS[index % DONUT_COLORS.length]}
@@ -526,14 +527,8 @@ export default function DashboardPage() {
 
                 <div className="space-y-2">
                   {pieData.map((entry, index) => {
-                    const total = pieData.reduce(
-                      (sum, item) => sum + item.value,
-                      0
-                    );
-                    const pct =
-                      total > 0
-                        ? ((entry.value / total) * 100).toFixed(1)
-                        : "0.0";
+                    const total = pieData.reduce((sum, item) => sum + item.value, 0);
+                    const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0.0";
                     return (
                       <div
                         key={entry.name}
@@ -543,19 +538,14 @@ export default function DashboardPage() {
                           <span
                             className="w-3 h-3 rounded-full"
                             style={{
-                              backgroundColor:
-                                DONUT_COLORS[index % DONUT_COLORS.length],
+                              backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length],
                             }}
                           />
                           <span className="text-gray-200">{entry.name}</span>
-                          <span className="text-gray-500">
-                            ({entry.count} ชิ้น)
-                          </span>
+                          <span className="text-gray-500">({entry.count} ชิ้น)</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-gray-400 text-xs">
-                            {pct}%
-                          </span>
+                          <span className="text-gray-400 text-xs">{pct}%</span>
                           <span className="font-semibold text-white min-w-[90px] text-right">
                             {formatCurrency(entry.value)}
                           </span>
@@ -574,7 +564,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* แถวล่าง: สรุป, ออเดอร์, ผลตอบแทน */}
+      {/* แถวล่าง */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="premium-card">
           <CardHeader className="pb-4">
@@ -584,27 +574,15 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <StatRow
-              label="รายได้รวม"
-              value={formatCurrency(todayRevenue)}
-              tone="green"
-            />
-            <StatRow
-              label="กำไรสุทธิ"
-              value={formatCurrency(todayProfit)}
-              tone="blue"
-            />
+            <StatRow label="รายได้รวม" value={formatCurrency(todayRevenue)} tone="green" />
+            <StatRow label="กำไรสุทธิ" value={formatCurrency(todayProfit)} tone="blue" />
             <StatRow
               label="ค่าใช้จ่าย"
               value={formatCurrency(stats?.today.expense ?? 0)}
               tone="red"
             />
             <div className="border-t border-white/5 pt-4">
-              <StatRow
-                label="จำนวนออเดอร์"
-                value={`${todayOrders} รายการ`}
-                tone="purple"
-              />
+              <StatRow label="จำนวนออเดอร์" value={`${todayOrders} รายการ`} tone="purple" />
             </div>
           </CardContent>
         </Card>
@@ -698,31 +676,15 @@ export default function DashboardPage() {
             </div>
             <div className="h-28">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={budgetSparkline}
-                  margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
-                >
+                <AreaChart data={budgetSparkline} margin={{ top: 10 }}>
                   <defs>
                     <linearGradient id="budgetGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="#8B5CF6"
-                        stopOpacity={0.35}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="#8B5CF6"
-                        stopOpacity={0}
-                      />
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0b1220",
-                      border: "1px solid #1f2937",
-                      borderRadius: "8px",
-                    }}
-                    formatter={(value: number) => formatCurrency(value)}
+                    content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                   />
                   <Area
                     type="monotone"
@@ -820,22 +782,11 @@ function MetricCard({
         <div className="mt-3 -mb-2 h-12">
           <ResponsiveContainer width="100%" height="100%">
             {variant === "area" ? (
-              <AreaChart
-                data={sparkline}
-                margin={{ top: 0, left: 0, right: 0, bottom: 0 }}
-              >
+              <AreaChart data={sparkline}>
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="#60a5fa"
-                      stopOpacity={0.35}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#60a5fa"
-                      stopOpacity={0}
-                    />
+                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Area
@@ -847,14 +798,11 @@ function MetricCard({
                 />
               </AreaChart>
             ) : (
-              <LineChart
-                data={sparkline}
-                margin={{ top: 0, left: 0, right: 0, bottom: 0 }}
-              >
+              <LineChart data={sparkline}>
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="currentColor"
+                  stroke="#E5E7EB"
                   strokeWidth={2}
                   dot={false}
                 />
@@ -867,15 +815,7 @@ function MetricCard({
   );
 }
 
-function StatRow({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: StatTone;
-}) {
+function StatRow({ label, value, tone }: { label: string; value: string; tone: StatTone }) {
   const tones: Record<StatTone, string> = {
     green: "text-green-300",
     blue: "text-blue-300",
@@ -891,15 +831,7 @@ function StatRow({
   );
 }
 
-function SmallBadge({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: BadgeTone;
-}) {
+function SmallBadge({ label, value, tone }: { label: string; value: string; tone: BadgeTone }) {
   const backgrounds: Record<BadgeTone, string> = {
     indigo: "from-indigo-500/20 to-indigo-500/5",
     red: "from-red-500/20 to-red-500/5",
@@ -908,9 +840,7 @@ function SmallBadge({
   };
 
   return (
-    <div
-      className={`rounded-lg border border-white/5 bg-gradient-to-br ${backgrounds[tone]} p-3`}
-    >
+    <div className={`rounded-lg border border-white/5 bg-gradient-to-br ${backgrounds[tone]} p-3`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="text-lg font-semibold text-white">{value}</p>
     </div>
