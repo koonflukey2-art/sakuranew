@@ -217,7 +217,9 @@ export default function PromotionsPage() {
         </CardHeader>
         <CardContent>
           {activePromotions.length === 0 ? (
-            <p className="text-center text-gray-400 py-6">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</p>
+            <p className="text-center text-gray-400 py-6">
+              ยังไม่มีโปรโมชั่นที่เปิดใช้งาน
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePromotions.map((promotion) => {
@@ -249,23 +251,33 @@ export default function PromotionsPage() {
                       <div className="grid grid-cols-2 gap-3 text-sm text-gray-300">
                         <div className="flex items-center justify-between">
                           <span>ซื้อ</span>
-                          <span className="text-white font-semibold">{promotion.buyQuantity} ชิ้น</span>
+                          <span className="text-white font-semibold">
+                            {promotion.buyQuantity} ชิ้น
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>แถม</span>
-                          <span className="text-white font-semibold">{promotion.freeQuantity} ชิ้น</span>
+                          <span className="text-white font-semibold">
+                            {promotion.freeQuantity} ชิ้น
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>ต้นทุนเดิม</span>
-                          <span className="line-through">฿{product?.costPrice.toFixed(2)}</span>
+                          <span className="line-through">
+                            ฿{product?.costPrice.toFixed(2)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>ต้นทุนจริง</span>
-                          <span className="text-green-400 font-semibold">฿{effectiveCost.toFixed(2)}</span>
+                          <span className="text-green-400 font-semibold">
+                            ฿{effectiveCost.toFixed(2)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between col-span-2">
                           <span>ประหยัดต่อชิ้น</span>
-                          <span className="text-green-300">฿{savings.toFixed(2)}</span>
+                          <span className="text-green-300">
+                            ฿{savings.toFixed(2)}
+                          </span>
                         </div>
                       </div>
 
@@ -312,7 +324,8 @@ export default function PromotionsPage() {
                     <div>
                       <p className="font-semibold text-white">{promotion.name}</p>
                       <p className="text-sm text-gray-400">
-                        {product?.name} - ซื้อ {promotion.buyQuantity} แถม {promotion.freeQuantity}
+                        {product?.name} - ซื้อ {promotion.buyQuantity} แถม{" "}
+                        {promotion.freeQuantity}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -333,6 +346,7 @@ export default function PromotionsPage() {
         </Card>
       )}
 
+      {/* ✅ Create Dialog */}
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -341,14 +355,28 @@ export default function PromotionsPage() {
           <div className="space-y-4">
             <div>
               <Label>เลือกสินค้า</Label>
+
+              {/* ✅ FIX: select/option ไม่ให้เป็นตัวหนังสือดำทับพื้นดำ */}
               <select
-                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                className="w-full h-10 px-3 rounded-md bg-slate-900 text-slate-100 border border-slate-700
+                           focus:outline-none focus:ring-2 focus:ring-purple-500/60 focus:border-purple-500"
                 value={form.productId}
                 onChange={(e) => setForm({ ...form, productId: e.target.value })}
               >
-                <option value="">-- เลือกสินค้า --</option>
+                <option
+                  value=""
+                  disabled
+                  className="bg-slate-900 text-slate-100"
+                >
+                  -- เลือกสินค้า --
+                </option>
+
                 {products.map((product) => (
-                  <option key={product.id} value={product.id}>
+                  <option
+                    key={product.id}
+                    value={product.id}
+                    className="bg-slate-900 text-slate-100"
+                  >
                     {product.name} (ต้นทุน: ฿{product.costPrice})
                   </option>
                 ))}
@@ -381,7 +409,10 @@ export default function PromotionsPage() {
                   min={1}
                   value={form.buyQuantity}
                   onChange={(e) =>
-                    setForm({ ...form, buyQuantity: parseInt(e.target.value, 10) })
+                    setForm({
+                      ...form,
+                      buyQuantity: parseInt(e.target.value, 10),
+                    })
                   }
                 />
               </div>
@@ -392,7 +423,10 @@ export default function PromotionsPage() {
                   min={1}
                   value={form.freeQuantity}
                   onChange={(e) =>
-                    setForm({ ...form, freeQuantity: parseInt(e.target.value, 10) })
+                    setForm({
+                      ...form,
+                      freeQuantity: parseInt(e.target.value, 10),
+                    })
                   }
                 />
               </div>
@@ -402,7 +436,9 @@ export default function PromotionsPage() {
               <Label>เปิดใช้งานทันที</Label>
               <Switch
                 checked={form.isActive}
-                onCheckedChange={(checked) => setForm({ ...form, isActive: checked })}
+                onCheckedChange={(checked) =>
+                  setForm({ ...form, isActive: checked })
+                }
               />
             </div>
 
@@ -417,7 +453,8 @@ export default function PromotionsPage() {
                     if (!product) return null;
                     const totalUnits = form.buyQuantity + form.freeQuantity;
                     const totalCost = product.costPrice * form.buyQuantity;
-                    const effectiveCost = totalUnits > 0 ? totalCost / totalUnits : product.costPrice;
+                    const effectiveCost =
+                      totalUnits > 0 ? totalCost / totalUnits : product.costPrice;
                     const savings = product.costPrice - effectiveCost;
 
                     return (
@@ -452,6 +489,7 @@ export default function PromotionsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -491,7 +529,10 @@ export default function PromotionsPage() {
                   min={1}
                   value={form.buyQuantity}
                   onChange={(e) =>
-                    setForm({ ...form, buyQuantity: parseInt(e.target.value, 10) })
+                    setForm({
+                      ...form,
+                      buyQuantity: parseInt(e.target.value, 10),
+                    })
                   }
                 />
               </div>
@@ -502,7 +543,10 @@ export default function PromotionsPage() {
                   min={1}
                   value={form.freeQuantity}
                   onChange={(e) =>
-                    setForm({ ...form, freeQuantity: parseInt(e.target.value, 10) })
+                    setForm({
+                      ...form,
+                      freeQuantity: parseInt(e.target.value, 10),
+                    })
                   }
                 />
               </div>
@@ -512,7 +556,9 @@ export default function PromotionsPage() {
               <Label>เปิดใช้งาน</Label>
               <Switch
                 checked={form.isActive}
-                onCheckedChange={(checked) => setForm({ ...form, isActive: checked })}
+                onCheckedChange={(checked) =>
+                  setForm({ ...form, isActive: checked })
+                }
               />
             </div>
           </div>

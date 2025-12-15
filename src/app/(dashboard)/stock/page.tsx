@@ -24,6 +24,54 @@ import {
   Cell,
 } from "recharts";
 
+/** ✅ Tooltip สีขาว (แก้ปัญหาตัวหนังสือดำทับ bg) */
+function DarkTooltip({
+  active,
+  payload,
+  label,
+  formatter,
+}: {
+  active?: boolean;
+  payload?: any[];
+  label?: any;
+  formatter?: (value: number, name?: string) => string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 shadow-lg">
+      {label !== undefined && label !== null && (
+        <div className="text-sm font-semibold text-slate-100">
+          {String(label)}
+        </div>
+      )}
+
+      <div className="mt-1 space-y-1">
+        {payload.map((p, idx) => {
+          const name = p?.name ?? p?.dataKey ?? "";
+          const value = Number(p?.value ?? 0);
+          const color = p?.color ?? "#E5E7EB";
+
+          return (
+            <div key={idx} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-sm text-slate-200">{String(name)}</span>
+              </div>
+              <span className="text-sm font-semibold text-white">
+                {formatter ? formatter(value, name) : value.toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function StockPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -37,10 +85,13 @@ export default function StockPage() {
     const interval = setInterval(fetchData, 30000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
+
       const [productsRes, ordersRes, budgetRes] = await Promise.all([
         fetch("/api/products"),
         fetch("/api/orders"),
@@ -136,9 +187,7 @@ export default function StockPage() {
           variant="outline"
           className="border-purple-400 text-purple-200"
         >
-          <RefreshCw
-            className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           รีเฟรช
         </Button>
       </div>
@@ -216,7 +265,7 @@ export default function StockPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>ออเดอร์แยกตามประเภทสินค้า</CardTitle>
+            <CardTitle className="text-white">ออเดอร์แยกตามประเภทสินค้า</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -226,18 +275,28 @@ export default function StockPage() {
                     strokeDasharray="3 3"
                     stroke="rgba(255,255,255,0.1)"
                   />
-                  <XAxis dataKey="name" stroke="#9ca3af" />
-                  <YAxis stroke="#9ca3af" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                    }}
+                  <XAxis
+                    dataKey="name"
+                    stroke="#9ca3af"
+                    tick={{ fill: "#E5E7EB" }} // ✅ ชื่อแกน X ให้สว่าง
                   />
-                  {/* ✅ ใช้สีเดียวกับ COLORS / PieChart */}
+                  <YAxis
+                    stroke="#9ca3af"
+                    tick={{ fill: "#E5E7EB" }} // ✅ แกน Y ให้สว่าง
+                  />
+                  <Tooltip
+                    content={
+                      <DarkTooltip
+                        formatter={(v, name) =>
+                          name === "orders"
+                            ? `${v.toLocaleString()} ออเดอร์`
+                            : v.toLocaleString()
+                        }
+                      />
+                    }
+                  />
                   <Bar dataKey="orders" radius={[8, 8, 0, 0]}>
-                    {ordersByType.map((entry, index) => (
+                    {ordersByType.map((_, index) => (
                       <Cell
                         key={`bar-cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
@@ -252,7 +311,7 @@ export default function StockPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>รายได้แยกตามประเภทสินค้า</CardTitle>
+            <CardTitle className="text-white">รายได้แยกตามประเภทสินค้า</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -265,21 +324,38 @@ export default function StockPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label
+                    label={(props: any) => {
+                      // ✅ ทำ label ให้เป็นสีอ่อน (กันสีดำทับ bg)
+                      const { x, y, name } = props;
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="#E5E7EB"
+                          textAnchor={x > 0 ? "start" : "end"}
+                          dominantBaseline="central"
+                          fontSize={12}
+                        >
+                          {name}
+                        </text>
+                      );
+                    }}
+                    labelLine={{ stroke: "rgba(255,255,255,0.25)" }} // ✅ เส้น label ให้สว่าง
                   >
-                    {ordersByType.map((entry, index) => (
+                    {ordersByType.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
                       />
                     ))}
                   </Pie>
+
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                    }}
+                    content={
+                      <DarkTooltip
+                        formatter={(v) => `฿${Number(v).toLocaleString()}`}
+                      />
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -291,7 +367,7 @@ export default function StockPage() {
       {/* Products List */}
       <Card>
         <CardHeader>
-          <CardTitle>รายการสินค้าในสต็อก</CardTitle>
+          <CardTitle className="text-white">รายการสินค้าในสต็อก</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

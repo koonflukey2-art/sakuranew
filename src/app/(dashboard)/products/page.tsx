@@ -217,7 +217,9 @@ export default function ProductsPage() {
               >
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between mb-2">
-                    <Badge className="bg-purple-500">ประเภท {type.typeNumber}</Badge>
+                    <Badge className="bg-purple-500">
+                      ประเภท {type.typeNumber}
+                    </Badge>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -268,8 +270,11 @@ export default function ProductsPage() {
                   <div>
                     <p className="font-semibold text-white">{product.name}</p>
                     <p className="text-sm text-gray-400">
-                      หมวดหมู่: {product.category || "-"} | ประเภท: {product.productType}
-                      {product.productTypeName ? ` - ${product.productTypeName}` : ""}
+                      หมวดหมู่: {product.category || "-"} | ประเภท:{" "}
+                      {product.productType}
+                      {product.productTypeName
+                        ? ` - ${product.productTypeName}`
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -320,7 +325,9 @@ export default function ProductsPage() {
               <Label>ชื่อสินค้า</Label>
               <Input
                 value={newProduct.name}
-                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, name: e.target.value })
+                }
                 placeholder="เช่น: ครีมนวด Premium"
               />
             </div>
@@ -329,23 +336,43 @@ export default function ProductsPage() {
               <Label>หมวดหมู่</Label>
               <Input
                 value={newProduct.category}
-                onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, category: e.target.value })
+                }
                 placeholder="เช่น: สกินแคร์"
               />
             </div>
 
             <div>
               <Label>รหัสประเภทสินค้า (สำหรับ LINE)</Label>
+
+              {/* ✅ FIX: select/option ให้ตัวอักษรไม่เป็นสีดำทับพื้นดำ */}
               <select
-                className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                className="w-full h-10 px-3 rounded-md bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/60 focus:border-purple-500"
                 value={newProduct.productType}
-                onChange={(e) => setNewProduct({ ...newProduct, productType: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    productType: parseInt(e.target.value),
+                  })
+                }
+                disabled={productTypes.length === 0}
               >
-                {productTypes.map((type) => (
-                  <option key={type.id} value={type.typeNumber}>
-                    {type.typeNumber} - {type.typeName}
+                {productTypes.length === 0 ? (
+                  <option className="bg-slate-900 text-slate-100" value={1}>
+                    ยังไม่มีประเภทสินค้า (เพิ่มก่อน)
                   </option>
-                ))}
+                ) : (
+                  productTypes.map((type) => (
+                    <option
+                      key={type.id}
+                      value={type.typeNumber}
+                      className="bg-slate-900 text-slate-100"
+                    >
+                      {type.typeNumber} - {type.typeName}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -355,7 +382,12 @@ export default function ProductsPage() {
                 <Input
                   type="number"
                   value={newProduct.costPrice}
-                  onChange={(e) => setNewProduct({ ...newProduct, costPrice: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      costPrice: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -363,7 +395,12 @@ export default function ProductsPage() {
                 <Input
                   type="number"
                   value={newProduct.quantity}
-                  onChange={(e) => setNewProduct({ ...newProduct, quantity: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      quantity: parseInt(e.target.value),
+                    })
+                  }
                 />
               </div>
             </div>
@@ -373,7 +410,12 @@ export default function ProductsPage() {
               <Input
                 type="number"
                 value={newProduct.minStockLevel}
-                onChange={(e) => setNewProduct({ ...newProduct, minStockLevel: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    minStockLevel: parseInt(e.target.value),
+                  })
+                }
               />
             </div>
           </div>
@@ -398,14 +440,21 @@ export default function ProductsPage() {
                       <Input
                         type="number"
                         value={newType.typeNumber}
-                        onChange={(e) => setNewType({ ...newType, typeNumber: parseInt(e.target.value) })}
+                        onChange={(e) =>
+                          setNewType({
+                            ...newType,
+                            typeNumber: parseInt(e.target.value),
+                          })
+                        }
                       />
                     </div>
                     <div>
                       <Label>ชื่อประเภท</Label>
                       <Input
                         value={newType.typeName}
-                        onChange={(e) => setNewType({ ...newType, typeName: e.target.value })}
+                        onChange={(e) =>
+                          setNewType({ ...newType, typeName: e.target.value })
+                        }
                         placeholder="เช่น: ครีมนวด"
                       />
                     </div>
@@ -495,7 +544,10 @@ export default function ProductsPage() {
                 <Input
                   value={editingProduct.name}
                   onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, name: e.target.value })
+                    setEditingProduct({
+                      ...editingProduct,
+                      name: e.target.value,
+                    })
                   }
                 />
               </div>
@@ -505,7 +557,10 @@ export default function ProductsPage() {
                 <Input
                   value={editingProduct.category || ""}
                   onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, category: e.target.value })
+                    setEditingProduct({
+                      ...editingProduct,
+                      category: e.target.value,
+                    })
                   }
                 />
               </div>

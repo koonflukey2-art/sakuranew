@@ -356,7 +356,10 @@ export default function OrdersPage() {
       address: parsed.address || "",
     }));
 
-    toast({ title: "✅ แปลงสำเร็จ", description: "เติมข้อมูลให้แล้ว ตรวจสอบก่อนบันทึก" });
+    toast({
+      title: "✅ แปลงสำเร็จ",
+      description: "เติมข้อมูลให้แล้ว ตรวจสอบก่อนบันทึก",
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -670,7 +673,9 @@ export default function OrdersPage() {
                 variant="outline"
                 className="border-slate-500 text-slate-100"
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
               >
                 ถัดไป
               </Button>
@@ -691,16 +696,20 @@ export default function OrdersPage() {
               <Label>วางข้อความจาก LINE (ถ้ามี)</Label>
               <Textarea
                 value={createForm.rawMessage}
-                onChange={(e) => setCreateForm((p) => ({ ...p, rawMessage: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((p) => ({ ...p, rawMessage: e.target.value }))
+                }
                 placeholder={`ตัวอย่าง:\n2\nยอดเก็บ390\nประนอมอินสุภา 79 หมู่ 8 ... 062-223-6733\n3`}
                 rows={4}
               />
+
               <div className="flex justify-end mt-2">
+                {/* ✅ FIX: ปุ่มแปลงข้อความให้อ่านชัด ไม่กลืนกับกรอบ */}
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleParseFromLineText}
-                  className="border-purple-400 text-purple-100"
+                  className="bg-purple-500/15 border-purple-400/60 text-purple-100 hover:bg-purple-500/25 hover:border-purple-300 active:bg-purple-500/30"
                 >
                   <Wand2 className="w-4 h-4 mr-2" />
                   แปลงข้อความ
@@ -713,7 +722,9 @@ export default function OrdersPage() {
                 <Label>ประเภทสินค้า</Label>
                 <Select
                   value={createForm.productType}
-                  onValueChange={(v) => setCreateForm((p) => ({ ...p, productType: v }))}
+                  onValueChange={(v) =>
+                    setCreateForm((p) => ({ ...p, productType: v }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -731,7 +742,12 @@ export default function OrdersPage() {
                 <Label>ชื่อสินค้า (ไม่ใส่ก็ได้)</Label>
                 <Input
                   value={createForm.productName}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, productName: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({
+                      ...p,
+                      productName: e.target.value,
+                    }))
+                  }
                   placeholder="เช่น สบู่, ครีม..."
                 />
               </div>
@@ -743,7 +759,9 @@ export default function OrdersPage() {
                 <Input
                   type="number"
                   value={createForm.amount}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, amount: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, amount: e.target.value }))
+                  }
                   placeholder="390"
                 />
               </div>
@@ -752,7 +770,9 @@ export default function OrdersPage() {
                 <Input
                   type="number"
                   value={createForm.quantity}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, quantity: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, quantity: e.target.value }))
+                  }
                   placeholder="1"
                 />
               </div>
@@ -763,7 +783,12 @@ export default function OrdersPage() {
                 <Label>ชื่อลูกค้า</Label>
                 <Input
                   value={createForm.customerName}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, customerName: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({
+                      ...p,
+                      customerName: e.target.value,
+                    }))
+                  }
                   placeholder="ชื่อลูกค้า"
                 />
               </div>
@@ -771,7 +796,9 @@ export default function OrdersPage() {
                 <Label>เบอร์โทร</Label>
                 <Input
                   value={createForm.phone}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, phone: e.target.value }))
+                  }
                   placeholder="062-xxx-xxxx"
                 />
               </div>
@@ -781,7 +808,9 @@ export default function OrdersPage() {
               <Label>ที่อยู่</Label>
               <Textarea
                 value={createForm.address}
-                onChange={(e) => setCreateForm((p) => ({ ...p, address: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((p) => ({ ...p, address: e.target.value }))
+                }
                 placeholder="ที่อยู่จัดส่ง"
                 rows={2}
               />
@@ -793,7 +822,10 @@ export default function OrdersPage() {
                 <Select
                   value={createForm.status}
                   onValueChange={(v) =>
-                    setCreateForm((p) => ({ ...p, status: v as CreateForm["status"] }))
+                    setCreateForm((p) => ({
+                      ...p,
+                      status: v as CreateForm["status"],
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -812,7 +844,9 @@ export default function OrdersPage() {
                 <Label>หมายเหตุ</Label>
                 <Input
                   value={createForm.notes}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, notes: e.target.value }))
+                  }
                   placeholder="หมายเหตุ (ถ้ามี)"
                 />
               </div>
@@ -842,14 +876,16 @@ export default function OrdersPage() {
         open={confirmCreateOpen}
         onOpenChange={setConfirmCreateOpen}
         title="ยืนยันการเพิ่มออเดอร์"
-        description={`คุณแน่ใจหรือไม่ที่จะเพิ่มออเดอร์ "${createForm.customerName || "-"}"?`}
+        description={`คุณแน่ใจหรือไม่ที่จะเพิ่มออเดอร์ "${
+          createForm.customerName || "-"
+        }"?`}
         onConfirm={handleCreateOrder}
         confirmText="ยืนยัน"
         cancelText="ยกเลิก"
         loading={submitting}
       />
 
-      {/* Edit Dialog (ADMIN Only) */}
+      {/* Edit Dialog / Confirm Edit / Confirm Delete (เหมือนเดิมของคุณ) */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -987,7 +1023,6 @@ export default function OrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Edit Dialog */}
       <ConfirmDialog
         open={confirmEditOpen}
         onOpenChange={setConfirmEditOpen}
@@ -999,7 +1034,6 @@ export default function OrdersPage() {
         loading={submitting}
       />
 
-      {/* Confirm Delete Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
