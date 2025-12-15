@@ -33,7 +33,12 @@ import {
   ShoppingCart,
   RefreshCw,
   Trash2,
+  Plus,
+  Wand2,
 } from "lucide-react";
+
+// ✅ ใช้ parser ตัวเดิมของคุณ (ที่แก้ phone/address แล้ว)
+import { parseLineMessage } from "@/lib/line-parser";
 
 interface Order {
   id: string;
@@ -57,6 +62,32 @@ const ITEMS_PER_PAGE = 10;
 // key สำหรับช่วงเวลา
 type DateRangeKey = "3d" | "7d" | "1m" | "3m" | "1y" | "ALL";
 
+type CreateForm = {
+  productType: string; // เก็บเป็น string เพื่อ bind กับ Select/Input ง่าย
+  productName: string;
+  amount: string;
+  quantity: string;
+  customerName: string;
+  phone: string;
+  address: string;
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  notes: string;
+  rawMessage: string; // วางข้อความ LINE ได้
+};
+
+const DEFAULT_FORM: CreateForm = {
+  productType: "1",
+  productName: "",
+  amount: "",
+  quantity: "1",
+  customerName: "",
+  phone: "",
+  address: "",
+  status: "COMPLETED",
+  notes: "",
+  rawMessage: "",
+};
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +107,11 @@ export default function OrdersPage() {
   const [userRole, setUserRole] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+
+  // ✅ เพิ่ม: create dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateForm>(DEFAULT_FORM);
 
   const { toast } = useToast();
 
@@ -140,7 +176,6 @@ export default function OrdersPage() {
 
       const range = getDateRange(dateRange);
       if (range) {
-        // ส่งค่าไปให้ backend ใช้ filter orderDate
         params.append("from", range.from);
         params.append("to", range.to);
       }
@@ -149,7 +184,7 @@ export default function OrdersPage() {
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
-        setCurrentPage(1); // รีเซ็ตหน้าเมื่อมีการค้นหา/เปลี่ยน filter
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error("Failed to fetch orders:", error);
@@ -158,9 +193,7 @@ export default function OrdersPage() {
     }
   };
 
-  const handleRefresh = () => {
-    fetchOrders();
-  };
+  const handleRefresh = () => fetchOrders();
 
   const handleUpdateOrder = async () => {
     if (!selectedOrder) return;
@@ -244,6 +277,88 @@ export default function OrdersPage() {
     }
   };
 
+  // ✅ เพิ่ม: สร้างออเดอร์ใหม่
+  const handleCreateOrder = async () => {
+    try {
+      setSubmitting(true);
+
+      const payload = {
+        productType: parseInt(createForm.productType, 10),
+        productName: createForm.productName || null,
+        amount: parseFloat(createForm.amount),
+        quantity: parseInt(createForm.quantity, 10),
+        customerName: createForm.customerName,
+        phone: createForm.phone,
+        address: createForm.address,
+        status: createForm.status,
+        notes: createForm.notes,
+        rawMessage: createForm.rawMessage || null,
+      };
+
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Create failed");
+      }
+
+      toast({ title: "✅ เพิ่มออเดอร์สำเร็จ", description: "บันทึกออเดอร์แล้ว" });
+
+      setConfirmCreateOpen(false);
+      setCreateDialogOpen(false);
+      setCreateForm(DEFAULT_FORM);
+      fetchOrders();
+    } catch (err: any) {
+      toast({
+        title: "❌ เพิ่มออเดอร์ไม่สำเร็จ",
+        description: err?.message || "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleParseFromLineText = () => {
+    const raw = createForm.rawMessage?.trim();
+    if (!raw) {
+      toast({
+        title: "กรุณาวางข้อความก่อน",
+        description: "วางข้อความจาก LINE แล้วกดแปลง",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const parsed = parseLineMessage(raw);
+    if (!parsed) {
+      toast({
+        title: "แปลงไม่สำเร็จ",
+        description: "รูปแบบข้อความยังไม่ถูกต้อง",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreateForm((prev) => ({
+      ...prev,
+      productType: String(parsed.productType),
+      productName: parsed.productName || "",
+      amount: String(parsed.amount ?? ""),
+      quantity: String(parsed.quantity ?? 1),
+      customerName: parsed.customerName || "",
+      phone: parsed.phone || "",
+      address: parsed.address || "",
+    }));
+
+    toast({ title: "✅ แปลงสำเร็จ", description: "เติมข้อมูลให้แล้ว ตรวจสอบก่อนบันทึก" });
+  };
+
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       PENDING: "bg-yellow-500",
@@ -269,26 +384,43 @@ export default function OrdersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header + Refresh */}
+      {/* Header + actions */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-4xl font-bold text-gradient-pink mb-2">
             รายการออเดอร์
           </h1>
           <p className="text-gray-200 text-lg">
-            รายการออเดอร์จาก LINE Webhook
+            รายการออเดอร์จาก LINE Webhook + เพิ่มเองได้
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={loading}
-          className="border-purple-400 text-purple-200 hover:bg-purple-500/10"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          รีเฟรช
-        </Button>
+
+        <div className="flex gap-2">
+          {userRole === "ADMIN" && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setCreateForm(DEFAULT_FORM);
+                setCreateDialogOpen(true);
+              }}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              เพิ่มออเดอร์
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="border-purple-400 text-purple-200 hover:bg-purple-500/10"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            รีเฟรช
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -517,8 +649,8 @@ export default function OrdersPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
             <p className="text-sm text-gray-300">
-              แสดง {startIndex + 1} -{" "}
-              {Math.min(endIndex, orders.length)} จาก {orders.length} รายการ
+              แสดง {startIndex + 1} - {Math.min(endIndex, orders.length)} จาก{" "}
+              {orders.length} รายการ
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -538,9 +670,7 @@ export default function OrdersPage() {
                 variant="outline"
                 className="border-slate-500 text-slate-100"
                 disabled={currentPage === totalPages}
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               >
                 ถัดไป
               </Button>
@@ -548,6 +678,176 @@ export default function OrdersPage() {
           </div>
         </>
       )}
+
+      {/* Create Order Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>➕ เพิ่มออเดอร์ (พิมพ์มือ / วางข้อความ LINE)</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>วางข้อความจาก LINE (ถ้ามี)</Label>
+              <Textarea
+                value={createForm.rawMessage}
+                onChange={(e) => setCreateForm((p) => ({ ...p, rawMessage: e.target.value }))}
+                placeholder={`ตัวอย่าง:\n2\nยอดเก็บ390\nประนอมอินสุภา 79 หมู่ 8 ... 062-223-6733\n3`}
+                rows={4}
+              />
+              <div className="flex justify-end mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleParseFromLineText}
+                  className="border-purple-400 text-purple-100"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  แปลงข้อความ
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>ประเภทสินค้า</Label>
+                <Select
+                  value={createForm.productType}
+                  onValueChange={(v) => setCreateForm((p) => ({ ...p, productType: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>ชื่อสินค้า (ไม่ใส่ก็ได้)</Label>
+                <Input
+                  value={createForm.productName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, productName: e.target.value }))}
+                  placeholder="เช่น สบู่, ครีม..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>ยอดเงิน (฿)</Label>
+                <Input
+                  type="number"
+                  value={createForm.amount}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, amount: e.target.value }))}
+                  placeholder="390"
+                />
+              </div>
+              <div>
+                <Label>จำนวน (ชิ้น)</Label>
+                <Input
+                  type="number"
+                  value={createForm.quantity}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, quantity: e.target.value }))}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>ชื่อลูกค้า</Label>
+                <Input
+                  value={createForm.customerName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, customerName: e.target.value }))}
+                  placeholder="ชื่อลูกค้า"
+                />
+              </div>
+              <div>
+                <Label>เบอร์โทร</Label>
+                <Input
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="062-xxx-xxxx"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>ที่อยู่</Label>
+              <Textarea
+                value={createForm.address}
+                onChange={(e) => setCreateForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="ที่อยู่จัดส่ง"
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>สถานะ</Label>
+                <Select
+                  value={createForm.status}
+                  onValueChange={(v) =>
+                    setCreateForm((p) => ({ ...p, status: v as CreateForm["status"] }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
+                    <SelectItem value="CONFIRMED">ยืนยันแล้ว</SelectItem>
+                    <SelectItem value="COMPLETED">สำเร็จ</SelectItem>
+                    <SelectItem value="CANCELLED">ยกเลิก</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>หมายเหตุ</Label>
+                <Input
+                  value={createForm.notes}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="หมายเหตุ (ถ้ามี)"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+                disabled={submitting}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                onClick={() => setConfirmCreateOpen(true)}
+                disabled={submitting}
+              >
+                บันทึกออเดอร์
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Create Dialog */}
+      <ConfirmDialog
+        open={confirmCreateOpen}
+        onOpenChange={setConfirmCreateOpen}
+        title="ยืนยันการเพิ่มออเดอร์"
+        description={`คุณแน่ใจหรือไม่ที่จะเพิ่มออเดอร์ "${createForm.customerName || "-"}"?`}
+        onConfirm={handleCreateOrder}
+        confirmText="ยืนยัน"
+        cancelText="ยกเลิก"
+        loading={submitting}
+      />
 
       {/* Edit Dialog (ADMIN Only) */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
