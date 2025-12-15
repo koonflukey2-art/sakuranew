@@ -126,6 +126,43 @@ export default function WorkflowPage() {
         },
       ],
     },
+    {
+      title: "ระบบสลิปโฆษณา → กำไรสุทธิ",
+      icon: Wallet,
+      color: "from-orange-500 to-red-600",
+      steps: [
+        {
+          icon: MessageSquare,
+          title: "Upload Receipt",
+          description: "อัพโหลดสลิปจ่ายโฆษณา",
+          detail: "รองรับการส่งผ่าน LINE หรืออัพโหลดเว็บ",
+        },
+        {
+          icon: Database,
+          title: "OCR Processing",
+          description: "อ่านข้อมูลจากสลิปอัตโนมัติ",
+          detail: "อ่าน QR Code + OCR ยอดเงิน + ตรวจสอบซ้ำ",
+        },
+        {
+          icon: Wallet,
+          title: "Save Ad Spend",
+          description: "บันทึกค่าโฆษณาลงฐานข้อมูล",
+          detail: "AdReceipt: amount, platform, paidAt",
+        },
+        {
+          icon: TrendingUp,
+          title: "Calculate ROAS",
+          description: "คำนวณผลตอบแทนจากโฆษณา",
+          detail: "ROAS = revenue / adsSpend",
+        },
+        {
+          icon: CheckCircle2,
+          title: "Update Net Profit",
+          description: "คำนวณกำไรสุทธิหลังหักค่าโฆษณา",
+          detail: "netProfit = grossProfit - adsSpend - budget",
+        },
+      ],
+    },
   ];
 
   return (
