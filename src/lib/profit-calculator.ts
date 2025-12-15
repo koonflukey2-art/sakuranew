@@ -205,3 +205,114 @@ export async function getBudgetAdjustedProfit(organizationId: string) {
     netProfit,
   };
 }
+
+// ========================================
+// COMPREHENSIVE PROFIT CALCULATION (WITH ADS SPEND)
+// ========================================
+
+export interface ComprehensiveProfitCalculation {
+  // Revenue
+  orderRevenue: number;
+  totalRevenue: number;
+
+  // Costs
+  productCosts: number;
+  adsSpend: number;
+  budgetUsed: number;
+  totalCosts: number;
+
+  // Profit
+  grossProfit: number; // Revenue - Product Costs
+  netProfit: number; // Revenue - All Costs
+  profitMargin: number;
+
+  // Breakdown
+  orderCount: number;
+  adReceiptsCount: number;
+  promotionSavings: number;
+}
+
+/**
+ * Calculate comprehensive profit including ads spend from receipts
+ * This connects the receipt system to profit calculations
+ */
+export async function calculateComprehensiveProfit(
+  organizationId: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<ComprehensiveProfitCalculation> {
+  const start = startDate || new Date(new Date().setHours(0, 0, 0, 0));
+  const end = endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+  // Get orders in date range
+  const orders = await prisma.order.findMany({
+    where: {
+      organizationId,
+      orderDate: { gte: start, lte: end },
+      status: "COMPLETED", // Only completed orders
+    },
+    select: {
+      productType: true,
+      quantity: true,
+      amount: true,
+    },
+  });
+
+  // Calculate order revenue and product costs
+  const profitCalc = await calculateTotalProfit(
+    orders.map((o) => ({
+      productType: o.productType ?? null,
+      quantity: o.quantity,
+      amount: o.amount,
+    })),
+    organizationId
+  );
+
+  const orderRevenue = profitCalc.revenue;
+  const productCosts = profitCalc.cost;
+
+  // Get ads spend from receipts
+  const adsReceipts = await prisma.adReceipt.findMany({
+    where: {
+      organizationId,
+      paidAt: { gte: start, lte: end },
+    },
+    select: {
+      amount: true,
+    },
+  });
+
+  const adsSpend = adsReceipts.reduce((sum, r) => sum + r.amount, 0);
+
+  // Get budget used
+  const budgets = await prisma.capitalBudget.findMany({
+    where: { organizationId },
+  });
+
+  const budgetUsed = budgets.reduce(
+    (sum, b) => sum + (b.amount - b.remaining),
+    0
+  );
+
+  // Calculate totals
+  const totalRevenue = orderRevenue;
+  const totalCosts = productCosts + adsSpend + budgetUsed;
+  const grossProfit = orderRevenue - productCosts;
+  const netProfit = totalRevenue - totalCosts;
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+  return {
+    orderRevenue,
+    totalRevenue,
+    productCosts,
+    adsSpend,
+    budgetUsed,
+    totalCosts,
+    grossProfit,
+    netProfit,
+    profitMargin,
+    orderCount: orders.length,
+    adReceiptsCount: adsReceipts.length,
+    promotionSavings: 0, // Can be enhanced later
+  };
+}

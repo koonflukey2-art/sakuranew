@@ -80,6 +80,8 @@ export default function AdsFacebookPage() {
   const [metrics, setMetrics] = useState<AdMetrics | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("7days");
+  const [totalSpentFromReceipts, setTotalSpentFromReceipts] = useState(0);
+  const [receiptsCount, setReceiptsCount] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -93,9 +95,10 @@ export default function AdsFacebookPage() {
     try {
       setLoading(true);
 
-      const [campaignsRes, metricsRes] = await Promise.all([
+      const [campaignsRes, metricsRes, receiptsRes] = await Promise.all([
         fetch("/api/ads/campaigns?platform=FACEBOOK"),
         fetch(`/api/ads/metrics?platform=FACEBOOK&period=${selectedPeriod}`),
+        fetch("/api/ads/receipts"), // ✅ Get REAL ads spend from receipts
       ]);
 
       if (campaignsRes.ok) {
@@ -107,6 +110,13 @@ export default function AdsFacebookPage() {
         const metricsData = await metricsRes.json();
         setMetrics(metricsData.summary);
         setChartData(metricsData.chartData || []);
+      }
+
+      // ✅ NEW: Get REAL ads spending from uploaded receipts
+      if (receiptsRes.ok) {
+        const receiptsData = await receiptsRes.json();
+        setTotalSpentFromReceipts(receiptsData.totalAmount || 0);
+        setReceiptsCount(receiptsData.receipts?.length || 0);
       }
     } catch (error) {
       console.error("Failed to fetch ads data:", error);
@@ -155,20 +165,20 @@ export default function AdsFacebookPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Spent */}
+        {/* Total Spent - NOW FROM RECEIPTS! */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2 text-blue-300">
               <DollarSign className="w-4 h-4" />
-              ค่าโฆษณาทั้งหมด
+              ค่าโฆษณาทั้งหมด (จากสลิป)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-400">
-              ฿{metrics?.totalSpent.toLocaleString() || 0}
+              ฿{totalSpentFromReceipts.toLocaleString()}
             </div>
             <p className="text-xs text-blue-300 mt-1">
-              จาก {campaigns.length} แคมเปญ
+              จาก {receiptsCount} สลิป
             </p>
           </CardContent>
         </Card>
