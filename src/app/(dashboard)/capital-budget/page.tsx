@@ -1,390 +1,390 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Wallet, Plus, Settings, AlertTriangle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Trash2, Save, DollarSign } from "lucide-react";
+
+interface BudgetItem {
+  id?: string;
+  name: string;
+  amount: number;
+  quantity: number;
+  notes: string;
+}
+
+interface Budget {
+  id: string;
+  name: string;
+  totalAmount: number;
+  remaining: number;
+  description: string;
+  items: BudgetItem[];
+  createdAt: string;
+}
 
 export default function CapitalBudgetPage() {
-  const { user } = useUser();
   const { toast } = useToast();
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [budget, setBudget] = useState<any>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Form state
+  const [budgetName, setBudgetName] = useState("");
+  const [budgetDescription, setBudgetDescription] = useState("");
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([
+    { name: "", amount: 0, quantity: 1, notes: "" },
+  ]);
 
-  const [addForm, setAddForm] = useState({
-    amount: 0,
-    description: "",
-  });
-
-  const [thresholdForm, setThresholdForm] = useState({
-    minThreshold: 5000,
-  });
-
-  // Check if user is ADMIN
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const res = await fetch("/api/me");
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data);
-
-          if (data.role !== "ADMIN") {
-            toast({
-              title: "❌ ไม่มีสิทธิ์เข้าถึง",
-              description: "หน้านี้สำหรับ ADMIN เท่านั้น",
-              variant: "destructive",
-            });
-            window.location.href = "/dashboard";
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-      }
-    };
-
-    if (user) {
-      fetchUserData();
-    }
-  }, [user]);
-
-  // Fetch budget
-  useEffect(() => {
-    fetchBudget();
+    fetchBudgets();
   }, []);
 
-  const fetchBudget = async () => {
+  const fetchBudgets = async () => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/capital-budget");
-      if (res.ok) {
-        const data = await res.json();
-        setBudget(data);
-        setThresholdForm({ minThreshold: data.minThreshold || 5000 });
+      const response = await fetch("/api/capital-budget");
+      if (response.ok) {
+        const data = await response.json();
+        setBudgets(data);
       }
     } catch (error) {
-      console.error("Failed to fetch budget:", error);
+      console.error("Failed to fetch budgets:", error);
+    }
+  };
+
+  // Calculate total from items
+  const calculateTotal = () => {
+    return budgetItems.reduce((sum, item) => {
+      return sum + (item.amount * item.quantity);
+    }, 0);
+  };
+
+  // Add new item row
+  const addItem = () => {
+    setBudgetItems([
+      ...budgetItems,
+      { name: "", amount: 0, quantity: 1, notes: "" },
+    ]);
+  };
+
+  // Remove item row
+  const removeItem = (index: number) => {
+    if (budgetItems.length === 1) {
+      toast({
+        title: "ไม่สามารถลบได้",
+        description: "ต้องมีรายการอย่างน้อย 1 รายการ",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBudgetItems(budgetItems.filter((_, i) => i !== index));
+  };
+
+  // Update item
+  const updateItem = (index: number, field: keyof BudgetItem, value: any) => {
+    const newItems = [...budgetItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setBudgetItems(newItems);
+  };
+
+  // Submit budget
+  const handleSubmit = async () => {
+    // Validate
+    if (!budgetName.trim()) {
+      toast({
+        title: "กรุณาระบุชื่องบประมาณ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validItems = budgetItems.filter(
+      (item) => item.name.trim() && item.amount > 0
+    );
+
+    if (validItems.length === 0) {
+      toast({
+        title: "กรุณาระบุรายการค่าใช้จ่าย",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const totalAmount = calculateTotal();
+
+      const response = await fetch("/api/capital-budget", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: budgetName,
+          description: budgetDescription,
+          totalAmount,
+          items: validItems,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create budget");
+
+      toast({
+        title: "✅ เพิ่มงบประมาณสำเร็จ",
+        description: `จำนวน ฿${totalAmount.toLocaleString()}`,
+      });
+
+      // Reset form
+      setBudgetName("");
+      setBudgetDescription("");
+      setBudgetItems([{ name: "", amount: 0, quantity: 1, notes: "" }]);
+
+      // Refresh list
+      fetchBudgets();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddBudget = async () => {
-    try {
-      const res = await fetch("/api/capital-budget", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addForm),
-      });
-
-      if (res.ok) {
-        toast({
-          title: "✅ เพิ่มงบสำเร็จ",
-          description: `เพิ่มงบประมาณ ฿${addForm.amount.toLocaleString()} เรียบร้อย`,
-        });
-
-        fetchBudget();
-        setShowAddDialog(false);
-        setShowConfirmDialog(false);
-        setAddForm({ amount: 0, description: "" });
-      } else {
-        const error = await res.json();
-        toast({
-          title: "❌ ไม่สามารถเพิ่มงบได้",
-          description: error.error,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "❌ เกิดข้อผิดพลาด",
-        description: "ไม่สามารถเพิ่มงบได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateThreshold = async () => {
-    try {
-      const res = await fetch("/api/capital-budget", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(thresholdForm),
-      });
-
-      if (res.ok) {
-        toast({
-          title: "✅ อัพเดทสำเร็จ",
-          description: "อัพเดทค่าขั้นต่ำเรียบร้อย",
-        });
-
-        fetchBudget();
-        setShowSettingsDialog(false);
-      }
-    } catch (error) {
-      toast({
-        title: "❌ เกิดข้อผิดพลาด",
-        description: "ไม่สามารถอัพเดทได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (!userData || userData.role !== "ADMIN") {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="premium-card max-w-md">
-          <CardContent className="p-8 text-center">
-            <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">ไม่มีสิทธิ์เข้าถึง</h2>
-            <p className="text-gray-400">หน้านี้สำหรับ ADMIN เท่านั้น</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Sakura Biotech - จัดการงบประมาณสินค้า
-          </h1>
-          <p className="text-gray-400 mt-1">
-            จัดการงบประมาณและทุนหมุนเวียนสำหรับซื้อสินค้า (สำหรับ ADMIN)
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setShowSettingsDialog(true)}
-            variant="outline"
-            className="bg-white/5 border-white/20 text-white"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            ตั้งค่า
-          </Button>
-          <Button
-            onClick={() => setShowAddDialog(true)}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            เพิ่มงบ
-          </Button>
-        </div>
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-4xl font-bold">งบประมาณทุน</h1>
+        <p className="text-muted-foreground mt-1">
+          จัดการงบประมาณและค่าใช้จ่ายต่างๆ
+        </p>
       </div>
 
-      {/* Budget Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="premium-card hover-glow border-l-4 border-l-green-500">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
-              <Wallet className="w-4 h-4" />
-              งบประมาณทั้งหมด
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-400">
-              ฿{budget?.amount?.toLocaleString() || "0"}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">งบที่ได้รับทั้งหมด</p>
-          </CardContent>
-        </Card>
+      {/* Add Budget Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>เพิ่มงบประมาณใหม่</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Budget Name */}
+          <div>
+            <Label>ชื่องบประมาณ</Label>
+            <Input
+              value={budgetName}
+              onChange={(e) => setBudgetName(e.target.value)}
+              placeholder="เช่น งบประมาณเดือน มกราคม 2025"
+            />
+          </div>
 
-        <Card className="premium-card hover-glow border-l-4 border-l-blue-500">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-300">งบคงเหลือ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-400">
-              ฿{budget?.remaining?.toLocaleString() || "0"}
+          {/* Budget Description */}
+          <div>
+            <Label>คำอธิบาย (ไม่บังคับ)</Label>
+            <Input
+              value={budgetDescription}
+              onChange={(e) => setBudgetDescription(e.target.value)}
+              placeholder="รายละเอียดเพิ่มเติม"
+            />
+          </div>
+
+          {/* Budget Items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>รายการค่าใช้จ่าย</Label>
+              <Button size="sm" onClick={addItem} variant="outline">
+                <Plus className="w-4 h-4 mr-1" />
+                เพิ่มรายการ
+              </Button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {budget?.remaining && budget?.amount
-                ? `${((budget.remaining / budget.amount) * 100).toFixed(1)}% ของงบทั้งหมด`
-                : ""}
+
+            {budgetItems.map((item, index) => (
+              <Card key={index} className="p-4">
+                <div className="grid grid-cols-12 gap-3">
+                  {/* Item Name */}
+                  <div className="col-span-4">
+                    <Label className="text-xs">ชื่อรายการ</Label>
+                    <Input
+                      value={item.name}
+                      onChange={(e) =>
+                        updateItem(index, "name", e.target.value)
+                      }
+                      placeholder="เช่น ค่ากล่องพัสดุ"
+                    />
+                  </div>
+
+                  {/* Amount */}
+                  <div className="col-span-3">
+                    <Label className="text-xs">จำนวนเงิน (บาท)</Label>
+                    <Input
+                      type="number"
+                      value={item.amount}
+                      onChange={(e) =>
+                        updateItem(index, "amount", parseFloat(e.target.value) || 0)
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="col-span-2">
+                    <Label className="text-xs">จำนวน</Label>
+                    <Input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(index, "quantity", parseInt(e.target.value) || 1)
+                      }
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="col-span-2">
+                    <Label className="text-xs">หมายเหตุ</Label>
+                    <Input
+                      value={item.notes}
+                      onChange={(e) =>
+                        updateItem(index, "notes", e.target.value)
+                      }
+                      placeholder="เพิ่มเติม"
+                    />
+                  </div>
+
+                  {/* Remove Button */}
+                  <div className="col-span-1 flex items-end">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Item Subtotal */}
+                <div className="mt-2 text-right text-sm text-muted-foreground">
+                  รวม: ฿{(item.amount * item.quantity).toLocaleString()}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Total Display */}
+          <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-400" />
+                  <span className="text-lg font-semibold text-green-300">
+                    ยอดรวมทั้งหมด:
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-green-400">
+                  ฿{calculateTotal().toLocaleString()}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              "กำลังบันทึก..."
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                บันทึกงบประมาณ
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Budget List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>งบประมาณทั้งหมด</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {budgets.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              ยังไม่มีงบประมาณ
             </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`premium-card hover-glow border-l-4 ${
-            budget?.remaining <= budget?.minThreshold
-              ? "border-l-red-500 bg-red-500/10"
-              : "border-l-yellow-500"
-          }`}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              ขั้นต่ำที่กำหนด
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-3xl font-bold ${
-                budget?.remaining <= budget?.minThreshold ? "text-red-400" : "text-yellow-400"
-              }`}
-            >
-              ฿{budget?.minThreshold?.toLocaleString() || "5,000"}
+          ) : (
+            <div className="space-y-4">
+              {budgets.map((budget) => (
+                <Card key={budget.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">{budget.name}</h3>
+                        {budget.description && (
+                          <p className="text-sm text-muted-foreground">
+                            {budget.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-500">
+                          ฿{budget.totalAmount.toLocaleString()}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          เหลือ: ฿{budget.remaining.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">รายการค่าใช้จ่าย:</p>
+                      {budget.items && budget.items.length > 0 ? (
+                        <div className="space-y-2">
+                          {budget.items.map((item, idx) => (
+                            <div
+                              key={item.id || idx}
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                {item.notes && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">
+                                  ฿{item.amount.toLocaleString()}
+                                </p>
+                                {item.quantity > 1 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    × {item.quantity} = ฿
+                                    {(item.amount * item.quantity).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          ไม่มีรายละเอียด
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {budget?.remaining <= budget?.minThreshold ? "⚠️ ต่ำกว่าขั้นต่ำ!" : "ปกติ"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add Budget Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="premium-card border-white/20">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">เพิ่มงบประมาณ</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-gray-300">จำนวนเงิน (฿)</Label>
-              <Input
-                type="number"
-                value={addForm.amount}
-                onChange={(e) =>
-                  setAddForm({ ...addForm, amount: parseFloat(e.target.value) || 0 })
-                }
-                className="bg-white/5 border-white/20 text-white"
-                placeholder="10000"
-              />
-            </div>
-            <div>
-              <Label className="text-gray-300">หมายเหตุ (ไม่บังคับ)</Label>
-              <Input
-                value={addForm.description}
-                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                className="bg-white/5 border-white/20 text-white"
-                placeholder="เช่น งบเดือนมกราคม"
-              />
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAddDialog(false);
-                setAddForm({ amount: 0, description: "" });
-              }}
-              className="flex-1 bg-white/5 border-white/20 text-white"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={() => {
-                if (addForm.amount > 0) {
-                  setShowConfirmDialog(true);
-                }
-              }}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600"
-              disabled={addForm.amount <= 0}
-            >
-              เพิ่มงบ
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmation Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent className="premium-card border-white/20">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
-              ยืนยันการเพิ่มงบประมาณ
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-300">
-              คุณแน่ใจหรือไม่ที่จะเพิ่มงบประมาณ{" "}
-              <span className="font-bold text-green-400">
-                ฿{addForm.amount.toLocaleString()}
-              </span>{" "}
-              เข้าสู่ระบบ?
-              <br />
-              การดำเนินการนี้ไม่สามารถยกเลิกได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/20 text-white">
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAddBudget}
-              className="bg-gradient-to-r from-purple-600 to-pink-600"
-            >
-              ยืนยัน
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Settings Dialog */}
-      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="premium-card border-white/20">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
-              ตั้งค่างบประมาณ
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-gray-300">งบขั้นต่ำที่ต้องเตือน (฿)</Label>
-              <Input
-                type="number"
-                value={thresholdForm.minThreshold}
-                onChange={(e) =>
-                  setThresholdForm({
-                    minThreshold: parseFloat(e.target.value) || 5000,
-                  })
-                }
-                className="bg-white/5 border-white/20 text-white"
-                placeholder="5000"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                ระบบจะแจ้งเตือนเมื่องบคงเหลือต่ำกว่าจำนวนที่กำหนด
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowSettingsDialog(false)}
-              className="flex-1 bg-white/5 border-white/20 text-white"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={handleUpdateThreshold}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600"
-            >
-              บันทึก
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

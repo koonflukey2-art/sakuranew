@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendLineNotify, pushLineMessage } from "@/lib/line-integration";
 import { calculateOrderProfit } from "@/lib/profit-calculator";
+import { manualResetDailySequence } from "@/lib/daily-counter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -295,7 +296,7 @@ export async function GET(req: Request) {
           });
         }
 
-        // ✅ 2) ส่ง LINE เฉพาะ “ครั้งแรกของวัน”
+        // ✅ 2) ส่ง LINE เฉพาะ "ครั้งแรกของวัน"
         const sentBefore = alreadySentToday({
           startLocalBkk,
           lastSentAt: s.dailySummaryLastSentAt ?? null,
@@ -335,6 +336,9 @@ export async function GET(req: Request) {
               data: { dailySummaryLastSentAt: new Date() },
             });
           }
+
+          // ✅ 3) Reset daily sequence counter after sending summary
+          await manualResetDailySequence(s.organizationId);
         }
 
         results.push({

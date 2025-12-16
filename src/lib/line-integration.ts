@@ -300,3 +300,39 @@ export async function checkAndNotifyLowStock(
     await sendLineNotify(settings.lineNotifyToken, message);
   }
 }
+
+// -----------------------------
+// Parse LINE order message
+// -----------------------------
+export function parseLineOrderMessage(message: string): {
+  productType: number;
+  quantity: number;
+  amount: number;
+} | null {
+  try {
+    // Expected format: "[productType] [quantity] [amount]"
+    // Example: "1 5 100" means productType=1, quantity=5, amount=100
+    const parts = message.trim().split(/\s+/);
+
+    if (parts.length < 3) {
+      return null;
+    }
+
+    const productType = parseInt(parts[0]);
+    const quantity = parseInt(parts[1]);
+    const amount = parseFloat(parts[2]);
+
+    if (isNaN(productType) || isNaN(quantity) || isNaN(amount)) {
+      return null;
+    }
+
+    if (productType <= 0 || quantity <= 0 || amount <= 0) {
+      return null;
+    }
+
+    return { productType, quantity, amount };
+  } catch (error) {
+    console.error("Error parsing LINE order message:", error);
+    return null;
+  }
+}
