@@ -117,9 +117,10 @@ model Organization {
   productTypes        ProductType[]
   lineSettings        LINESettings?
   promotions          Promotion[]
-
-  // ✅ เพิ่มความสัมพันธ์ SystemSettings (สำคัญ: ทำให้ Prisma type เห็นฟิลด์ adsLine... ชัวร์ + เป็น FK จริง)
   systemSettings      SystemSettings?
+
+  // ✅ เพิ่ม relation ฝั่งตรงข้ามให้ FacebookAdsStatement
+  facebookAdsStatements FacebookAdsStatement[]
 }
 
 // ============================
@@ -151,7 +152,7 @@ model User {
   aiProductSuggestions AIProductSuggestion[]
 
   // BudgetRequest เป็นฝั่ง requester
-  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
+  budgetRequests BudgetRequest[]  @relation("BudgetRequestRequester")
   AutomationRule AutomationRule[]
   MetricsPlan    MetricsPlan[]
 
@@ -201,7 +202,7 @@ model Promotion {
 
   startDate DateTime?
   endDate   DateTime?
-  isActive  Boolean @default(true)
+  isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -249,39 +250,39 @@ model StockHistory {
 // ============================
 
 model Budget {
-  id             String       @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
 
   // Budget info
-  name           String?      // "งบประมาณเดือน มกราคม"
-  totalAmount    Float        // ยอดรวมทั้งหมด
-  remaining      Float        // เหลืออยู่
-  description    String?
+  name        String? // "งบประมาณเดือน มกราคม"
+  totalAmount Float // ยอดรวมทั้งหมด
+  remaining   Float // เหลืออยู่
+  description String?
 
   // Budget items (expense breakdown)
-  items          BudgetItem[]
+  items BudgetItem[]
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
 }
 
 model BudgetItem {
-  id          String   @id @default(cuid())
-  budgetId    String
-  budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  budgetId String
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
   // Item details
-  name        String   // "ค่ากล่องพัสดุ", "ค่าขนส่ง"
-  amount      Float    // จำนวนเงิน
-  quantity    Int      @default(1) // จำนวน (ถ้ามี)
-  notes       String?  // หมายเหตุ
+  name     String // "ค่ากล่องพัสดุ", "ค่าขนส่ง"
+  amount   Float // จำนวนเงิน
+  quantity Int     @default(1) // จำนวน (ถ้ามี)
+  notes    String? // หมายเหตุ
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([budgetId])
 }
@@ -297,7 +298,7 @@ model CapitalBudget {
   updatedAt      DateTime @updatedAt
   createdBy      String
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   transactions CapitalBudgetTransaction[]
 
   @@index([organizationId])
@@ -336,7 +337,7 @@ model BudgetRequest {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   requesterId String
-  requester   User @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
 
   reviewedBy String?
   reviewedAt DateTime?
@@ -351,37 +352,37 @@ model BudgetRequest {
 // ============================
 
 model AdCampaign {
-  id           String         @id @default(cuid())
+  id           String     @id @default(cuid())
   platform     AdPlatform
   campaignName String
   budget       Float
-  spent        Float          @default(0)
-  remaining    Float          @default(0)
+  spent        Float      @default(0)
+  remaining    Float      @default(0)
 
   // Performance Metrics
-  impressions  Int            @default(0)
-  reach        Int            @default(0)
-  clicks       Int            @default(0)
-  conversions  Int            @default(0)
+  impressions Int @default(0)
+  reach       Int @default(0)
+  clicks      Int @default(0)
+  conversions Int @default(0)
 
   // Calculated Metrics
-  ctr          Float          @default(0)
-  cpc          Float          @default(0)
-  cpm          Float          @default(0)
-  cpa          Float          @default(0)
-  roas         Float          @default(0)
-  roi          Float          @default(0)
+  ctr  Float @default(0)
+  cpc  Float @default(0)
+  cpm  Float @default(0)
+  cpa  Float @default(0)
+  roas Float @default(0)
+  roi  Float @default(0)
 
   // Revenue & Profit
-  revenue      Float          @default(0)
-  profit       Float          @default(0)
-  profitMargin Float          @default(0)
+  revenue      Float @default(0)
+  profit       Float @default(0)
+  profitMargin Float @default(0)
 
-  status       CampaignStatus @default(ACTIVE)
-  startDate    DateTime?
-  endDate      DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  status    CampaignStatus @default(ACTIVE)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -389,8 +390,8 @@ model AdCampaign {
   adAccountId String?
   adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
 
-  receipts    AdReceipt[]
-  metrics     AdMetrics[]
+  receipts AdReceipt[]
+  metrics  AdMetrics[]
 
   @@index([organizationId])
   @@index([adAccountId])
@@ -463,37 +464,36 @@ model AdReceipt {
   campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   // Receipt Info
-  receiptNumber  String      @unique
-  platform       String      // FACEBOOK, GOOGLE, META_ADS, TIKTOK
-  paymentMethod  String      // QR_CODE, CREDIT_CARD, BANK_TRANSFER
+  receiptNumber String @unique
+  platform      String // FACEBOOK, GOOGLE, META_ADS, TIKTOK
+  paymentMethod String // QR_CODE, CREDIT_CARD, BANK_TRANSFER
 
   // Amount
-  amount         Float
-  currency       String      @default("THB")
+  amount   Float
+  currency String @default("THB")
 
   // Receipt File
-  receiptUrl     String?
-  qrCodeData     String?
+  receiptUrl String?
+  qrCodeData String?
 
   // ✅ optional กัน migrate error ตอนมีข้อมูลเก่า
-  fileHash       String?     @db.Char(64)
-  qrHash         String?     @db.Char(64)
+  fileHash String? @db.Char(64)
+  qrHash   String? @db.Char(64)
 
   // Processing
-  isProcessed    Boolean     @default(false)
-  processedAt    DateTime?
+  isProcessed Boolean   @default(false)
+  processedAt DateTime?
 
   // Metadata
-  paidAt         DateTime    @default(now())
-  notes          String?
+  paidAt DateTime @default(now())
+  notes  String?
 
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // ✅ กันซ้ำแบบ unique ต่อ org (NULL ซ้ำได้ใน Postgres)
   @@unique([organizationId, fileHash])
   @@unique([organizationId, qrHash])
-
   @@index([organizationId])
   @@index([campaignId])
   @@index([platform])
@@ -507,26 +507,46 @@ model AdMetrics {
   campaignId     String
   campaign       AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  date           DateTime
+  date DateTime
 
-  impressions    Int        @default(0)
-  clicks         Int        @default(0)
-  conversions    Int        @default(0)
-  spent          Float      @default(0)
-  revenue        Float      @default(0)
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  conversions Int   @default(0)
+  spent       Float @default(0)
+  revenue     Float @default(0)
 
-  ctr            Float      @default(0)
-  cpc            Float      @default(0)
-  cpa            Float      @default(0)
-  roas           Float      @default(0)
+  ctr  Float @default(0)
+  cpc  Float @default(0)
+  cpa  Float @default(0)
+  roas Float @default(0)
 
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([campaignId, date])
   @@index([organizationId])
   @@index([date])
   @@index([campaignId])
+}
+
+// ✅ Facebook Ads Statements (PDF summary per billing period)
+model FacebookAdsStatement {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  period      String // เช่น "2025-01" หรือ "2025-10-06 – 2025-10-13"
+  startDate   DateTime
+  endDate     DateTime
+  totalAmount Float
+  vat         Float
+
+  fileUrl  String // URL ไปที่ไฟล์ PDF (เช่น Supabase / S3)
+  fileName String // ชื่อไฟล์จริง
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, startDate])
 }
 
 // ============================
@@ -575,7 +595,7 @@ model ProfitTarget {
   alertThreshold Float
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  updatedAt      DateTime @default(now())
 
   @@index([organizationId])
   @@index([organizationId, productType])
@@ -789,32 +809,32 @@ model Customer {
 }
 
 model Order {
-  id             String       @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
 
-  orderNumber    String?      // "ORD-20250101-001"
-  dailySequence  Int?         // 1, 2, 3, ... (รีเซ็ตทุกวัน)
+  orderNumber   String? // "ORD-20250101-001"
+  dailySequence Int? // 1, 2, 3, ... (รีเซ็ตทุกวัน)
 
-  customerId     String?
-  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  productType    Int?
-  productName    String?
-  quantity       Int          @default(1)
+  productType Int?
+  productName String?
+  quantity    Int     @default(1)
 
-  amount         Float
-  unitPrice      Float        @default(0)
+  amount    Float
+  unitPrice Float @default(0)
 
-  source         String       @default("MANUAL") // "LINE", "MANUAL", "WEB"
-  status         OrderStatus  @default(PENDING)
-  notes          String?
-  rawMessage     String?
+  source     String      @default("MANUAL") // "LINE", "MANUAL", "WEB"
+  status     OrderStatus @default(PENDING)
+  notes      String?
+  rawMessage String?
 
-  orderDate      DateTime     @default(now())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  orderDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([orderDate])
@@ -869,10 +889,10 @@ model DailySummary {
 // ============================
 
 model SystemSettings {
-  id             String @id @default(cuid())
+  id String @id @default(cuid())
 
   // ✅ ทำเป็น FK จริง (สำคัญมาก)
-  organizationId String @unique
+  organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Daily cut-off
@@ -883,7 +903,7 @@ model SystemSettings {
 
   // Daily sequence counter (for order numbering)
   lastCutOffTime       DateTime? // เก็บเวลาตัดยอดล่าสุด
-  currentDailySequence Int      @default(0) // เลขลำดับวันนี้
+  currentDailySequence Int       @default(0) // เลขลำดับวันนี้
 
   // LINE Integration (Stock Management)
   lineNotifyToken        String?
@@ -893,10 +913,10 @@ model SystemSettings {
   lineTargetId           String?
 
   // LINE Ads Integration (Separate)
-  adsLineNotifyToken         String?
-  adsLineChannelAccessToken  String?
-  adsLineChannelSecret       String?
-  adsLineWebhookUrl          String?
+  adsLineNotifyToken        String?
+  adsLineChannelAccessToken String?
+  adsLineChannelSecret      String?
+  adsLineWebhookUrl         String?
 
   adminEmails String?
 

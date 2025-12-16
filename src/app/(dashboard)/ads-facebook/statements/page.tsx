@@ -26,8 +26,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Upload, Eye, FileText, Download, ArrowLeft } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Upload, Eye, FileText, Download, ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 interface Statement {
@@ -50,6 +59,10 @@ export default function FacebookAdsStatementsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // สำหรับลบ
+  const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchStatements();
@@ -109,7 +122,7 @@ export default function FacebookAdsStatementsPage() {
 
       if (!response.ok) throw new Error("Upload failed");
 
-      const data = await response.json();
+      await response.json();
 
       toast({
         title: "✅ อัพโหลดสำเร็จ",
@@ -127,6 +140,41 @@ export default function FacebookAdsStatementsPage() {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!statementToDelete) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch(
+        `/api/facebook-ads/statements?id=${statementToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      toast({
+        title: "✅ ลบสเตตเมนต์สำเร็จ",
+      });
+
+      setStatementToDelete(null);
+      fetchStatements();
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: error.message || "ไม่สามารถลบสเตตเมนต์ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -222,9 +270,7 @@ export default function FacebookAdsStatementsPage() {
           ) : statements.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                ยังไม่มีสเตทเมนต์
-              </p>
+              <p className="text-muted-foreground">ยังไม่มีสเตทเมนต์</p>
               <p className="text-sm text-muted-foreground mt-2">
                 คลิก "อัพโหลดสเตทเมนต์" เพื่อเพิ่มไฟล์
               </p>
@@ -267,11 +313,14 @@ export default function FacebookAdsStatementsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {new Date(statement.createdAt).toLocaleDateString("th-TH", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {new Date(statement.createdAt).toLocaleDateString(
+                        "th-TH",
+                        {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        }
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
@@ -286,9 +335,19 @@ export default function FacebookAdsStatementsPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => window.open(statement.fileUrl, "_blank")}
+                          onClick={() =>
+                            window.open(statement.fileUrl, "_blank")
+                          }
                         >
                           <Download className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setStatementToDelete(statement)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          ลบ
                         </Button>
                       </div>
                     </TableCell>
@@ -352,9 +411,7 @@ export default function FacebookAdsStatementsPage() {
       >
         <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
-            <DialogTitle>
-              สเตทเมนต์ - {viewingStatement?.period}
-            </DialogTitle>
+            <DialogTitle>สเตทเมนต์ - {viewingStatement?.period}</DialogTitle>
           </DialogHeader>
           {viewingStatement && (
             <div className="flex-1 h-full">
@@ -367,6 +424,40 @@ export default function FacebookAdsStatementsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <AlertDialog
+        open={!!statementToDelete}
+        onOpenChange={(open) => {
+          if (!open) setStatementToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ลบสเตทเมนต์นี้?</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณแน่ใจหรือไม่ว่าต้องการลบสเตทเมนต์{" "}
+              <span className="font-semibold">
+                {statementToDelete?.fileName}
+              </span>
+              <br />
+              การลบนี้ไม่สามารถย้อนกลับได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+            >
+              {deleting ? "กำลังลบ..." : "ลบสเตทเมนต์"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
