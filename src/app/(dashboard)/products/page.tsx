@@ -14,26 +14,62 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit, Package, Trash2, AlertTriangle, Wallet } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import {
+  Plus,
+  Edit,
+  Package,
+  Trash2,
+  AlertTriangle,
+  Wallet,
+  PackagePlus,
+  DollarSign,
+  RefreshCw
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  category: string | null;
+  productType: number;
+  productTypeName: string | null;
+  quantity: number;
+  minStockLevel: number;
+  costPrice: number;
+  sellPrice: number;
+  budgetUsed: number;
+}
+
+interface ProductType {
+  id: string;
+  typeNumber: number;
+  typeName: string;
+  isActive: boolean;
+}
 
 export default function ProductsPage() {
   const { toast } = useToast();
-  const [products, setProducts] = useState<any[]>([]);
-  const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Budget state
   const [availableBudget, setAvailableBudget] = useState(0);
   const [budgetWarning, setBudgetWarning] = useState(false);
 
+  // Create product dialog
   const [openCreateProduct, setOpenCreateProduct] = useState(false);
-  const [openEditProduct, setOpenEditProduct] = useState(false);
-  const [openManageTypes, setOpenManageTypes] = useState(false);
-  const [openEditType, setOpenEditType] = useState(false);
-  const [editingType, setEditingType] = useState<any>(null);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-
   const [newProduct, setNewProduct] = useState({
     name: "",
     category: "",
@@ -43,16 +79,22 @@ export default function ProductsPage() {
     minStockLevel: 10,
   });
 
-  // Check budget when cost or quantity changes
-  useEffect(() => {
-    const totalCost = newProduct.costPrice * newProduct.quantity;
-    if (totalCost > availableBudget) {
-      setBudgetWarning(true);
-    } else {
-      setBudgetWarning(false);
-    }
-  }, [newProduct.costPrice, newProduct.quantity, availableBudget]);
+  // Edit product state
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editName, setEditName] = useState("");
 
+  // Add stock state
+  const [addingStockProduct, setAddingStockProduct] = useState<Product | null>(null);
+  const [addStockQuantity, setAddStockQuantity] = useState(0);
+  const [addStockCost, setAddStockCost] = useState(0);
+
+  // Delete confirmation
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+
+  // Manage types dialogs
+  const [openManageTypes, setOpenManageTypes] = useState(false);
+  const [openEditType, setOpenEditType] = useState(false);
+  const [editingType, setEditingType] = useState<ProductType | null>(null);
   const [newType, setNewType] = useState({
     typeNumber: 5,
     typeName: "",
@@ -63,20 +105,15 @@ export default function ProductsPage() {
     fetchAvailableBudget();
   }, []);
 
-  const fetchAvailableBudget = async () => {
-    try {
-      const response = await fetch("/api/capital-budget/available");
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableBudget(data.available || 0);
-      }
-    } catch (error) {
-      console.error("Failed to fetch budget:", error);
-    }
-  };
+  // Check budget when cost or quantity changes
+  useEffect(() => {
+    const totalCost = newProduct.costPrice * newProduct.quantity;
+    setBudgetWarning(totalCost > availableBudget);
+  }, [newProduct.costPrice, newProduct.quantity, availableBudget]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [productsRes, typesRes] = await Promise.all([
         fetch("/api/products"),
         fetch("/api/product-types"),
@@ -88,6 +125,18 @@ export default function ProductsPage() {
       console.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailableBudget = async () => {
+    try {
+      const response = await fetch("/api/capital-budget/available");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableBudget(data.available || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch budget:", error);
     }
   };
 
@@ -108,7 +157,7 @@ export default function ProductsPage() {
 
       if (!response.ok) throw new Error("Failed to create");
 
-      toast({ title: "สร้างสินค้าสำเร็จ" });
+      toast({ title: "✅ สร้างสินค้าสำเร็จ" });
       setOpenCreateProduct(false);
       setNewProduct({
         name: "",
@@ -119,12 +168,128 @@ export default function ProductsPage() {
         minStockLevel: 10,
       });
       fetchData();
-      fetchAvailableBudget(); // Refresh budget after creating product
+      fetchAvailableBudget();
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
         variant: "destructive",
       });
+    }
+  };
+
+  // Edit product name
+  const handleEditProduct = async () => {
+    if (!editingProduct || !editName.trim()) {
+      toast({
+        title: "กรุณาระบุชื่อสินค้า",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/products/${editingProduct.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update product");
+
+      toast({ title: "✅ แก้ไขสินค้าสำเร็จ" });
+      setEditingProduct(null);
+      fetchData();
+    } catch (error) {
+      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add stock
+  const handleAddStock = async () => {
+    if (!addingStockProduct || addStockQuantity <= 0) {
+      toast({
+        title: "กรุณาระบุจำนวนที่ต้องการเพิ่ม",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalCost = addStockCost * addStockQuantity;
+
+    if (totalCost > availableBudget) {
+      toast({
+        title: "งบประมาณไม่พอ",
+        description: `ต้องการ ฿${totalCost.toLocaleString()} แต่มี ฿${availableBudget.toLocaleString()}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/products/${addingStockProduct.id}/add-stock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantity: addStockQuantity,
+          costPrice: addStockCost,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add stock");
+      }
+
+      toast({ title: "✅ เพิ่มสต๊อกสำเร็จ" });
+      setAddingStockProduct(null);
+      setAddStockQuantity(0);
+      setAddStockCost(0);
+      fetchData();
+      fetchAvailableBudget();
+    } catch (error: any) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete product
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/products/${deletingProduct.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete product");
+
+      const data = await response.json();
+
+      toast({
+        title: "✅ ลบสินค้าสำเร็จ",
+        description: `งบคืน: ฿${data.budgetReturned?.toLocaleString() || 0}`,
+      });
+
+      setDeletingProduct(null);
+      fetchData();
+      fetchAvailableBudget();
+    } catch (error) {
+      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -138,7 +303,7 @@ export default function ProductsPage() {
 
       if (!response.ok) throw new Error("Failed to create");
 
-      toast({ title: "เพิ่มประเภทสินค้าสำเร็จ" });
+      toast({ title: "✅ เพิ่มประเภทสินค้าสำเร็จ" });
       setNewType({ typeNumber: productTypes.length + 1, typeName: "" });
       fetchData();
     } catch (error) {
@@ -159,7 +324,7 @@ export default function ProductsPage() {
 
       if (!response.ok) throw new Error("Failed to update");
 
-      toast({ title: "อัพเดทสำเร็จ" });
+      toast({ title: "✅ อัพเดทสำเร็จ" });
       setOpenEditType(false);
       setEditingType(null);
       fetchData();
@@ -171,50 +336,9 @@ export default function ProductsPage() {
     }
   };
 
-  const handleUpdateProduct = async () => {
-    try {
-      const response = await fetch("/api/products", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingProduct),
-      });
-
-      if (!response.ok) throw new Error("Failed to update");
-
-      toast({ title: "✅ อัพเดทสินค้าสำเร็จ" });
-      setOpenEditProduct(false);
-      setEditingProduct(null);
-      fetchData();
-    } catch (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteProduct = async (id: string, name: string) => {
-    if (!confirm(`ยืนยันการลบสินค้า "${name}"?`)) return;
-
-    try {
-      const response = await fetch(`/api/products?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Failed to delete");
-
-      toast({ title: "✅ ลบสินค้าสำเร็จ" });
-      fetchData();
-    } catch (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
@@ -223,6 +347,10 @@ export default function ProductsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={fetchData} variant="outline" disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            รีเฟรช
+          </Button>
           <Button onClick={() => setOpenManageTypes(true)} variant="outline">
             จัดการประเภทสินค้า LINE
           </Button>
@@ -258,6 +386,7 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
+      {/* Product Types Grid */}
       <Card>
         <CardHeader>
           <CardTitle>ประเภทสินค้า (สำหรับ LINE)</CardTitle>
@@ -306,6 +435,7 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
+      {/* Products List */}
       <Card>
         <CardHeader>
           <CardTitle>รายการสินค้าทั้งหมด</CardTitle>
@@ -313,62 +443,91 @@ export default function ProductsPage() {
         <CardContent>
           <div className="space-y-3">
             {products.map((product) => (
-              <div
-                key={product.id}
-                className="flex items-center justify-between p-4 bg-white/5 rounded-lg"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white">{product.name}</p>
-                    <p className="text-sm text-gray-400">
-                      หมวดหมู่: {product.category || "-"} | ประเภท:{" "}
-                      {product.productType}
-                      {product.productTypeName
-                        ? ` - ${product.productTypeName}`
-                        : ""}
-                    </p>
-                  </div>
-                </div>
+              <Card key={product.id} className="bg-white/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    {/* Product Info */}
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <Package className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-white">{product.name}</h3>
+                        <p className="text-sm text-gray-400">
+                          หมวดหมู่: {product.category || "-"} | ประเภท: {product.productType}
+                          {product.productTypeName ? ` - ${product.productTypeName}` : ""}
+                        </p>
+                        <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
+                          <div>
+                            <p className="text-gray-400">ราคาทุน</p>
+                            <p className="font-medium text-white">
+                              ฿{product.costPrice.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">ราคาขาย</p>
+                            <p className="font-medium text-white">
+                              ฿{product.sellPrice.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">สต๊อก</p>
+                            <p className="font-medium text-white">{product.quantity} ชิ้น</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">งบที่ใช้</p>
+                            <p className="font-medium text-green-400">
+                              ฿{product.budgetUsed.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">ต้นทุน</p>
-                    <p className="font-bold text-white">฿{product.costPrice}</p>
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingProduct(product);
+                          setEditName(product.name);
+                        }}
+                        className="border-purple-400 text-purple-200"
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        แก้ไข
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAddingStockProduct(product);
+                          setAddStockCost(product.costPrice);
+                        }}
+                        className="border-blue-400 text-blue-200"
+                      >
+                        <PackagePlus className="w-4 h-4 mr-1" />
+                        เพิ่มสต๊อก
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeletingProduct(product)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        ลบ
+                      </Button>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">สต็อก</p>
-                    <p className="font-bold text-white">{product.quantity}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingProduct({ ...product });
-                        setOpenEditProduct(true);
-                      }}
-                      className="border-purple-400 text-purple-200"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteProduct(product.id, product.name)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </CardContent>
       </Card>
 
+      {/* Create Product Dialog */}
       <Dialog open={openCreateProduct} onOpenChange={setOpenCreateProduct}>
         <DialogContent>
           <DialogHeader>
@@ -399,8 +558,6 @@ export default function ProductsPage() {
 
             <div>
               <Label>รหัสประเภทสินค้า (สำหรับ LINE)</Label>
-
-              {/* ✅ FIX: select/option ให้ตัวอักษรไม่เป็นสีดำทับพื้นดำ */}
               <select
                 className="w-full h-10 px-3 rounded-md bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/60 focus:border-purple-500"
                 value={newProduct.productType}
@@ -488,7 +645,6 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* Cost Calculation */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-300">
                     <span>ต้นทุนต่อชิ้น:</span>
@@ -498,13 +654,13 @@ export default function ProductsPage() {
                     <span>จำนวน:</span>
                     <span>{newProduct.quantity} ชิ้น</span>
                   </div>
-                  <div className="border-t border-green-500/30 pt-2 flex justify-between font-semibold text-white">
+                  <Separator className="bg-green-500/30" />
+                  <div className="flex justify-between font-semibold text-white">
                     <span>ต้นทุนรวม:</span>
                     <span>฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}</span>
                   </div>
                 </div>
 
-                {/* Warning Alert */}
                 {budgetWarning && (
                   <Alert variant="destructive" className="mt-3">
                     <AlertTriangle className="w-4 h-4" />
@@ -534,6 +690,197 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Product Dialog */}
+      <Dialog
+        open={!!editingProduct}
+        onOpenChange={() => setEditingProduct(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขสินค้า</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>ชื่อสินค้า</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="ระบุชื่อสินค้า"
+              />
+            </div>
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <AlertTriangle className="w-4 h-4 text-blue-400" />
+              <AlertDescription className="text-blue-200">
+                <strong>หมายเหตุ:</strong> แก้ไขได้เฉพาะชื่อสินค้า
+                <br />
+                ไม่สามารถแก้ไขสต๊อกได้โดยตรง
+                <br />
+                ใช้ปุ่ม "เพิ่มสต๊อก" เพื่อเพิ่มจำนวนสินค้า
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button onClick={handleEditProduct} disabled={loading} className="flex-1">
+                บันทึก
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setEditingProduct(null)}
+                className="flex-1"
+              >
+                ยกเลิก
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog
+        open={!!addingStockProduct}
+        onOpenChange={() => setAddingStockProduct(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่มสต๊อก - {addingStockProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <DollarSign className="w-4 h-4 text-blue-400" />
+              <AlertDescription className="text-blue-200">
+                งบประมาณคงเหลือ: ฿{availableBudget.toLocaleString()}
+              </AlertDescription>
+            </Alert>
+
+            <div>
+              <Label>จำนวนที่ต้องการเพิ่ม (ชิ้น)</Label>
+              <Input
+                type="number"
+                value={addStockQuantity}
+                onChange={(e) => setAddStockQuantity(parseInt(e.target.value) || 0)}
+                min="1"
+              />
+            </div>
+
+            <div>
+              <Label>ราคาทุนต่อชิ้น (บาท)</Label>
+              <Input
+                type="number"
+                value={addStockCost}
+                onChange={(e) => setAddStockCost(parseFloat(e.target.value) || 0)}
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            {/* Cost Summary */}
+            <Card className="bg-muted">
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>จำนวน:</span>
+                    <span className="font-bold">{addStockQuantity} ชิ้น</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ราคาทุน/ชิ้น:</span>
+                    <span className="font-bold">
+                      ฿{addStockCost.toLocaleString()}
+                    </span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg">
+                    <span className="font-semibold">ยอดรวม:</span>
+                    <span className="font-bold text-green-500">
+                      ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Warning if exceeds budget */}
+            {addStockCost * addStockQuantity > availableBudget && (
+              <Alert variant="destructive">
+                <AlertTriangle className="w-4 h-4" />
+                <AlertDescription>
+                  งบประมาณไม่พอ!
+                  <br />
+                  ต้องการ: ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                  <br />
+                  มี: ฿{availableBudget.toLocaleString()}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleAddStock}
+                disabled={
+                  loading ||
+                  addStockQuantity <= 0 ||
+                  addStockCost * addStockQuantity > availableBudget
+                }
+                className="flex-1"
+              >
+                เพิ่มสต๊อก
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setAddingStockProduct(null)}
+                className="flex-1"
+              >
+                ยกเลิก
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deletingProduct}
+        onOpenChange={() => setDeletingProduct(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบสินค้า</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบสินค้า "{deletingProduct?.name}" ใช่หรือไม่?
+              <br />
+              <br />
+              <div className="bg-muted p-3 rounded-lg space-y-1">
+                <p>
+                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity} ชิ้น
+                </p>
+                <p>
+                  <strong>ราคาทุน/ชิ้น:</strong> ฿
+                  {deletingProduct?.costPrice.toLocaleString()}
+                </p>
+                <p className="text-green-500 font-semibold">
+                  <strong>งบที่จะคืน:</strong> ฿
+                  {deletingProduct
+                    ? (
+                        deletingProduct.costPrice * deletingProduct.quantity
+                      ).toLocaleString()
+                    : 0}
+                </p>
+              </div>
+              <br />
+              งบประมาณจะถูกคืนตามจำนวนสต๊อกที่เหลือ
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProduct}
+              className="bg-destructive"
+            >
+              ลบสินค้า
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Manage Types Dialog */}
       <Dialog open={openManageTypes} onOpenChange={setOpenManageTypes}>
         <DialogContent>
           <DialogHeader>
@@ -608,6 +955,7 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Type Dialog */}
       <Dialog open={openEditType} onOpenChange={setOpenEditType}>
         <DialogContent>
           <DialogHeader>
@@ -637,89 +985,6 @@ export default function ProductsPage() {
           )}
           <DialogFooter>
             <Button onClick={updateProductType}>บันทึก</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openEditProduct} onOpenChange={setOpenEditProduct}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>แก้ไขสินค้า</DialogTitle>
-          </DialogHeader>
-          {editingProduct && (
-            <div className="space-y-4">
-              <div>
-                <Label>ชื่อสินค้า</Label>
-                <Input
-                  value={editingProduct.name}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>หมวดหมู่</Label>
-                <Input
-                  value={editingProduct.category || ""}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      category: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>ต้นทุน (บาท)</Label>
-                  <Input
-                    type="number"
-                    value={editingProduct.costPrice}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        costPrice: parseFloat(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>จำนวนในสต็อก</Label>
-                  <Input
-                    type="number"
-                    value={editingProduct.quantity}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        quantity: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>สต็อกขั้นต่ำ</Label>
-                <Input
-                  type="number"
-                  value={editingProduct.minStockLevel}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      minStockLevel: parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={handleUpdateProduct}>บันทึกการแก้ไข</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

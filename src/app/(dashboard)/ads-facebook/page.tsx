@@ -37,7 +37,9 @@ import {
   Loader2,
   Facebook,
   Plus,
+  FileText,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Campaign {
   id: string;
@@ -152,6 +154,12 @@ export default function AdsFacebookPage() {
         </div>
 
         <div className="flex gap-2">
+          <Link href="/ads-facebook/statements">
+            <Button variant="outline">
+              <FileText className="w-4 h-4 mr-2" />
+              ดูสเตทเมนต์
+            </Button>
+          </Link>
           <Button variant="outline" onClick={fetchData}>
             <ArrowUpRight className="w-4 h-4 mr-2" />
             รีเฟรช
