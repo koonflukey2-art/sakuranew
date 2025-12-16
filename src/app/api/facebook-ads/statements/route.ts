@@ -1,7 +1,11 @@
+// src/app/api/facebook-ads/statements/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 
-interface Statement {
+// ใช้ runtime node เพื่อให้ใช้ Buffer / pdf-parse ได้
+export const runtime = "nodejs";
+
+type Statement = {
   id: string;
   period: string;
   startDate: string;
@@ -11,37 +15,59 @@ interface Statement {
   fileUrl: string;
   fileName: string;
   createdAt: string;
+};
+
+// เก็บไว้ใน memory (พอรีสตาร์ท dev server จะหาย แต่พอสำหรับตอนนี้)
+let statements: Statement[] = [];
+
+// helper แปลง "3,460.92" -> 3460.92
+function parseMoney(str: string | undefined | null): number {
+  if (!str) return 0;
+  return Number(str.replace(/,/g, ""));
 }
 
-// Mock statements data (ในโปรดักชันค่อยเปลี่ยนไปใช้ DB)
-let mockStatements: Statement[] = [
-  {
-    id: "stmt-1",
-    period: "27 ต.ค. - 3 พ.ย. 2025",
-    startDate: "2025-10-27",
-    endDate: "2025-11-03",
-    totalAmount: 15420.5,
-    vat: 1080.45,
-    fileUrl: "#",
-    fileName: "statement-oct27-nov3.pdf",
-    createdAt: "2025-11-04T10:00:00Z",
-  },
-  {
-    id: "stmt-2",
-    period: "20-26 ต.ค. 2025",
-    startDate: "2025-10-20",
-    endDate: "2025-10-26",
-    totalAmount: 12350.0,
-    vat: 864.5,
-    fileUrl: "#",
-    fileName: "statement-oct20-26.pdf",
-    createdAt: "2025-10-27T10:00:00Z",
-  },
-];
+// ดึงข้อมูลจาก Meta invoice PDF
+async function extractFromPdf(file: File) {
+  // import แบบ dynamic เพราะ pdf-parse เป็น CJS
+  const pdfParse = (await import("pdf-parse")).default as any;
 
-// ========================
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const data = await pdfParse(buffer);
+  const text: string = data.text || "";
+
+  // ยอดที่เรียกเก็บทั้งหมด ฿3,460.92 THB
+  const totalMatch = text.match(
+    /ยอดที่เรียกเก็บทั้งหมด\s*฿([0-9,]+\.[0-9]{2})/,
+  );
+
+  // VAT Amount ฿226.41 THB
+  const vatMatch = text.match(/VAT Amount\s*฿([0-9,]+\.[0-9]{2})/);
+
+  // ช่วงวันที่: เช่น "6 ต.ค. 2025 - 13 ต.ค. 2025"
+  const periodMatch = text.match(
+    /(\d{1,2}\s[^\s]+\s\d{4})\s*-\s*(\d{1,2}\s[^\s]+\s\d{4})/,
+  );
+
+  const totalAmount = parseMoney(totalMatch?.[1]);
+  const vat = parseMoney(vatMatch?.[1]);
+
+  const period =
+    periodMatch?.[0] ??
+    new Date().toLocaleDateString("th-TH", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+  const startDate = periodMatch?.[1] ?? new Date().toISOString().split("T")[0];
+  const endDate = periodMatch?.[2] ?? new Date().toISOString().split("T")[0];
+
+  return { period, startDate, endDate, totalAmount, vat };
+}
+
 // GET /api/facebook-ads/statements
-// ========================
 export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
@@ -49,24 +75,27 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const totalAmount = statements.reduce(
+      (sum, s) => sum + s.totalAmount,
+      0,
+    );
+    const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
+
     return NextResponse.json({
-      statements: mockStatements,
-      totalAmount: mockStatements.reduce((sum, s) => sum + s.totalAmount, 0),
-      totalVAT: mockStatements.reduce((sum, s) => sum + s.vat, 0),
+      statements,
+      totalAmount,
+      totalVAT,
     });
   } catch (error) {
     console.error("Failed to fetch statements:", error);
     return NextResponse.json(
       { error: "Failed to fetch statements" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// ========================
-// POST /api/facebook-ads/statements
-// อัพโหลดสเตตเมนต์ใหม่ (mock)
-// ========================
+// POST /api/facebook-ads/statements  (upload PDF)
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -80,60 +109,54 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { error: "No file provided" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "Only PDF files are allowed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // NOTE: ตอนนี้ยังไม่ได้เซฟไฟล์จริง แค่ mock ไว้
-    // ถ้าจะเซฟจริง ต้องเอา buffer ไปเขียนลง disk หรืออัพขึ้น S3 แล้วใช้ URL นั้นแทน "#"
-    // const bytes = await file.arrayBuffer();
-    // const buffer = Buffer.from(bytes);
+    // ดึงข้อมูลจริงจาก PDF
+    const parsed = await extractFromPdf(file);
 
-    const now = new Date();
-
-    const mockStatement: Statement = {
+    const statement: Statement = {
       id: `stmt-${Date.now()}`,
-      period: now.toLocaleDateString("th-TH"),
-      startDate: now.toISOString().split("T")[0],
-      endDate: now.toISOString().split("T")[0],
-      totalAmount: Math.floor(Math.random() * 50000) + 10000,
-      vat: Math.floor(Math.random() * 3500) + 700,
-      fileUrl: "#", // ตอนนี้ยังใช้ placeholder
+      period: parsed.period,
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+      totalAmount: parsed.totalAmount,
+      vat: parsed.vat,
+      fileUrl: "#", // TODO: ถ้าอัปขึ้น S3 / storage ค่อยใส่ลิงก์จริง
       fileName: file.name,
-      createdAt: now.toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
-    mockStatements = [mockStatement, ...mockStatements];
+    // เก็บไว้ใน memory
+    statements = [statement, ...statements];
 
     console.log(
-      `✅ Statement uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+      `✅ Statement uploaded: ${file.name} | total=${statement.totalAmount} | vat=${statement.vat}`,
     );
 
     return NextResponse.json({
       success: true,
-      statement: mockStatement,
+      statement,
       message: "อัพโหลดสเตทเมนต์สำเร็จ",
     });
   } catch (error) {
     console.error("Upload statement error:", error);
     return NextResponse.json(
       { error: "Failed to upload statement" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// ========================
-// DELETE /api/facebook-ads/statements?id=xxxx
-// ลบสเตตเมนต์ออกจาก mockStatements
-// ========================
+// DELETE /api/facebook-ads/statements?id=stmt-123
 export async function DELETE(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -146,27 +169,27 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "Missing id parameter" },
-        { status: 400 }
+        { error: "Missing id" },
+        { status: 400 },
       );
     }
 
-    const exists = mockStatements.some((s) => s.id === id);
-    if (!exists) {
+    const before = statements.length;
+    statements = statements.filter((s) => s.id !== id);
+
+    if (statements.length === before) {
       return NextResponse.json(
         { error: "Statement not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
-
-    mockStatements = mockStatements.filter((s) => s.id !== id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete statement error:", error);
     return NextResponse.json(
       { error: "Failed to delete statement" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
