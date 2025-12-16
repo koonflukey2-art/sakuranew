@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db"; // หรือ "@/lib/prisma" ถ้าโปรเจกต์คุณใช้ตัวนั้น
+import { prisma } from "@/lib/db"; // ใช้ lib/db ตามโปรเจกต์คุณ
 
 export async function POST() {
   try {
@@ -24,16 +24,21 @@ export async function POST() {
       );
     }
 
-    // ✅ Check low stock (ใช้ organizationId)
+    const orgId = user.organizationId;
+
+    // ==============================
+    // ✅ 1) แจ้งเตือนสต็อกต่ำ
+    // ==============================
     const products = await prisma.product.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId: orgId },
     });
 
     const lowStockProducts = products.filter(
       (p) => p.quantity < p.minStockLevel
     );
 
-    // Create notifications for low stock
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
     for (const product of lowStockProducts) {
       const existingNotif = await prisma.notification.findFirst({
         where: {
@@ -41,7 +46,7 @@ export async function POST() {
           type: "LOW_STOCK",
           message: { contains: product.name },
           createdAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+            gte: twentyFourHoursAgo, // ภายใน 24 ชม. ล่าสุด
           },
         },
       });
@@ -59,35 +64,45 @@ export async function POST() {
       }
     }
 
-    // ✅ Check budget alerts (ใช้ organizationId)
-    const budgets = await prisma.budget.findMany({
-      where: { organizationId: user.organizationId },
+    // ==============================
+    // ✅ 2) แจ้งเตือนงบประมาณ (ใช้ CapitalBudget)
+    // ==============================
+
+    // ดึงงบลงทุนล่าสุดของ org นี้
+    const capitalBudget = await prisma.capitalBudget.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
     });
 
-    for (const budget of budgets) {
-      if (budget.spent > budget.amount * 0.9) {
-        const existingNotif = await prisma.notification.findFirst({
+    if (capitalBudget && capitalBudget.amount > 0) {
+      const total = capitalBudget.amount;       // งบทั้งหมด
+      const remaining = capitalBudget.remaining; // เหลือ
+      const used = total - remaining;           // ใช้ไปแล้ว
+      const usedRatio = used / total;           // เป็น %
+
+      // ถ้าใช้ไปเกิน 90% แล้วค่อยแจ้งเตือน
+      if (usedRatio >= 0.9) {
+        const existingBudgetNotif = await prisma.notification.findFirst({
           where: {
             userId: user.id,
             type: "BUDGET_ALERT",
-            message: { contains: budget.purpose },
             createdAt: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+              gte: twentyFourHoursAgo, // ไม่ให้เด้งถี่เกิน (แค่วันละครั้ง)
             },
           },
         });
 
-        if (!existingNotif) {
+        if (!existingBudgetNotif) {
           await prisma.notification.create({
             data: {
               userId: user.id,
               type: "BUDGET_ALERT",
               title: "งบประมาณใกล้หมด!",
-              message: `งบ "${budget.purpose}" ใช้ไปแล้ว ${(
-                (budget.spent / budget.amount) *
-                100
-              ).toFixed(0)}%`,
-              link: "/budgets",
+              message: `งบลงทุนใช้ไปแล้ว ${Math.round(
+                usedRatio * 100
+              )}% (ใช้ไป ${used.toFixed(0)} จาก ${total.toFixed(0)})`,
+              // ปรับลิงก์ให้ตรงกับหน้าจริงของคุณ
+              link: "/capital-budget",
             },
           });
         }

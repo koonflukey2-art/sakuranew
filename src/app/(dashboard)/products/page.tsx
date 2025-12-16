@@ -34,7 +34,7 @@ import {
   Wallet,
   PackagePlus,
   DollarSign,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,7 +48,8 @@ interface Product {
   minStockLevel: number;
   costPrice: number;
   sellPrice: number;
-  budgetUsed: number;
+  // ทำให้เป็น optional กัน undefined จาก product เก่า ๆ
+  budgetUsed?: number;
 }
 
 interface ProductType {
@@ -84,7 +85,8 @@ export default function ProductsPage() {
   const [editName, setEditName] = useState("");
 
   // Add stock state
-  const [addingStockProduct, setAddingStockProduct] = useState<Product | null>(null);
+  const [addingStockProduct, setAddingStockProduct] =
+    useState<Product | null>(null);
   const [addStockQuantity, setAddStockQuantity] = useState(0);
   const [addStockCost, setAddStockCost] = useState(0);
 
@@ -232,14 +234,17 @@ export default function ProductsPage() {
     try {
       setLoading(true);
 
-      const response = await fetch(`/api/products/${addingStockProduct.id}/add-stock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quantity: addStockQuantity,
-          costPrice: addStockCost,
-        }),
-      });
+      const response = await fetch(
+        `/api/products/${addingStockProduct.id}/add-stock`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quantity: addStockQuantity,
+            costPrice: addStockCost,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
@@ -280,7 +285,9 @@ export default function ProductsPage() {
 
       toast({
         title: "✅ ลบสินค้าสำเร็จ",
-        description: `งบคืน: ฿${data.budgetReturned?.toLocaleString() || 0}`,
+        description: `งบคืน: ฿${
+          (data.budgetReturned ?? 0).toLocaleString() // กัน undefined เช่นกัน
+        }`,
       });
 
       setDeletingProduct(null);
@@ -348,7 +355,9 @@ export default function ProductsPage() {
         </div>
         <div className="flex gap-2">
           <Button onClick={fetchData} variant="outline" disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
             รีเฟรช
           </Button>
           <Button onClick={() => setOpenManageTypes(true)} variant="outline">
@@ -378,8 +387,20 @@ export default function ProductsPage() {
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-400">สถานะ</p>
-              <Badge className={availableBudget > 10000 ? "bg-green-500" : availableBudget > 5000 ? "bg-yellow-500" : "bg-red-500"}>
-                {availableBudget > 10000 ? "✅ ปกติ" : availableBudget > 5000 ? "⚠️ ต่ำ" : "❌ ต่ำมาก"}
+              <Badge
+                className={
+                  availableBudget > 10000
+                    ? "bg-green-500"
+                    : availableBudget > 5000
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
+                }
+              >
+                {availableBudget > 10000
+                  ? "✅ ปกติ"
+                  : availableBudget > 5000
+                  ? "⚠️ ต่ำ"
+                  : "❌ ต่ำมาก"}
               </Badge>
             </div>
           </div>
@@ -452,10 +473,15 @@ export default function ProductsPage() {
                         <Package className="w-6 h-6 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-white">{product.name}</h3>
+                        <h3 className="font-semibold text-lg text-white">
+                          {product.name}
+                        </h3>
                         <p className="text-sm text-gray-400">
-                          หมวดหมู่: {product.category || "-"} | ประเภท: {product.productType}
-                          {product.productTypeName ? ` - ${product.productTypeName}` : ""}
+                          หมวดหมู่: {product.category || "-"} | ประเภท:{" "}
+                          {product.productType}
+                          {product.productTypeName
+                            ? ` - ${product.productTypeName}`
+                            : ""}
                         </p>
                         <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
                           <div>
@@ -472,12 +498,15 @@ export default function ProductsPage() {
                           </div>
                           <div>
                             <p className="text-gray-400">สต๊อก</p>
-                            <p className="font-medium text-white">{product.quantity} ชิ้น</p>
+                            <p className="font-medium text-white">
+                              {product.quantity} ชิ้น
+                            </p>
                           </div>
                           <div>
                             <p className="text-gray-400">งบที่ใช้</p>
                             <p className="font-medium text-green-400">
-                              ฿{product.budgetUsed.toLocaleString()}
+                              {/* ใช้ fallback 0 กัน undefined */}
+                              ฿{(product.budgetUsed ?? 0).toLocaleString()}
                             </p>
                           </div>
                         </div>
@@ -657,7 +686,12 @@ export default function ProductsPage() {
                   <Separator className="bg-green-500/30" />
                   <div className="flex justify-between font-semibold text-white">
                     <span>ต้นทุนรวม:</span>
-                    <span>฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}</span>
+                    <span>
+                      ฿
+                      {(
+                        newProduct.costPrice * newProduct.quantity
+                      ).toLocaleString()}
+                    </span>
                   </div>
                 </div>
 
@@ -667,11 +701,19 @@ export default function ProductsPage() {
                     <AlertDescription>
                       <strong>⚠️ งบประมาณไม่เพียงพอ!</strong>
                       <br />
-                      ต้องการ: ฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}
+                      ต้องการ: ฿
+                      {(
+                        newProduct.costPrice * newProduct.quantity
+                      ).toLocaleString()}
                       <br />
                       มีเพียง: ฿{availableBudget.toLocaleString()}
                       <br />
-                      ขาดอีก: ฿{Math.max(0, (newProduct.costPrice * newProduct.quantity) - availableBudget).toLocaleString()}
+                      ขาดอีก: ฿
+                      {Math.max(
+                        0,
+                        newProduct.costPrice * newProduct.quantity -
+                          availableBudget
+                      ).toLocaleString()}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -684,7 +726,11 @@ export default function ProductsPage() {
               disabled={budgetWarning || loading}
               className={budgetWarning ? "bg-gray-600" : ""}
             >
-              {budgetWarning ? "❌ งบประมาณไม่พอ" : loading ? "กำลังสร้าง..." : "✅ สร้างสินค้า"}
+              {budgetWarning
+                ? "❌ งบประมาณไม่พอ"
+                : loading
+                ? "กำลังสร้าง..."
+                : "✅ สร้างสินค้า"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -719,7 +765,11 @@ export default function ProductsPage() {
               </AlertDescription>
             </Alert>
             <div className="flex gap-2">
-              <Button onClick={handleEditProduct} disabled={loading} className="flex-1">
+              <Button
+                onClick={handleEditProduct}
+                disabled={loading}
+                className="flex-1"
+              >
                 บันทึก
               </Button>
               <Button
@@ -756,7 +806,9 @@ export default function ProductsPage() {
               <Input
                 type="number"
                 value={addStockQuantity}
-                onChange={(e) => setAddStockQuantity(parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  setAddStockQuantity(parseInt(e.target.value) || 0)
+                }
                 min="1"
               />
             </div>
@@ -766,7 +818,9 @@ export default function ProductsPage() {
               <Input
                 type="number"
                 value={addStockCost}
-                onChange={(e) => setAddStockCost(parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  setAddStockCost(parseFloat(e.target.value) || 0)
+                }
                 min="0"
                 step="0.01"
               />
@@ -778,7 +832,9 @@ export default function ProductsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>จำนวน:</span>
-                    <span className="font-bold">{addStockQuantity} ชิ้น</span>
+                    <span className="font-bold">
+                      {addStockQuantity} ชิ้น
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>ราคาทุน/ชิ้น:</span>
@@ -790,7 +846,8 @@ export default function ProductsPage() {
                   <div className="flex justify-between text-lg">
                     <span className="font-semibold">ยอดรวม:</span>
                     <span className="font-bold text-green-500">
-                      ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                      ฿
+                      {(addStockCost * addStockQuantity).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -804,7 +861,8 @@ export default function ProductsPage() {
                 <AlertDescription>
                   งบประมาณไม่พอ!
                   <br />
-                  ต้องการ: ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                  ต้องการ: ฿
+                  {(addStockCost * addStockQuantity).toLocaleString()}
                   <br />
                   มี: ฿{availableBudget.toLocaleString()}
                 </AlertDescription>
@@ -849,7 +907,8 @@ export default function ProductsPage() {
               <br />
               <div className="bg-muted p-3 rounded-lg space-y-1">
                 <p>
-                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity} ชิ้น
+                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity}{" "}
+                  ชิ้น
                 </p>
                 <p>
                   <strong>ราคาทุน/ชิ้น:</strong> ฿
@@ -859,7 +918,8 @@ export default function ProductsPage() {
                   <strong>งบที่จะคืน:</strong> ฿
                   {deletingProduct
                     ? (
-                        deletingProduct.costPrice * deletingProduct.quantity
+                        deletingProduct.costPrice *
+                        deletingProduct.quantity
                       ).toLocaleString()
                     : 0}
                 </p>
@@ -909,7 +969,10 @@ export default function ProductsPage() {
                       <Input
                         value={newType.typeName}
                         onChange={(e) =>
-                          setNewType({ ...newType, typeName: e.target.value })
+                          setNewType({
+                            ...newType,
+                            typeName: e.target.value,
+                          })
                         }
                         placeholder="เช่น: ครีมนวด"
                       />
@@ -977,7 +1040,10 @@ export default function ProductsPage() {
                 <Input
                   value={editingType.typeName}
                   onChange={(e) =>
-                    setEditingType({ ...editingType, typeName: e.target.value })
+                    setEditingType({
+                      ...editingType,
+                      typeName: e.target.value,
+                    })
                   }
                 />
               </div>

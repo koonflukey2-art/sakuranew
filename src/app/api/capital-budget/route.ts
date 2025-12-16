@@ -1,9 +1,12 @@
+// src/app/api/capital-budget/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getOrganizationId } from "@/lib/organization";
 
-export async function GET(request: NextRequest) {
+// GET /api/capital-budget
+// ใช้ดึง "งบลงทุนล่าสุด" ของ organization ปัจจุบัน
+export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
     if (!user) {
@@ -11,25 +14,40 @@ export async function GET(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 400 });
+    }
 
-    const budgets = await prisma.budget.findMany({
+    // ใช้ตาราง CapitalBudget (ตัวเดียวกับที่ใช้ใน add-stock / products)
+    const latestBudget = await prisma.capitalBudget.findFirst({
       where: { organizationId: orgId },
-      include: {
-        items: true, // Include budget items
-      },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(budgets);
+    // ถ้ายังไม่มีงบเลย ส่งค่า default กลับไป (กัน front หลุด)
+    if (!latestBudget) {
+      return NextResponse.json({
+        id: null,
+        amount: 0,
+        remaining: 0,
+        organizationId: orgId,
+        createdAt: null,
+      });
+    }
+
+    return NextResponse.json(latestBudget);
   } catch (error) {
-    console.error("Failed to fetch budgets:", error);
+    console.error("Failed to fetch capital budget:", error);
     return NextResponse.json(
-      { error: "Failed to fetch budgets" },
+      { error: "Failed to fetch capital budget" },
       { status: 500 }
     );
   }
 }
 
+// POST /api/capital-budget
+// ใช้สร้างงบลงทุนก้อนใหม่ (เช่น ตั้งงบประจำเดือน) 
+// body ที่รับ: { totalAmount } หรือ { amount }
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -38,37 +56,41 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
-    const body = await request.json();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 400 });
+    }
 
-    const { name, description, totalAmount, items } = body;
+    const body = await request.json().catch(() => ({} as any));
 
-    // Create budget with items
-    const budget = await prisma.budget.create({
+    // รองรับทั้ง totalAmount และ amount
+    const rawAmount = body.totalAmount ?? body.amount;
+    const amountNum = parseFloat(String(rawAmount));
+
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return NextResponse.json(
+        { error: "จำนวนงบไม่ถูกต้อง (ต้องมากกว่า 0)" },
+        { status: 400 }
+      );
+    }
+
+    // สร้าง CapitalBudget ใหม่
+    const budget = await prisma.capitalBudget.create({
       data: {
         organizationId: orgId,
-        name: name || "งบประมาณ",
-        description: description || "",
-        totalAmount: parseFloat(totalAmount),
-        remaining: parseFloat(totalAmount),
-        items: {
-          create: items.map((item: any) => ({
-            name: item.name,
-            amount: parseFloat(item.amount),
-            quantity: parseInt(item.quantity) || 1,
-            notes: item.notes || "",
-          })),
-        },
-      },
-      include: {
-        items: true,
+        amount: amountNum,
+        remaining: amountNum,
+        // ถ้าใน schema ของคุณมี field อื่น เช่น name, description
+        // ค่อยมาเพิ่มทีหลังได้ เช่น:
+        // name: body.name ?? "งบลงทุน",
+        // description: body.description ?? null,
       },
     });
 
-    return NextResponse.json(budget);
+    return NextResponse.json(budget, { status: 201 });
   } catch (error) {
-    console.error("Failed to create budget:", error);
+    console.error("Failed to create capital budget:", error);
     return NextResponse.json(
-      { error: "Failed to create budget" },
+      { error: "Failed to create capital budget" },
       { status: 500 }
     );
   }
