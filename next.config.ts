@@ -4,11 +4,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   reactStrictMode: true,
   compress: true,
+
+  // Add empty turbopack config to silence warning
+  turbopack: {},
 
   // ✅ Next 15 ใช้อันนี้แทน experimental.serverComponentsExternalPackages
   serverExternalPackages: ["tesseract.js", "tesseract.js-core"],

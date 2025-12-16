@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit, Package, Trash2 } from "lucide-react";
+import { Plus, Edit, Package, Trash2, AlertTriangle, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProductsPage() {
@@ -21,6 +22,10 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Budget state
+  const [availableBudget, setAvailableBudget] = useState(0);
+  const [budgetWarning, setBudgetWarning] = useState(false);
 
   const [openCreateProduct, setOpenCreateProduct] = useState(false);
   const [openEditProduct, setOpenEditProduct] = useState(false);
@@ -38,6 +43,16 @@ export default function ProductsPage() {
     minStockLevel: 10,
   });
 
+  // Check budget when cost or quantity changes
+  useEffect(() => {
+    const totalCost = newProduct.costPrice * newProduct.quantity;
+    if (totalCost > availableBudget) {
+      setBudgetWarning(true);
+    } else {
+      setBudgetWarning(false);
+    }
+  }, [newProduct.costPrice, newProduct.quantity, availableBudget]);
+
   const [newType, setNewType] = useState({
     typeNumber: 5,
     typeName: "",
@@ -45,7 +60,20 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchData();
+    fetchAvailableBudget();
   }, []);
+
+  const fetchAvailableBudget = async () => {
+    try {
+      const response = await fetch("/api/capital-budget/available");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableBudget(data.available || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch budget:", error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -91,6 +119,7 @@ export default function ProductsPage() {
         minStockLevel: 10,
       });
       fetchData();
+      fetchAvailableBudget(); // Refresh budget after creating product
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
@@ -203,6 +232,31 @@ export default function ProductsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Budget Overview Card */}
+      <Card className="bg-gradient-to-br from-green-900/20 to-green-950/20 border-green-500/30">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">งบประมาณคงเหลือ</p>
+                <p className="text-3xl font-bold text-green-400">
+                  ฿{availableBudget.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-400">สถานะ</p>
+              <Badge className={availableBudget > 10000 ? "bg-green-500" : availableBudget > 5000 ? "bg-yellow-500" : "bg-red-500"}>
+                {availableBudget > 10000 ? "✅ ปกติ" : availableBudget > 5000 ? "⚠️ ต่ำ" : "❌ ต่ำมาก"}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -418,9 +472,64 @@ export default function ProductsPage() {
                 }
               />
             </div>
+
+            {/* Budget Display Card */}
+            <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-green-400" />
+                    <span className="text-sm font-semibold text-green-300">
+                      งบประมาณคงเหลือ
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-400">
+                    ฿{availableBudget.toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Cost Calculation */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-300">
+                    <span>ต้นทุนต่อชิ้น:</span>
+                    <span>฿{newProduct.costPrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-300">
+                    <span>จำนวน:</span>
+                    <span>{newProduct.quantity} ชิ้น</span>
+                  </div>
+                  <div className="border-t border-green-500/30 pt-2 flex justify-between font-semibold text-white">
+                    <span>ต้นทุนรวม:</span>
+                    <span>฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Warning Alert */}
+                {budgetWarning && (
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertTriangle className="w-4 h-4" />
+                    <AlertDescription>
+                      <strong>⚠️ งบประมาณไม่เพียงพอ!</strong>
+                      <br />
+                      ต้องการ: ฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}
+                      <br />
+                      มีเพียง: ฿{availableBudget.toLocaleString()}
+                      <br />
+                      ขาดอีก: ฿{Math.max(0, (newProduct.costPrice * newProduct.quantity) - availableBudget).toLocaleString()}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
           </div>
           <DialogFooter>
-            <Button onClick={createProduct}>สร้างสินค้า</Button>
+            <Button
+              onClick={createProduct}
+              disabled={budgetWarning || loading}
+              className={budgetWarning ? "bg-gray-600" : ""}
+            >
+              {budgetWarning ? "❌ งบประมาณไม่พอ" : loading ? "กำลังสร้าง..." : "✅ สร้างสินค้า"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

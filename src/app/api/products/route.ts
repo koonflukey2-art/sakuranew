@@ -89,6 +89,38 @@ export async function POST(request: Request) {
     // Calculate total cost for budget deduction
     const totalCost = costPrice * quantity;
 
+    // Check available budget before creating product
+    const budget = await prisma.capitalBudget.findFirst({
+      where: { organizationId: user.organizationId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (budget && totalCost > 0) {
+      // Check if budget is sufficient
+      if (budget.remaining < totalCost) {
+        console.warn(
+          `⚠️ Insufficient budget: Need ฿${totalCost.toLocaleString()}, Have ฿${budget.remaining.toLocaleString()}`
+        );
+        return NextResponse.json(
+          {
+            error: "งบประมาณไม่เพียงพอ",
+            required: totalCost,
+            available: budget.remaining,
+            shortage: totalCost - budget.remaining,
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!budget && totalCost > 0) {
+      console.warn("⚠️ No budget found for organization");
+      return NextResponse.json(
+        {
+          error: "ไม่พบงบประมาณ กรุณาเพิ่มงบประมาณก่อน",
+        },
+        { status: 400 }
+      );
+    }
+
     // Create product
     const product = await prisma.product.create({
       data: {
@@ -104,14 +136,9 @@ export async function POST(request: Request) {
       },
     });
 
-    // Deduct from capital budget (allow negative)
-    try {
-      const budget = await prisma.capitalBudget.findFirst({
-        where: { organizationId: user.organizationId },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (budget && totalCost > 0) {
+    // Deduct from capital budget
+    if (budget && totalCost > 0) {
+      try {
         // Update budget remaining
         await prisma.capitalBudget.update({
           where: { id: budget.id },
@@ -133,17 +160,15 @@ export async function POST(request: Request) {
           },
         });
 
-        console.log(`💰 Budget deducted: ฿${totalCost.toLocaleString()}`);
-        console.log(
-          `   Product: ${body.name} (${quantity} units @ ฿${costPrice} each)`
-        );
-        console.log(
-          `   Remaining: ฿${(budget.remaining - totalCost).toLocaleString()}`
-        );
+        console.log(`✅ Product created and budget deducted`);
+        console.log(`   💰 Cost: ฿${totalCost.toLocaleString()}`);
+        console.log(`   📦 Product: ${body.name} (${quantity} units @ ฿${costPrice} each)`);
+        console.log(`   💵 Remaining budget: ฿${(budget.remaining - totalCost).toLocaleString()}`);
+      } catch (budgetError) {
+        console.error("❌ Failed to deduct budget:", budgetError);
+        // Budget deduction failed, but product was created
+        // Consider rolling back the product creation in production
       }
-    } catch (budgetError) {
-      console.error("Failed to deduct budget:", budgetError);
-      // ไม่ต้อง throw ต่อ ปล่อยให้ product ถูกสร้างสำเร็จ
     }
 
     return NextResponse.json(product, { status: 201 });
