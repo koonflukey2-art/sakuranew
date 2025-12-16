@@ -172,6 +172,7 @@ model Product {
   minStockLevel   Int      @default(10)
   costPrice       Float
   sellPrice       Float
+  budgetUsed      Float    @default(0) // Track budget allocated to this product
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

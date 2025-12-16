@@ -132,6 +132,7 @@ export async function POST(request: Request) {
         minStockLevel,
         costPrice,
         sellPrice, // ✅ ส่งค่าแน่นอน
+        budgetUsed: totalCost, // ✅ Track budget used for this product
         organizationId: user.organizationId,
       },
     });
