@@ -616,7 +616,7 @@ export default function ProductsPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ต้นทุน (บาท)</Label>
                 <Input
@@ -950,7 +950,7 @@ export default function ProductsPage() {
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="pt-6">
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label>หมายเลขประเภท</Label>
                       <Input

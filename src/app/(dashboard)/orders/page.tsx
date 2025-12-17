@@ -717,7 +717,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ประเภทสินค้า</Label>
                 <Select
@@ -753,7 +753,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ยอดเงิน (฿)</Label>
                 <Input
@@ -778,7 +778,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ชื่อลูกค้า</Label>
                 <Input
@@ -816,7 +816,7 @@ export default function OrdersPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>สถานะ</Label>
                 <Select
@@ -897,7 +897,7 @@ export default function OrdersPage() {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>ชื่อลูกค้า</Label>
                   <Input
@@ -951,7 +951,7 @@ export default function OrdersPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>ยอดเงิน (฿)</Label>
                   <Input

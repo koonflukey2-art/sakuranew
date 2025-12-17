@@ -200,9 +200,9 @@ export default function CapitalBudgetPage() {
 
             {budgetItems.map((item, index) => (
               <Card key={index} className="p-4">
-                <div className="grid grid-cols-12 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-3">
                   {/* Item Name */}
-                  <div className="col-span-4">
+                  <div className="col-span-1 md:col-span-3 lg:col-span-4">
                     <Label className="text-xs">ชื่อรายการ</Label>
                     <Input
                       value={item.name}
@@ -214,7 +214,7 @@ export default function CapitalBudgetPage() {
                   </div>
 
                   {/* Amount */}
-                  <div className="col-span-3">
+                  <div className="col-span-1 md:col-span-2 lg:col-span-3">
                     <Label className="text-xs">จำนวนเงิน (บาท)</Label>
                     <Input
                       type="number"
@@ -227,7 +227,7 @@ export default function CapitalBudgetPage() {
                   </div>
 
                   {/* Quantity */}
-                  <div className="col-span-2">
+                  <div className="col-span-1 md:col-span-1 lg:col-span-2">
                     <Label className="text-xs">จำนวน</Label>
                     <Input
                       type="number"
@@ -240,7 +240,7 @@ export default function CapitalBudgetPage() {
                   </div>
 
                   {/* Notes */}
-                  <div className="col-span-2">
+                  <div className="col-span-1 md:col-span-3 lg:col-span-2">
                     <Label className="text-xs">หมายเหตุ</Label>
                     <Input
                       value={item.notes}
@@ -252,11 +252,12 @@ export default function CapitalBudgetPage() {
                   </div>
 
                   {/* Remove Button */}
-                  <div className="col-span-1 flex items-end">
+                  <div className="col-span-1 md:col-span-3 lg:col-span-1 flex items-end">
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={() => removeItem(index)}
+                      className="w-full md:w-auto"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
