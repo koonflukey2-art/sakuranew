@@ -76,14 +76,15 @@ export default function AdsFacebookPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("7days");
 
-  // ✅ เปลี่ยนจาก receipts → statements
-  const [totalSpentFromStatements, setTotalSpentFromStatements] = useState(0);
+  // ✅ รวมทั้งสลิป + สเตทเมนต์
+  const [totalAdSpent, setTotalAdSpent] = useState(0);
+  const [receiptsCount, setReceiptsCount] = useState(0);
   const [statementsCount, setStatementsCount] = useState(0);
 
   useEffect(() => {
     fetchData();
 
-    // Auto-refresh every 5 minutes
+    // Auto-refresh every 5 นาที
     const interval = setInterval(fetchData, 300000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,12 +94,13 @@ export default function AdsFacebookPage() {
     try {
       setLoading(true);
 
-      const [campaignsRes, metricsRes, statementsRes] = await Promise.all([
-        fetch("/api/ads/campaigns?platform=FACEBOOK"),
-        fetch(`/api/ads/metrics?platform=FACEBOOK&period=${selectedPeriod}`),
-        // ✅ ดึงจาก statements
-        fetch("/api/facebook-ads/statements"),
-      ]);
+      const [campaignsRes, metricsRes, receiptsRes, statementsRes] =
+        await Promise.all([
+          fetch("/api/ads/campaigns?platform=FACEBOOK"),
+          fetch(`/api/ads/metrics?platform=FACEBOOK&period=${selectedPeriod}`),
+          fetch("/api/ads/receipts"), // สลิป
+          fetch("/api/facebook-ads/statements"), // สเตทเมนต์
+        ]);
 
       if (campaignsRes.ok) {
         const campaignsData = await campaignsRes.json();
@@ -111,12 +113,28 @@ export default function AdsFacebookPage() {
         setChartData(metricsData.chartData || []);
       }
 
-      // ✅ NEW: ใช้ค่าโฆษณาจาก statements
+      // ----- รวมจากสลิป -----
+      let sumFromReceipts = 0;
+      let receiptsLen = 0;
+      if (receiptsRes.ok) {
+        const receiptsData = await receiptsRes.json();
+        sumFromReceipts = receiptsData.totalAmount || 0;
+        receiptsLen = receiptsData.receipts?.length || 0;
+        setReceiptsCount(receiptsLen);
+      }
+
+      // ----- รวมจากสเตทเมนต์ -----
+      let sumFromStatements = 0;
+      let statementsLen = 0;
       if (statementsRes.ok) {
         const statementsData = await statementsRes.json();
-        setTotalSpentFromStatements(statementsData.totalAmount || 0);
-        setStatementsCount(statementsData.statements?.length || 0);
+        sumFromStatements = statementsData.totalAmount || 0;
+        statementsLen = statementsData.statements?.length || 0;
+        setStatementsCount(statementsLen);
       }
+
+      // ✅ รวมสองฝั่งเป็นค่าโฆษณาทั้งหมด
+      setTotalAdSpent(sumFromReceipts + sumFromStatements);
     } catch (error) {
       console.error("Failed to fetch ads data:", error);
       toast({
@@ -170,20 +188,20 @@ export default function AdsFacebookPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* ✅ Total Spent - NOW FROM STATEMENTS */}
+        {/* ✅ ค่าโฆษณาทั้งหมด (รวมสลิป + สเตทเมนต์) */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2 text-blue-300">
               <DollarSign className="w-4 h-4" />
-              ค่าโฆษณาทั้งหมด (จากสเตทเมนต์)
+              ค่าโฆษณาทั้งหมด (สลิป + สเตทเมนต์)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-400">
-              ฿{totalSpentFromStatements.toLocaleString()}
+              ฿{totalAdSpent.toLocaleString()}
             </div>
             <p className="text-xs text-blue-300 mt-1">
-              จาก {statementsCount} สเตทเมนต์
+              จาก {receiptsCount} สลิป + {statementsCount} สเตทเมนต์
             </p>
           </CardContent>
         </Card>
