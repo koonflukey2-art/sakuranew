@@ -348,7 +348,7 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
           <p className="text-gray-400 mt-1">
             สร้างและจัดการสินค้า รวมถึงประเภทสินค้าสำหรับ LINE
           </p>

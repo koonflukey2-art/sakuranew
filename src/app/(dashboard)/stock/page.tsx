@@ -196,7 +196,7 @@ export default function StockPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
           <p className="text-gray-400 mt-1">
             ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ
             (อัปเดตอัตโนมัติทุก 30 วินาที)

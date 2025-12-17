@@ -827,7 +827,7 @@ export default function SystemSettingsPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
           System Settings
         </h1>
         <p className="text-gray-400">
@@ -836,7 +836,7 @@ export default function SystemSettingsPage() {
       </div>
 
       <Tabs defaultValue="cutoff" className="w-full">
-        <TabsList className="grid w-full grid-cols-8 lg:grid-cols-8">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="cutoff">ตัดยอด</TabsTrigger>
           <TabsTrigger value="line">LINE Stock</TabsTrigger>
           <TabsTrigger value="line-ads">LINE Ads</TabsTrigger>
@@ -860,7 +860,7 @@ export default function SystemSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>ชั่วโมง (0-23)</Label>
                   <Input

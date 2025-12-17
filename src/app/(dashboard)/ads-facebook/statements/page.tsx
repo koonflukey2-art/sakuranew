@@ -221,7 +221,7 @@ export default function FacebookAdsStatementsPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Facebook Ads Statements
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -346,97 +346,99 @@ export default function FacebookAdsStatementsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>รอบบิล</TableHead>
-                  <TableHead>ยอดรวม (รวม VAT)</TableHead>
-                  <TableHead>VAT</TableHead>
-                  <TableHead>ไฟล์</TableHead>
-                  <TableHead>วันที่อัพโหลด</TableHead>
-                  <TableHead className="text-right">การจัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {statements.map((statement) => (
-                  <TableRow key={statement.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{statement.period}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {statement.startDate} ถึง {statement.endDate}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-bold text-green-500">
-                        ฿{statement.totalAmount.toLocaleString("th-TH", {
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>รอบบิล</TableHead>
+                    <TableHead>ยอดรวม (รวม VAT)</TableHead>
+                    <TableHead>VAT</TableHead>
+                    <TableHead>ไฟล์</TableHead>
+                    <TableHead>วันที่อัพโหลด</TableHead>
+                    <TableHead className="text-right">การจัดการ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {statements.map((statement) => (
+                    <TableRow key={statement.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{statement.period}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {statement.startDate} ถึง {statement.endDate}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-bold text-green-500">
+                          ฿{statement.totalAmount.toLocaleString("th-TH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        ฿{statement.vat.toLocaleString("th-TH", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      ฿{statement.vat.toLocaleString("th-TH", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{statement.fileName}</span>
-                        {statement.source === "LINE" && (
-                          <Badge className="bg-green-500 ml-2">
-                            <MessageSquare className="w-3 h-3 mr-1" />
-                            LINE
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(statement.createdAt).toLocaleDateString(
-                        "th-TH",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        }
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setViewingStatement(statement)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          ดูไฟล์
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            window.open(statement.fileUrl, "_blank")
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{statement.fileName}</span>
+                          {statement.source === "LINE" && (
+                            <Badge className="bg-green-500 ml-2">
+                              <MessageSquare className="w-3 h-3 mr-1" />
+                              LINE
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(statement.createdAt).toLocaleDateString(
+                          "th-TH",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
                           }
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => setStatementToDelete(statement)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          ลบ
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewingStatement(statement)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            ดูไฟล์
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              window.open(statement.fileUrl, "_blank")
+                            }
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setStatementToDelete(statement)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            ลบ
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -491,7 +493,7 @@ export default function FacebookAdsStatementsPage() {
         open={!!viewingStatement}
         onOpenChange={() => setViewingStatement(null)}
       >
-        <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>สเตทเมนต์ - {viewingStatement?.period}</DialogTitle>
           </DialogHeader>

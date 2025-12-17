@@ -156,7 +156,7 @@ export default function CapitalBudgetPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold">งบประมาณทุน</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">งบประมาณทุน</h1>
         <p className="text-muted-foreground mt-1">
           จัดการงบประมาณและค่าใช้จ่ายต่างๆ
         </p>

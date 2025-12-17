@@ -274,7 +274,7 @@ export default function DailySummaryPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
             Sakura Biotech - สรุปยอดรายวัน
           </h1>
           <p className="text-gray-400">
@@ -470,45 +470,47 @@ export default function DailySummaryPage() {
           </CardHeader>
           <CardContent>
             {selectedSummary.productsSold && selectedSummary.productsSold.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-gray-300">สินค้า</TableHead>
-                    <TableHead className="text-right text-gray-300">จำนวน</TableHead>
-                    <TableHead className="text-right text-gray-300">รายได้</TableHead>
-                    <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
-                    <TableHead className="text-right text-gray-300">กำไร</TableHead>
-                    <TableHead className="text-right text-gray-300">% Margin</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedSummary.productsSold.map((product, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium text-white">
-                        {product.productName}
-                      </TableCell>
-                      <TableCell className="text-right text-white">
-                        {product.quantity}
-                      </TableCell>
-                      <TableCell className="text-right text-green-400">
-                        ฿{product.revenue.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-red-400">
-                        ฿{product.cost.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-blue-400 font-bold">
-                        ฿{product.profit.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-gray-300">
-                        {product.revenue > 0
-                          ? ((product.profit / product.revenue) * 100).toFixed(1)
-                          : 0}
-                        %
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-gray-300">สินค้า</TableHead>
+                      <TableHead className="text-right text-gray-300">จำนวน</TableHead>
+                      <TableHead className="text-right text-gray-300">รายได้</TableHead>
+                      <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
+                      <TableHead className="text-right text-gray-300">กำไร</TableHead>
+                      <TableHead className="text-right text-gray-300">% Margin</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedSummary.productsSold.map((product, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium text-white">
+                          {product.productName}
+                        </TableCell>
+                        <TableCell className="text-right text-white">
+                          {product.quantity}
+                        </TableCell>
+                        <TableCell className="text-right text-green-400">
+                          ฿{product.revenue.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-red-400">
+                          ฿{product.cost.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-blue-400 font-bold">
+                          ฿{product.profit.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-gray-300">
+                          {product.revenue > 0
+                            ? ((product.profit / product.revenue) * 100).toFixed(1)
+                            : 0}
+                          %
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <p className="text-center text-gray-400 py-8">ไม่มีข้อมูลการขายสินค้า</p>
             )}
@@ -524,69 +526,71 @@ export default function DailySummaryPage() {
           </CardHeader>
           <CardContent>
             {summaries.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-gray-300">วันที่</TableHead>
-                    <TableHead className="text-right text-gray-300">รายได้</TableHead>
-                    <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
-                    <TableHead className="text-right text-gray-300">กำไร</TableHead>
-                    <TableHead className="text-right text-gray-300">ออเดอร์</TableHead>
-                    <TableHead className="text-right text-gray-300"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {summaries.map((summary) => (
-                    <TableRow key={summary.id}>
-                      <TableCell className="text-white">
-                        {new Date(summary.date).toLocaleDateString("th-TH", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right text-green-400">
-                        ฿{summary.totalRevenue.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-red-400">
-                        ฿{summary.totalCost.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-blue-400 font-bold">
-                        ฿{summary.totalProfit.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right text-white">
-                        {summary.totalOrders}
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedDate(new Date(summary.date).toISOString().split("T")[0]);
-                            setTimeRange("today");
-                          }}
-                          className="text-purple-400 hover:text-purple-300"
-                        >
-                          ดูรายละเอียด
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400 hover:text-red-300"
-                          disabled={deletingId === summary.id}
-                          onClick={() => handleDeleteSummary(summary.id)}
-                        >
-                          {deletingId === summary.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-gray-300">วันที่</TableHead>
+                      <TableHead className="text-right text-gray-300">รายได้</TableHead>
+                      <TableHead className="text-right text-gray-300">ต้นทุน</TableHead>
+                      <TableHead className="text-right text-gray-300">กำไร</TableHead>
+                      <TableHead className="text-right text-gray-300">ออเดอร์</TableHead>
+                      <TableHead className="text-right text-gray-300"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {summaries.map((summary) => (
+                      <TableRow key={summary.id}>
+                        <TableCell className="text-white">
+                          {new Date(summary.date).toLocaleDateString("th-TH", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right text-green-400">
+                          ฿{summary.totalRevenue.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-red-400">
+                          ฿{summary.totalCost.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-blue-400 font-bold">
+                          ฿{summary.totalProfit.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-white">
+                          {summary.totalOrders}
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedDate(new Date(summary.date).toISOString().split("T")[0]);
+                              setTimeRange("today");
+                            }}
+                            className="text-purple-400 hover:text-purple-300"
+                          >
+                            ดูรายละเอียด
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-400 hover:text-red-300"
+                            disabled={deletingId === summary.id}
+                            onClick={() => handleDeleteSummary(summary.id)}
+                          >
+                            {deletingId === summary.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <p className="text-center text-gray-400 py-8">ไม่มีข้อมูลสรุปยอด</p>
             )}
