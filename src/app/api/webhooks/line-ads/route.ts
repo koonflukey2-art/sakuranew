@@ -11,11 +11,16 @@ import {
 
 export const runtime = "nodejs";
 
+/**
+ * โหลดไฟล์ PDF จาก LINE (Messaging API data endpoint)
+ */
 async function downloadLineFile(
   messageId: string,
   channelAccessToken: string
 ): Promise<{ buffer: Buffer; fileName: string } | null> {
   try {
+    console.log("⬇️  Downloading LINE file content:", messageId);
+
     const response = await fetch(
       `https://api-data.line.me/v2/bot/message/${messageId}/content`,
       {
@@ -27,7 +32,7 @@ async function downloadLineFile(
 
     if (!response.ok) {
       console.error(
-        "Download LINE file failed:",
+        "❌ Download LINE file failed:",
         response.status,
         await response.text()
       );
@@ -43,56 +48,69 @@ async function downloadLineFile(
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    console.log("✅ File downloaded size:", buffer.length, "bytes");
     return { buffer, fileName };
   } catch (error) {
-    console.error("Download LINE file error:", error);
+    console.error("❌ Download LINE file error:", error);
     return null;
   }
 }
 
 export async function POST(request: NextRequest) {
+  let rawBody = "";
+
   try {
-    const rawBody = await request.text();
+    rawBody = await request.text();
     const signature = request.headers.get("x-line-signature") || "";
 
-    console.log("🔥 LINE ADS WEBHOOK HIT");
+    console.log("\n================ LINE ADS WEBHOOK ================");
+    console.log("📥 Incoming headers x-line-signature:", signature ? "[HAS]" : "[MISSING]");
 
-    // ตรวจลายเซ็นก่อน
+    // 1) โหลด settings สำหรับ Ads bot (adsLineXXX)
+    const settings = await getLineAdsSettings();
+    console.log("⚙️  Ads settings:", {
+      organizationId: settings.organizationId,
+      hasChannelToken: !!settings.channelToken,
+      hasChannelSecret: !!settings.channelSecret,
+      hasNotifyToken: !!settings.notifyToken,
+    });
+
+    if (!settings.channelSecret || !settings.channelToken) {
+      console.error("❌ LINE Ads not configured correctly (missing token/secret)");
+      // ยังตอบ 200 ให้ LINE เพื่อไม่ให้ retry รัว ๆ
+      return NextResponse.json({ error: "LINE Ads not configured" }, { status: 200 });
+    }
+
+    // 2) verify signature
     const isValid = await verifyLineAdsSignature(rawBody, signature);
     if (!isValid) {
       console.error("❌ Invalid LINE Ads signature");
-      return NextResponse.json(
-        { error: "Invalid signature" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
+    // 3) parse payload
     const data = JSON.parse(rawBody);
-    const events = data.events || [];
+    const events = Array.isArray(data.events) ? data.events : [];
 
-    if (!Array.isArray(events) || events.length === 0) {
+    if (events.length === 0) {
       console.log("⚠️ No events in LINE Ads payload");
       return NextResponse.json({ success: true });
     }
 
-    // ดึง config Ads LINE จาก SystemSettings (ตัวแรกที่มี adsLineChannelAccessToken / adsLineNotifyToken)
-    const settings = await getLineAdsSettings();
     const organizationId = settings.organizationId;
-
-    if (!settings.channelToken || !organizationId) {
-      console.error(
-        "❌ LINE Ads not configured: channelToken or organizationId missing"
-      );
-      return NextResponse.json(
-        { error: "LINE Ads not configured" },
-        { status: 500 }
-      );
+    if (!organizationId) {
+      console.error("❌ No organizationId in SystemSettings for Ads");
+      return NextResponse.json({ error: "No organizationId" }, { status: 200 });
     }
 
     for (const event of events) {
-      // ===============================
-      // 📎 รับไฟล์ PDF (statement)
-      // ===============================
+      console.log("\n---------- NEW EVENT ----------");
+      console.log("event.type:", event.type);
+      console.log("message.type:", event.message?.type);
+
+      // ==============
+      // 📎 รับไฟล์ PDF
+      // ==============
       if (event.type === "message" && event.message?.type === "file") {
         const messageId: string = event.message.id;
         const replyToken: string = event.replyToken;
@@ -100,12 +118,13 @@ export async function POST(request: NextRequest) {
           event.message.fileName || "statement.pdf";
 
         console.log(
-          `📎 Received LINE Ads file message: ${originalFileName} (${messageId})`
+          `📎 Received file message: ${originalFileName} (${messageId})`
         );
 
+        // ดาวน์โหลดไฟล์จาก LINE
         const fileData = await downloadLineFile(
           messageId,
-          settings.channelToken
+          settings.channelToken!
         );
 
         if (!fileData) {
@@ -118,7 +137,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // ประมวลผล PDF → ดึง period / amount / vat ออกมา + เซฟไฟล์ลง /public/uploads/statements
+        // แปลง PDF → ดึงข้อมูลสเตทเมนต์
         const statementData = await processStatementPDF(
           fileData.buffer,
           originalFileName,
@@ -126,6 +145,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (!statementData) {
+          console.error("❌ processStatementPDF() คืนค่า null");
           await sendLineReply(
             replyToken,
             [
@@ -145,7 +165,9 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // บันทึกลงตาราง FacebookAdsStatement
+        console.log("✅ Parsed statement:", statementData);
+
+        // บันทึกลง DB
         const statement = await prisma.facebookAdsStatement.create({
           data: {
             organizationId,
@@ -164,7 +186,7 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(
-          `✅ LINE Ads: statement saved: ${statement.id} period=${statement.period} total=${statement.totalAmount}`
+          `💾 Saved statement id=${statement.id} period=${statement.period} total=${statement.totalAmount}`
         );
 
         // ตอบกลับในห้อง LINE
@@ -189,7 +211,7 @@ export async function POST(request: NextRequest) {
           true
         );
 
-        // ส่งแจ้งเตือนผ่าน LINE Notify ถ้าตั้งค่าไว้
+        // แจ้งเตือนผ่าน LINE Notify (ถ้าตั้งค่าไว้)
         if (settings.notifyToken) {
           await sendLineNotification(
             `📄 รับสเตทเมนต์ Ads ใหม่\n\n` +
@@ -207,14 +229,16 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // ===============================
-      // 💬 ข้อความ text (help / วิธีใช้)
-      // ===============================
+      // ====================
+      // 💬 ข้อความ text (help)
+      // ====================
       if (event.type === "message" && event.message?.type === "text") {
         const text: string = String(event.message.text || "")
           .trim()
           .toLowerCase();
         const replyToken: string = event.replyToken;
+
+        console.log("💬 Text message:", text);
 
         if (
           text.includes("help") ||
@@ -237,16 +261,32 @@ export async function POST(request: NextRequest) {
             organizationId,
             true
           );
+        } else {
+          // คำอื่น ๆ ตอบสั้น ๆ ไว้เช็คว่า webhook ทำงาน
+          await sendLineReply(
+            replyToken,
+            [
+              {
+                type: "text",
+                text:
+                  "บอท Ads พร้อมใช้งานแล้วครับ 🙌\nส่งไฟล์สเตทเมนต์ PDF เข้ามาได้เลย",
+              },
+            ],
+            organizationId,
+            true
+          );
         }
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("LINE Ads webhook error:", error);
+    console.error("❌ LINE Ads webhook error:", error);
+    console.error("Raw body:", rawBody);
+    // ตอบ 200 ให้ LINE เพื่อไม่ให้ retry ถี่เกินไป
     return NextResponse.json(
       { error: error.message || "Webhook error" },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
