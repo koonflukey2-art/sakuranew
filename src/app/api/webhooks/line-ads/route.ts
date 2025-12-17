@@ -1,3 +1,4 @@
+// src/app/api/webhooks/line-ads/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
@@ -41,6 +42,14 @@ async function replyMessage(
       }),
     });
 
+    if (!response.ok) {
+      console.error(
+        "LINE reply error status:",
+        response.status,
+        await response.text()
+      );
+    }
+
     return response.ok;
   } catch (error) {
     console.error("LINE reply error:", error);
@@ -56,6 +65,8 @@ async function downloadLineFile(
   channelAccessToken: string
 ): Promise<{ buffer: Buffer; fileName: string } | null> {
   try {
+    console.log("📥 Downloading LINE file:", messageId);
+
     const response = await fetch(
       `https://api-data.line.me/v2/bot/message/${messageId}/content`,
       {
@@ -65,9 +76,15 @@ async function downloadLineFile(
       }
     );
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(
+        "Download LINE file error status:",
+        response.status,
+        await response.text()
+      );
+      return null;
+    }
 
-    // Try to get filename from Content-Disposition header
     const contentDisposition = response.headers.get("content-disposition");
     const fileNameMatch = contentDisposition?.match(/filename="?(.+?)"?$/);
     const fileName = fileNameMatch
@@ -101,6 +118,14 @@ async function sendLineNotify(
       body: new URLSearchParams({ message }),
     });
 
+    if (!response.ok) {
+      console.error(
+        "LINE Notify error status:",
+        response.status,
+        await response.text()
+      );
+    }
+
     return response.ok;
   } catch (error) {
     console.error("LINE Notify error:", error);
@@ -110,18 +135,21 @@ async function sendLineNotify(
 
 export async function POST(request: NextRequest) {
   try {
-    // Get raw body for signature verification
+    // 1) อ่าน raw body สำหรับตรวจลายเซ็น
     const body = await request.text();
     const signature = request.headers.get("x-line-signature");
 
+    console.log("🔥 LINE ADS WEBHOOK HIT");
+
     if (!signature) {
+      console.error("❌ Missing x-line-signature");
       return NextResponse.json(
         { error: "Missing signature" },
         { status: 401 }
       );
     }
 
-    // Get LINE Ads settings
+    // 2) ดึง SystemSettings ที่มี Ads config
     const settings = await prisma.systemSettings.findFirst({
       where: {
         adsLineChannelSecret: { not: null },
@@ -129,14 +157,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!settings?.adsLineChannelSecret) {
-      console.error("LINE Ads Channel Secret not configured");
+      console.error("❌ LINE Ads Channel Secret not configured");
       return NextResponse.json(
         { error: "LINE Ads not configured" },
         { status: 500 }
       );
     }
 
-    // Verify signature
+    if (!settings.organizationId) {
+      console.error("❌ systemSettings.organizationId is NULL (LINE Ads)");
+      return NextResponse.json(
+        { error: "No organizationId in SystemSettings" },
+        { status: 500 }
+      );
+    }
+
+    // 3) ตรวจลายเซ็น
     const isValid = verifySignature(
       body,
       signature,
@@ -144,36 +180,43 @@ export async function POST(request: NextRequest) {
     );
 
     if (!isValid) {
-      console.error("Invalid LINE Ads signature");
+      console.error("❌ Invalid LINE Ads signature");
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 401 }
       );
     }
 
-    // Parse webhook payload
+    // 4) แปลง JSON
     const data = JSON.parse(body);
     const events = data.events || [];
 
+    console.log("📨 LINE Ads events:", events.length);
+
     for (const event of events) {
-      // Handle file message (statement PDF)
+      console.log("➡️ Event type:", event.type, "message.type:", event.message?.type);
+
+      // ---------- รับไฟล์ PDF ----------
       if (event.type === "message" && event.message.type === "file") {
         const messageId = event.message.id;
         const replyToken = event.replyToken;
         const originalFileName = event.message.fileName || "statement.pdf";
 
         if (!settings.adsLineChannelAccessToken) {
-          console.error("LINE Ads Channel Access Token not configured");
+          console.error("❌ LINE Ads Channel Access Token not configured");
           continue;
         }
 
-        // Download PDF file
+        console.log("📄 Received file from LINE:", originalFileName);
+
+        // 4.1 ดาวน์โหลดไฟล์จาก LINE
         const fileData = await downloadLineFile(
           messageId,
           settings.adsLineChannelAccessToken
         );
 
         if (!fileData) {
+          console.error("❌ Cannot download file from LINE");
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
@@ -182,7 +225,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Process statement PDF
+        // 4.2 ประมวลผล PDF → ดึง period, total, vat
         const statementData = await processStatementPDF(
           fileData.buffer,
           originalFileName,
@@ -190,6 +233,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (!statementData) {
+          console.error("❌ processStatementPDF() return null");
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
@@ -202,25 +246,42 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Create statement record in database
-        const statement = await prisma.facebookAdsStatement.create({
-          data: {
-            organizationId: settings.organizationId,
-            period: statementData.period,
-            startDate: statementData.startDate,
-            endDate: statementData.endDate,
-            totalAmount: statementData.totalAmount,
-            vat: statementData.vat,
-            fileUrl: statementData.fileUrl,
-            fileName: statementData.fileName,
-            fileHash: statementData.fileHash,
-            source: "LINE",
-            lineMessageId: messageId,
-            isProcessed: false,
-          },
-        });
+        console.log("📌 Parsed statement:", statementData);
 
-        // Send success reply
+        // 4.3 สร้าง record ใน DB (กันซ้ำด้วย fileHash)
+        let statement;
+        try {
+          statement = await prisma.facebookAdsStatement.create({
+            data: {
+              organizationId: settings.organizationId,
+              period: statementData.period,
+              startDate: statementData.startDate,
+              endDate: statementData.endDate,
+              totalAmount: statementData.totalAmount,
+              vat: statementData.vat,
+              fileUrl: statementData.fileUrl,
+              fileName: statementData.fileName,
+              fileHash: statementData.fileHash,
+              source: "LINE",
+              lineMessageId: messageId,
+              isProcessed: false,
+            },
+          });
+        } catch (err: any) {
+          console.error("❌ Prisma facebookAdsStatement.create error:", err);
+
+          await replyMessage(
+            replyToken,
+            settings.adsLineChannelAccessToken,
+            "❌ บันทึกสเตทเมนต์ลงระบบไม่สำเร็จ\n" +
+              (err?.message || "")
+          );
+          continue;
+        }
+
+        console.log("✅ LINE Ads: statement saved:", statement.id);
+
+        // 4.4 ตอบกลับใน LINE
         await replyMessage(
           replyToken,
           settings.adsLineChannelAccessToken,
@@ -228,10 +289,10 @@ export async function POST(request: NextRequest) {
             `รอบบิล: ${statement.period}\n` +
             `ยอดเรียกเก็บ: ฿${statement.totalAmount.toLocaleString()}\n` +
             `VAT: ฿${statement.vat.toLocaleString()}\n\n` +
-            `ดูรายละเอียดได้ที่หน้า "Statements"`
+            `ดูรายละเอียดได้ที่หน้า "Facebook Ads Statements"`
         );
 
-        // Send notification to LINE Notify (if enabled)
+        // 4.5 แจ้งเตือนผ่าน LINE Notify ถ้ามี token
         if (settings.adsLineNotifyToken) {
           await sendLineNotify(
             settings.adsLineNotifyToken,
@@ -244,9 +305,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Handle text message (help/info)
+      // ---------- ข้อความ help ----------
       if (event.type === "message" && event.message.type === "text") {
-        const text = event.message.text.trim().toLowerCase();
+        const text = (event.message.text || "").trim().toLowerCase();
         const replyToken = event.replyToken;
 
         if (!settings.adsLineChannelAccessToken) {
@@ -261,9 +322,9 @@ export async function POST(request: NextRequest) {
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
-            `📋 วิธีใช้งาน:\n\n` +
+            `📋 วิธีใช้งาน LINE Ads Statements:\n\n` +
               `1. ดาวน์โหลดสเตทเมนต์ (PDF) จาก Meta Business Suite\n` +
-              `2. ส่งไฟล์ PDF เข้ากลุ่มนี้\n` +
+              `2. ส่งไฟล์ PDF เข้าห้องนี้\n` +
               `3. ระบบจะอ่านและบันทึกข้อมูลอัตโนมัติ\n\n` +
               `⚠️ กรุณาส่งไฟล์ PDF สเตทเมนต์จาก Meta Ads เท่านั้น`
           );
@@ -273,7 +334,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("LINE Ads webhook error:", error);
+    console.error("❌ LINE Ads webhook error:", error);
     return NextResponse.json(
       { error: error.message || "Webhook error" },
       { status: 500 }
@@ -281,7 +342,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   return NextResponse.json({
     status: "ok",
     message: "LINE Ads webhook ready (for Statements)",

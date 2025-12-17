@@ -9,6 +9,10 @@ import Tesseract from "tesseract.js";
 import sharp from "sharp";
 import { extractAmountFromQrText } from "./receiptAmount";
 
+// ======================================================
+// RECEIPT IMAGE PROCESSING (เดิมของคุณ) 
+// ======================================================
+
 interface ReceiptData {
   receiptNumber: string;
   amount: number;
@@ -81,7 +85,11 @@ export async function processReceiptImage(
     const ocrResult = await extractAmountFromImage(imageBuffer);
 
     if (ocrResult.amount > 0 && ocrResult.confidence > 0.5) {
-      console.log(`✅ OCR extraction successful: ฿${ocrResult.amount} (${(ocrResult.confidence * 100).toFixed(1)}%)`);
+      console.log(
+        `✅ OCR extraction successful: ฿${ocrResult.amount} (${(
+          ocrResult.confidence * 100
+        ).toFixed(1)}%)`
+      );
 
       // Extract metadata from OCR text
       const metadata = extractMetadataFromText(ocrResult.text);
@@ -131,9 +139,9 @@ function extractMetadataFromText(text: string): {
 
   // Extract date patterns
   const datePatterns = [
-    /(\d{1,2}\s+[ก-๙]+\.\s+\d{2,4})/,  // Thai format: "12 ธ.ค. 68"
-    /(\d{2}\/\d{2}\/\d{4})/,            // "12/12/2025"
-    /(\d{4}-\d{2}-\d{2})/,              // "2025-12-12"
+    /(\d{1,2}\s+[ก-๙]+\.\s+\d{2,4})/, // Thai format: "12 ธ.ค. 68"
+    /(\d{2}\/\d{2}\/\d{4})/, // "12/12/2025"
+    /(\d{4}-\d{2}-\d{2})/, // "2025-12-12"
   ];
 
   for (const pattern of datePatterns) {
@@ -189,12 +197,20 @@ async function extractQRCode(buffer: Buffer): Promise<string | null> {
     }
 
     // Try with inverted colors
-    const codeInverted = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "attemptBoth",
-    });
+    const codeInverted = jsQR(
+      imageData.data,
+      imageData.width,
+      imageData.height,
+      {
+        inversionAttempts: "attemptBoth",
+      }
+    );
 
     if (codeInverted && codeInverted.data) {
-      console.log("✅ QR Code found (inverted):", codeInverted.data.substring(0, 50) + "...");
+      console.log(
+        "✅ QR Code found (inverted):",
+        codeInverted.data.substring(0, 50) + "..."
+      );
       return codeInverted.data;
     }
 
@@ -224,8 +240,8 @@ async function extractAmountFromImage(buffer: Buffer): Promise<{
     // Run OCR with Thai + English languages
     const {
       data: { text, confidence },
-    } = await Tesseract.recognize(processedBuffer, "tha+eng", {
-      logger: (m) => {
+    } = await (Tesseract as any).recognize(processedBuffer, "tha+eng", {
+      logger: (m: any) => {
         if (m.status === "recognizing text") {
           console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
         }
@@ -233,14 +249,14 @@ async function extractAmountFromImage(buffer: Buffer): Promise<{
     });
 
     console.log("📄 OCR Text extracted:", text.substring(0, 200));
-    console.log(`📊 OCR Confidence: ${confidence.toFixed(1)}%`);
+    console.log(`📊 OCR Confidence raw: ${confidence}`);
 
     // Parse amount from text
     const amount = parseAmountFromText(text);
 
     return {
       amount,
-      confidence: confidence / 100, // Convert to 0-1 scale
+      confidence: Number(confidence) / 100, // Convert to 0-1 scale
       text,
     };
   } catch (error) {
@@ -267,11 +283,6 @@ async function preprocessImageForOCR(buffer: Buffer): Promise<Buffer> {
   }
 }
 
-
-/**
- * Parse amount from extracted OCR text
- * Enhanced for Thai receipt formats
- */
 // ======================================================
 // STATEMENT PDF PROCESSING (FOR LINE WEBHOOK)
 // ======================================================
@@ -296,7 +307,12 @@ export async function processStatementPDF(
   organizationId: string
 ): Promise<StatementData | null> {
   try {
-    console.log("📄 Processing statement PDF...");
+    console.log("📄 Processing statement PDF from LINE...");
+
+    if (!organizationId) {
+      console.error("❌ processStatementPDF: organizationId is empty");
+      return null;
+    }
 
     // Generate hash for duplicate detection
     const fileHash = crypto.createHash("sha256").update(pdfBuffer).digest("hex");
@@ -317,20 +333,18 @@ export async function processStatementPDF(
       return null;
     }
 
-    // Save PDF file to disk
+    // Save PDF file to disk (ใช้โฟลเดอร์เดียวกับฝั่งเว็บ)
     const uploadsDir = join(process.cwd(), "public", "uploads", "statements");
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    const newFileName = `statement-${Date.now()}-${crypto
-      .randomBytes(4)
-      .toString("hex")}.pdf`;
+    const newFileName = `statement-${Date.now()}-${fileHash.slice(0, 8)}.pdf`;
     const filepath = join(uploadsDir, newFileName);
 
     await writeFile(filepath, pdfBuffer);
 
-    // Use API route to serve the file
+    // ใช้ route เดียวกับฝั่งเว็บ
     const fileUrl = `/api/uploads/statements/${newFileName}`;
 
     console.log(`✅ Statement processed: ${fileName} → ${newFileName}`);
@@ -356,12 +370,20 @@ export async function processStatementPDF(
 
 /**
  * Extract text from PDF buffer
+ * ใช้ loader แบบเดียวกับฝั่งอัพโหลดในเว็บ (รองรับ default / CJS)
  */
 async function extractPDFText(pdfBuffer: Buffer): Promise<string | null> {
   try {
-    // Load pdf-parse dynamically (CJS module)
-    const pdfParse = eval("require")("pdf-parse");
-    const result = await pdfParse(pdfBuffer);
+    const req = eval("require") as any;
+    const mod = req("pdf-parse");
+    const fn = (mod && (mod.default || mod)) as any;
+
+    if (typeof fn !== "function") {
+      console.error("❌ pdf-parse module is not a function:", mod);
+      return null;
+    }
+
+    const result = await fn(pdfBuffer);
     return result.text || null;
   } catch (error) {
     console.error("PDF text extraction error:", error);
@@ -380,14 +402,12 @@ function parseStatementMetadata(text: string): {
   vat: number;
 } | null {
   try {
-    // Normalize text (remove weird spaces, normalize commas)
     const normalized = text
       .replace(/\u00a0/g, " ")
       .replace(/,/g, "")
       .replace(/\s+/g, " ");
 
-    // Extract billing period dates
-    // Format: "รายงานการเรียกเก็บเงิน: 6/10/2025 - 13/10/2025"
+    // "รายงานการเรียกเก็บเงิน: 6/10/2025 - 13/10/2025"
     const periodMatch = normalized.match(
       /รายงานการเรียกเก็บเงิน.*?(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/
     );
@@ -395,36 +415,33 @@ function parseStatementMetadata(text: string): {
     const startDateStr = periodMatch?.[1];
     const endDateStr = periodMatch?.[2];
 
-    // Extract total amount charged
-    // Format: "ยอดที่เรียกเก็บทั้งหมด ฿xxx.xx"
+    // "ยอดที่เรียกเก็บทั้งหมด ฿xxx.xx"
     const chargeMatch = normalized.match(
       /ยอดที่เรียกเก็บทั้งหมด\s*฿?(\d+(\.\d{1,2})?)/
     );
 
-    // Extract VAT amount
-    // Format: "VAT Amount: ฿xx.xx"
+    // "VAT Amount: ฿xx.xx"
     const vatMatch = normalized.match(/VAT Amount:\s*฿?(\d+(\.\d{1,2})?)/);
 
     const charge = chargeMatch ? parseFloat(chargeMatch[1]) : 0;
     const vat = vatMatch ? parseFloat(vatMatch[1]) : 0;
-    const totalAmount = charge + vat; // Total including VAT
+    const totalAmount = charge + vat;
 
-    // Parse dates
     const startDate = startDateStr
       ? parseDDMMYYYY(startDateStr)
       : new Date();
     const endDate = endDateStr ? parseDDMMYYYY(endDateStr) : startDate;
 
-    // Format period label
     const periodLabel =
       startDateStr && endDateStr
         ? `${startDateStr} - ${endDateStr}`
         : startDateStr || endDateStr || new Date().toLocaleDateString("th-TH");
 
-    // Validate parsed data
     if (totalAmount === 0 || !startDateStr || !endDateStr) {
       console.warn("⚠️ Incomplete statement data parsed");
-      console.warn(`   Total: ${totalAmount}, Dates: ${startDateStr} - ${endDateStr}`);
+      console.warn(
+        `   Total: ${totalAmount}, Dates: ${startDateStr} - ${endDateStr}`
+      );
     }
 
     return {
@@ -449,7 +466,7 @@ function parseDDMMYYYY(dateStr: string): Date {
 }
 
 // ======================================================
-// RECEIPT IMAGE PROCESSING (KEEP FOR EXISTING RECEIPTS)
+// AMOUNT PARSER (ใช้ร่วมกับ OCR / ใบเสร็จ)
 // ======================================================
 
 export function parseAmountFromText(text: string): number {
@@ -460,11 +477,11 @@ export function parseAmountFromText(text: string): number {
     // Priority patterns for Thai receipts
     const patterns = [
       // Thai specific patterns (highest priority for KBank receipts)
-      /จำนวน[:\s]*([0-9,]+(?:\.[0-9]{2})?)\s*บาท/i,     // "จำนวน: 500.00 บาท"
-      /ยอดชำระ[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,        // "ยอดชำระ: 500.00"
-      /จำนวนเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,      // "จำนวนเงิน: 500.00"
-      /ชำระเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,       // "ชำระเงิน: 500.00"
-      /ยอดรวม[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,         // "ยอดรวม: 500.00"
+      /จำนวน[:\s]*([0-9,]+(?:\.[0-9]{2})?)\s*บาท/i, // "จำนวน: 500.00 บาท"
+      /ยอดชำระ[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i, // "ยอดชำระ: 500.00"
+      /จำนวนเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i, // "จำนวนเงิน: 500.00"
+      /ชำระเงิน[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i, // "ชำระเงิน: 500.00"
+      /ยอดรวม[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i, // "ยอดรวม: 500.00"
 
       // English patterns
       /total[:\s]*([0-9,]+(?:\.[0-9]{2})?)/i,
@@ -485,7 +502,9 @@ export function parseAmountFromText(text: string): number {
       if (match && match[1]) {
         const amount = parseFloat(match[1].replace(/,/g, ""));
         if (!isNaN(amount) && amount > 0 && amount < 10000000) {
-          console.log(`✅ Amount found with pattern: ${pattern.source} = ${amount}`);
+          console.log(
+            `✅ Amount found with pattern: ${pattern.source} = ${amount}`
+          );
           return amount;
         }
       }
