@@ -14,10 +14,10 @@ export type LineSettings = {
 };
 
 /**
- * อ่าน LINE settings จาก SystemSettings
- * - ถ้าส่ง organizationId มา: หาเฉพาะของ org นั้น
- * - ถ้าไม่ส่ง: หา record แรกที่มี token (ใช้กับ webhook)
- * - ถ้าใน DB ไม่มีเลย → fallback ไป env
+ * =============================
+ *  STOCK / ORDER LINE BOT
+ *  (ใช้ field lineXXX ใน SystemSettings)
+ * =============================
  */
 export async function getLineSettings(
   organizationId?: string
@@ -41,7 +41,7 @@ export async function getLineSettings(
     }
 
     if (!settings) {
-      // ไม่มีใน DB → fallback env
+      // ไม่มีใน DB → fallback env เดิม
       return {
         organizationId: organizationId ?? null,
         notifyToken: process.env.LINE_NOTIFY_TOKEN || null,
@@ -85,14 +85,92 @@ export async function getLineSettings(
 }
 
 /**
- * ส่ง LINE Notify (ถ้าไม่ใช้ตอนนี้ จะไม่เรียกฟังก์ชันนี้ก็ได้)
+ * =============================
+ *  ADS LINE BOT (Facebook Ads Statements)
+ *  ใช้ field adsLineXXX ใน SystemSettings
+ * =============================
+ */
+export async function getLineAdsSettings(
+  organizationId?: string
+): Promise<LineSettings> {
+  try {
+    let settings: any = null;
+
+    if (organizationId) {
+      settings = await prisma.systemSettings.findUnique({
+        where: { organizationId },
+      });
+    } else {
+      settings = await prisma.systemSettings.findFirst({
+        where: {
+          OR: [
+            { adsLineChannelAccessToken: { not: null } },
+            { adsLineNotifyToken: { not: null } },
+          ],
+        },
+      });
+    }
+
+    if (!settings) {
+      // fallback เป็น env ของ Ads (ถ้ามี)
+      return {
+        organizationId: organizationId ?? null,
+        notifyToken: process.env.ADS_LINE_NOTIFY_TOKEN || null,
+        channelToken: process.env.ADS_LINE_CHANNEL_ACCESS_TOKEN || null,
+        channelSecret: process.env.ADS_LINE_CHANNEL_SECRET || null,
+        webhookUrl: null,
+        notifyOnOrder: true,
+        notifyOnLowStock: true,
+        notifyDailySummary: true,
+      };
+    }
+
+    return {
+      organizationId: settings.organizationId ?? organizationId ?? null,
+      notifyToken:
+        settings.adsLineNotifyToken ||
+        process.env.ADS_LINE_NOTIFY_TOKEN ||
+        null,
+      channelToken:
+        settings.adsLineChannelAccessToken ||
+        process.env.ADS_LINE_CHANNEL_ACCESS_TOKEN ||
+        null,
+      channelSecret:
+        settings.adsLineChannelSecret ||
+        process.env.ADS_LINE_CHANNEL_SECRET ||
+        null,
+      webhookUrl: settings.adsLineWebhookUrl || null,
+      notifyOnOrder: settings.notifyOnOrder ?? true,
+      notifyOnLowStock: settings.notifyOnLowStock ?? true,
+      notifyDailySummary: settings.notifyDailySummary ?? true,
+    };
+  } catch (error) {
+    console.error("Error getting LINE Ads settings:", error);
+    return {
+      organizationId: organizationId ?? null,
+      notifyToken: process.env.ADS_LINE_NOTIFY_TOKEN || null,
+      channelToken: process.env.ADS_LINE_CHANNEL_ACCESS_TOKEN || null,
+      channelSecret: process.env.ADS_LINE_CHANNEL_SECRET || null,
+      webhookUrl: null,
+      notifyOnOrder: true,
+      notifyOnLowStock: true,
+      notifyDailySummary: true,
+    };
+  }
+}
+
+/**
+ * ส่ง LINE Notify (generic ใช้กับ stock/ads ได้)
  */
 export async function sendLineNotification(
   message: string,
-  organizationId?: string
+  organizationId?: string,
+  useAdsBot: boolean = false
 ): Promise<boolean> {
   try {
-    const { notifyToken } = await getLineSettings(organizationId);
+    const { notifyToken } = useAdsBot
+      ? await getLineAdsSettings(organizationId)
+      : await getLineSettings(organizationId);
 
     if (!notifyToken) {
       console.warn("LINE Notify token not configured");
@@ -127,10 +205,13 @@ export async function sendLineNotification(
 export async function sendLineReply(
   replyToken: string,
   messages: any[],
-  organizationId?: string
+  organizationId?: string,
+  useAdsBot: boolean = false
 ): Promise<boolean> {
   try {
-    const { channelToken } = await getLineSettings(organizationId);
+    const { channelToken } = useAdsBot
+      ? await getLineAdsSettings(organizationId)
+      : await getLineSettings(organizationId);
 
     if (!channelToken) {
       console.warn("LINE channel token not configured");
@@ -165,10 +246,13 @@ export async function sendLineReply(
 export async function sendLinePush(
   to: string,
   messages: any[],
-  organizationId?: string
+  organizationId?: string,
+  useAdsBot: boolean = false
 ): Promise<boolean> {
   try {
-    const { channelToken } = await getLineSettings(organizationId);
+    const { channelToken } = useAdsBot
+      ? await getLineAdsSettings(organizationId)
+      : await getLineSettings(organizationId);
 
     if (!channelToken) {
       console.warn("LINE channel token not configured");
@@ -198,8 +282,7 @@ export async function sendLinePush(
 }
 
 /**
- * verify signature จาก LINE
- * - ถ้า organizationId ไม่ส่งมา → ไปดึง settings ตัวแรกในระบบ (ไว้ใช้กับ webhook)
+ * verify signature สำหรับ STOCK BOT (lineXXX)
  */
 export async function verifyLineSignature(
   body: string,
@@ -222,6 +305,34 @@ export async function verifyLineSignature(
     return hash === signature;
   } catch (error) {
     console.error("LINE signature verification error:", error);
+    return false;
+  }
+}
+
+/**
+ * verify signature สำหรับ ADS BOT (adsLineXXX)
+ */
+export async function verifyLineAdsSignature(
+  body: string,
+  signature: string,
+  organizationId?: string
+): Promise<boolean> {
+  try {
+    const { channelSecret } = await getLineAdsSettings(organizationId);
+
+    if (!channelSecret) {
+      console.warn("LINE Ads channel secret not configured");
+      return false;
+    }
+
+    const hash = crypto
+      .createHmac("sha256", channelSecret)
+      .update(body)
+      .digest("base64");
+
+    return hash === signature;
+  } catch (error) {
+    console.error("LINE Ads signature verification error:", error);
     return false;
   }
 }
