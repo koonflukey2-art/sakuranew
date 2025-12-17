@@ -49,6 +49,7 @@ import {
   EyeOff,
   Receipt,
   Sparkles,
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -1030,11 +1031,11 @@ export default function SystemSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-purple-400" />
-                LINE Ads Integration (Separate)
+                <FileText className="w-5 h-5 text-purple-400" />
+                LINE Ads Integration - Statements
               </CardTitle>
               <CardDescription>
-                ตั้งค่า LINE สำหรับรับสลิปโฆษณา (แยกจากระบบสต๊อก)
+                ตั้งค่า LINE สำหรับรับ Facebook Ads Statements (PDF)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1044,9 +1045,9 @@ export default function SystemSettingsPage() {
                   <p className="font-semibold mb-2">⚠️ สำคัญ:</p>
                   <ul className="text-sm space-y-1 list-disc list-inside">
                     <li>นี่เป็นกลุ่ม LINE แยกต่างหากจากระบบสต๊อก</li>
-                    <li>ใช้สำหรับรับสลิปโฆษณาเท่านั้น</li>
-                    <li>ต้องสร้าง LINE Bot ใหม่ใน LINE Developers</li>
-                    <li>อย่าใช้ Token เดียวกับระบบสต๊อก</li>
+                    <li>ใช้สำหรับรับ Facebook Ads Statements (PDF)</li>
+                    <li>ส่งไฟล์ PDF สเตทเมนต์จาก Meta เข้ากลุ่ม LINE</li>
+                    <li>ระบบจะอ่านและบันทึกข้อมูลอัตโนมัติ</li>
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -1163,19 +1164,19 @@ export default function SystemSettingsPage() {
                 <AlertDescription className="text-blue-200">
                   <p className="font-semibold mb-2">📝 วิธีตั้งค่า LINE Ads Bot:</p>
                   <ol className="text-sm space-y-1 list-decimal list-inside">
-                    <li>ไปที่ LINE Developers Console (สร้าง Channel ใหม่)</li>
+                    <li>ไปที่ LINE Developers Console</li>
                     <li>
-                      สร้าง Messaging API Channel ใหม่ (ชื่อ &quot;Ads Receipt
+                      สร้าง Messaging API Channel (ชื่อ &quot;Ads Statement
                       Bot&quot;)
                     </li>
-                    <li>ตั้ง Webhook URL เป็น URL ด้านบน</li>
+                    <li>ตั้ง Webhook URL: {adsWebhookUrl}</li>
                     <li>
                       เปิด &quot;Use webhook&quot; และปิด &quot;Auto-reply
                       messages&quot;
                     </li>
-                    <li>Copy Channel Access Token และ Channel Secret มาใส่ด้านบน</li>
-                    <li>เพิ่ม Bot เข้ากลุ่ม LINE ใหม่ (แยกจากกลุ่มสต๊อก)</li>
-                    <li>ส่งรูปสลิปเพื่อทดสอบ</li>
+                    <li>Copy Tokens มาใส่ด้านบน</li>
+                    <li>เพิ่ม Bot เข้ากลุ่ม LINE ใหม่</li>
+                    <li>ส่งไฟล์ PDF สเตทเมนต์เพื่อทดสอบ</li>
                   </ol>
                 </AlertDescription>
               </Alert>

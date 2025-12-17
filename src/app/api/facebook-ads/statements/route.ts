@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { join } from "path";
+import { createHash } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -9,38 +15,13 @@ type Statement = {
   period: string;
   startDate: string;
   endDate: string;
-  totalAmount: number; // ยอดรวม (รวม VAT)
+  totalAmount: number;
   vat: number;
-  fileUrl: string;     // data:application/pdf;base64,...
+  fileUrl: string;
   fileName: string;
+  source?: string;
   createdAt: string;
 };
-
-// ---------- mock storage (รีสตาร์ทเซิร์ฟเวอร์แล้วจะหาย) ----------
-let mockStatements: Statement[] = [
-  {
-    id: "stmt-1",
-    period: "27 ต.ค. - 3 พ.ย. 2025",
-    startDate: "2025-10-27",
-    endDate: "2025-11-03",
-    totalAmount: 15420.5,
-    vat: 1080.45,
-    fileUrl: "#",
-    fileName: "statement-oct27-nov3.pdf",
-    createdAt: "2025-11-04T10:00:00Z",
-  },
-  {
-    id: "stmt-2",
-    period: "20-26 ต.ค. 2025",
-    startDate: "2025-10-20",
-    endDate: "2025-10-26",
-    totalAmount: 12350,
-    vat: 864.5,
-    fileUrl: "#",
-    fileName: "statement-oct20-26.pdf",
-    createdAt: "2025-10-27T10:00:00Z",
-  },
-];
 
 // ---------- pdf-parse loader (CJS ใน Next Node runtime) ----------
 let cachedPdfParse: null | ((buffer: Buffer) => Promise<{ text: string }>) = null;
@@ -136,6 +117,14 @@ function parseMetaInvoice(text: string) {
   return { startDate, endDate, period: periodLabel, totalAmount, vat };
 }
 
+function sha256Hex(input: Buffer | string) {
+  return createHash("sha256").update(input).digest("hex");
+}
+
+function getUploadDir() {
+  return process.env.UPLOAD_DIR || join(process.cwd(), "public", "uploads", "statements");
+}
+
 // ---------- GET /api/facebook-ads/statements ----------
 export async function GET(_request: NextRequest) {
   try {
@@ -144,18 +133,61 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const totalAmount = mockStatements.reduce((sum, s) => sum + s.totalAmount, 0);
-    const totalVAT = mockStatements.reduce((sum, s) => sum + s.vat, 0);
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: user.id },
+      select: { organizationId: true },
+    });
+
+    if (!dbUser?.organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
+
+    const orgId = dbUser.organizationId;
+
+    // Fetch from database
+    const statements = await prisma.facebookAdsStatement.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        period: true,
+        startDate: true,
+        endDate: true,
+        totalAmount: true,
+        vat: true,
+        fileUrl: true,
+        fileName: true,
+        source: true,
+        createdAt: true,
+      },
+    });
+
+    // Format dates for frontend
+    const formattedStatements = statements.map((s) => ({
+      id: s.id,
+      period: s.period,
+      startDate: s.startDate.toISOString().split("T")[0],
+      endDate: s.endDate.toISOString().split("T")[0],
+      totalAmount: s.totalAmount,
+      vat: s.vat,
+      fileUrl: s.fileUrl,
+      fileName: s.fileName,
+      source: s.source,
+      createdAt: s.createdAt.toISOString(),
+    }));
+
+    const totalAmount = statements.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
 
     return NextResponse.json({
-      statements: mockStatements,
+      statements: formattedStatements,
       totalAmount,
       totalVAT,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to fetch statements:", error);
     return NextResponse.json(
-      { error: "Failed to fetch statements" },
+      { error: error?.message || "Failed to fetch statements" },
       { status: 500 }
     );
   }
@@ -168,6 +200,17 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: user.id },
+      select: { organizationId: true },
+    });
+
+    if (!dbUser?.organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
+
+    const orgId = dbUser.organizationId;
 
     const formData = await request.formData();
     const file = formData.get("statement");
@@ -187,19 +230,34 @@ export async function POST(request: NextRequest) {
     const { buffer, text } = await getPdfTextAndBuffer(file);
     const parsed = parseMetaInvoice(text);
 
-    // data:URL สำหรับเปิดใน <iframe> / download
-    const base64 = buffer.toString("base64");
-    const fileUrl = `data:application/pdf;base64,${base64}`;
+    // Save file to disk
+    const uploadsDir = getUploadDir();
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
 
-    const statement: Statement = {
-      id: `stmt-${Date.now()}`,
-      fileName: file.name,
-      fileUrl,
-      createdAt: new Date().toISOString(),
-      ...parsed, // period, startDate, endDate, totalAmount, vat
-    };
+    const fileHash = sha256Hex(buffer);
+    const filename = `statement-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.pdf`;
+    const filepath = join(uploadsDir, filename);
 
-    mockStatements = [statement, ...mockStatements];
+    await writeFile(filepath, buffer);
+
+    // Use route to serve the file
+    const fileUrl = `/api/uploads/statements/${filename}`;
+
+    // Create statement in database
+    const statement = await prisma.facebookAdsStatement.create({
+      data: {
+        organizationId: orgId,
+        period: parsed.period,
+        startDate: new Date(parsed.startDate),
+        endDate: new Date(parsed.endDate),
+        totalAmount: parsed.totalAmount,
+        vat: parsed.vat,
+        fileUrl,
+        fileName: file.name,
+      },
+    });
 
     console.log(
       `✅ Statement uploaded: ${file.name} (${(file.size / 1024).toFixed(
@@ -209,20 +267,29 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      statement,
+      statement: {
+        id: statement.id,
+        period: statement.period,
+        startDate: statement.startDate.toISOString().split("T")[0],
+        endDate: statement.endDate.toISOString().split("T")[0],
+        totalAmount: statement.totalAmount,
+        vat: statement.vat,
+        fileUrl: statement.fileUrl,
+        fileName: statement.fileName,
+        createdAt: statement.createdAt.toISOString(),
+      },
       message: "อัพโหลดสเตทเมนต์สำเร็จ",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Upload statement error:", error);
     return NextResponse.json(
-      { error: "Failed to upload statement" },
+      { error: error?.message || "Failed to upload statement" },
       { status: 500 }
     );
   }
 }
 
 // ---------- DELETE /api/facebook-ads/statements ----------
-// รองรับทั้ง query string (?id=xxx) และ body JSON { id }
 export async function DELETE(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -230,42 +297,46 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1) อ่านจาก query string ก่อน: /api/facebook-ads/statements?id=xxx
-    const url = new URL(request.url);
-    let id = url.searchParams.get("id");
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: user.id },
+      select: { organizationId: true },
+    });
 
-    // 2) ถ้ายังไม่เจอ ลองอ่านจาก body JSON
-    if (!id) {
-      try {
-        const body = await request.json();
-        if (body && typeof body.id === "string") {
-          id = body.id;
-        }
-      } catch {
-        // ไม่มี body / JSON ไม่ครบ ไม่เป็นไร ปล่อยไป
-      }
+    if (!dbUser?.organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
+
+    const orgId = dbUser.organizationId;
+
+    // อ่านจาก query string: /api/facebook-ads/statements?id=xxx
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
 
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const before = mockStatements.length;
-    mockStatements = mockStatements.filter((s) => s.id !== id);
-    const deleted = mockStatements.length < before;
+    // Delete from database
+    await prisma.facebookAdsStatement.delete({
+      where: {
+        id,
+        organizationId: orgId, // Ensure user can only delete their org's statements
+      },
+    });
 
-    if (!deleted) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Delete statement error:", error);
+
+    if (error.code === "P2025") {
       return NextResponse.json(
         { error: "Statement not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Delete statement error:", error);
     return NextResponse.json(
-      { error: "Failed to delete statement" },
+      { error: error?.message || "Failed to delete statement" },
       { status: 500 }
     );
   }

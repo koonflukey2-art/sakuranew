@@ -36,8 +36,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Upload, Eye, FileText, Download, ArrowLeft, Trash2 } from "lucide-react";
+import { Upload, Eye, FileText, Download, ArrowLeft, Trash2, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Statement {
   id: string;
@@ -48,6 +50,7 @@ interface Statement {
   vat: number;
   fileUrl: string;
   fileName: string;
+  source?: string;
   createdAt: string;
 }
 
@@ -209,6 +212,22 @@ export default function FacebookAdsStatementsPage() {
         </Button>
       </div>
 
+      {/* LINE Integration Info */}
+      <Alert className="bg-purple-500/10 border-purple-500/30">
+        <MessageSquare className="w-4 h-4" />
+        <AlertDescription className="text-purple-200">
+          <p className="font-semibold mb-2">💡 ส่งสเตทเมนต์ผ่าน LINE:</p>
+          <p className="text-sm">
+            คุณสามารถส่งไฟล์ PDF สเตทเมนต์จาก Meta Ads ผ่าน LINE Bot โดยตรง
+            <br />
+            ระบบจะอ่านและบันทึกข้อมูลอัตโนมัติ
+          </p>
+          <p className="text-xs mt-2 text-purple-300">
+            ตั้งค่า LINE Bot ได้ที่: System Settings → LINE Ads
+          </p>
+        </AlertDescription>
+      </Alert>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
@@ -310,6 +329,12 @@ export default function FacebookAdsStatementsPage() {
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">{statement.fileName}</span>
+                        {statement.source === "LINE" && (
+                          <Badge className="bg-green-500 ml-2">
+                            <MessageSquare className="w-3 h-3 mr-1" />
+                            LINE
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>

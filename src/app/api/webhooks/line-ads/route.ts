@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
-import { processReceiptImage } from "@/lib/line-ads-integration";
+import { processStatementPDF } from "@/lib/line-ads-integration";
 
 export const runtime = "nodejs";
 
@@ -49,12 +49,12 @@ async function replyMessage(
 }
 
 /**
- * Download image from LINE
+ * Download file (PDF) from LINE
  */
-async function downloadLineImage(
+async function downloadLineFile(
   messageId: string,
   channelAccessToken: string
-): Promise<Buffer | null> {
+): Promise<{ buffer: Buffer; fileName: string } | null> {
   try {
     const response = await fetch(
       `https://api-data.line.me/v2/bot/message/${messageId}/content`,
@@ -67,10 +67,19 @@ async function downloadLineImage(
 
     if (!response.ok) return null;
 
+    // Try to get filename from Content-Disposition header
+    const contentDisposition = response.headers.get("content-disposition");
+    const fileNameMatch = contentDisposition?.match(/filename="?(.+?)"?$/);
+    const fileName = fileNameMatch
+      ? fileNameMatch[1]
+      : `statement-${messageId}.pdf`;
+
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+
+    return { buffer, fileName };
   } catch (error) {
-    console.error("Download LINE image error:", error);
+    console.error("Download LINE file error:", error);
     return null;
   }
 }
@@ -147,123 +156,89 @@ export async function POST(request: NextRequest) {
     const events = data.events || [];
 
     for (const event of events) {
-      // Handle image message (receipt)
-      if (event.type === "message" && event.message.type === "image") {
+      // Handle file message (statement PDF)
+      if (event.type === "message" && event.message.type === "file") {
         const messageId = event.message.id;
         const replyToken = event.replyToken;
+        const originalFileName = event.message.fileName || "statement.pdf";
 
         if (!settings.adsLineChannelAccessToken) {
           console.error("LINE Ads Channel Access Token not configured");
           continue;
         }
 
-        // Download image
-        const imageBuffer = await downloadLineImage(
+        // Download PDF file
+        const fileData = await downloadLineFile(
           messageId,
           settings.adsLineChannelAccessToken
         );
 
-        if (!imageBuffer) {
+        if (!fileData) {
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
-            "❌ ไม่สามารถดาวน์โหลดรูปภาพได้"
+            "❌ ไม่สามารถดาวน์โหลดไฟล์ได้"
           );
           continue;
         }
 
-        // Process receipt image with high-accuracy extraction
-        const receiptData = await processReceiptImage(
-          imageBuffer,
+        // Process statement PDF
+        const statementData = await processStatementPDF(
+          fileData.buffer,
+          originalFileName,
           settings.organizationId
         );
 
-        if (!receiptData) {
+        if (!statementData) {
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
-            "❌ ไม่สามารถอ่านข้อมูลจากสลิปได้\n\n" +
+            "❌ ไม่สามารถอ่านข้อมูลจากสเตทเมนต์ได้\n\n" +
               "กรุณาตรวจสอบ:\n" +
-              "• รูปภาพชัดเจน ไม่มัว\n" +
-              "• มี QR Code หรือข้อความจำนวนเงินชัดเจน\n" +
-              "• แสงสว่างเพียงพอ"
+              "• ไฟล์เป็น PDF จาก Meta Ads\n" +
+              "• ไฟล์ไม่เสียหาย\n" +
+              "• มีข้อมูลรอบบิลและยอดเงิน"
           );
           continue;
         }
 
-        // Warn if confidence is low
-        if (receiptData.confidence < 0.7) {
-          await replyMessage(
-            replyToken,
-            settings.adsLineChannelAccessToken,
-            `⚠️ อ่านข้อมูลได้แต่ความแม่นยำต่ำ\n\n` +
-              `วิธีการ: ${receiptData.extractionMethod === "QR_EMV" ? "QR Code" : "OCR"}\n` +
-              `ความมั่นใจ: ${(receiptData.confidence * 100).toFixed(0)}%\n` +
-              `จำนวนเงิน: ฿${receiptData.amount.toLocaleString()}\n\n` +
-              `⚠️ กรุณาตรวจสอบความถูกต้อง\n` +
-              `หากผิดพลาด ลองถ่ายรูปใหม่ให้ชัดขึ้น`
-          );
-          continue;
-        }
-
-        // Determine payment method
-        const paymentMethod = receiptData.qrData ? "QR_CODE" : "BANK_TRANSFER";
-
-        // Create receipt record
-        const receipt = await prisma.adReceipt.create({
+        // Create statement record in database
+        const statement = await prisma.facebookAdsStatement.create({
           data: {
             organizationId: settings.organizationId,
-            receiptNumber: receiptData.receiptNumber,
-            platform: "META_ADS",
-            paymentMethod,
-            amount: receiptData.amount,
-            currency: "THB",
-            receiptUrl: receiptData.imageUrl,
-            qrCodeData: receiptData.qrData || null,
+            period: statementData.period,
+            startDate: statementData.startDate,
+            endDate: statementData.endDate,
+            totalAmount: statementData.totalAmount,
+            vat: statementData.vat,
+            fileUrl: statementData.fileUrl,
+            fileName: statementData.fileName,
+            fileHash: statementData.fileHash,
+            source: "LINE",
+            lineMessageId: messageId,
             isProcessed: false,
-            paidAt: receiptData.metadata?.date
-              ? new Date(receiptData.metadata.date)
-              : new Date(),
-            notes: `Method: ${receiptData.extractionMethod}, Confidence: ${(receiptData.confidence * 100).toFixed(1)}%` +
-              (receiptData.metadata?.refNumber ? `, Ref: ${receiptData.metadata.refNumber}` : ""),
           },
         });
-
-        // Build success message with accuracy details
-        const methodLabel =
-          receiptData.extractionMethod === "QR_EMV" ? "QR Code (แม่นยำสูง)" :
-          receiptData.extractionMethod === "OCR" ? "OCR (อ่านข้อความ)" :
-          "Manual";
-
-        const confidenceEmoji =
-          receiptData.confidence >= 0.95 ? "🎯" :
-          receiptData.confidence >= 0.85 ? "✅" :
-          "⚠️";
 
         // Send success reply
         await replyMessage(
           replyToken,
           settings.adsLineChannelAccessToken,
-          `${confidenceEmoji} รับสลิปแล้ว!\n\n` +
-            `เลขที่: ${receipt.receiptNumber}\n` +
-            `จำนวนเงิน: ฿${receipt.amount.toLocaleString()}\n` +
-            `แพลตฟอร์ม: ${receipt.platform}\n` +
-            `วิธีการอ่าน: ${methodLabel}\n` +
-            `ความแม่นยำ: ${(receiptData.confidence * 100).toFixed(0)}%\n` +
-            (receiptData.metadata?.date ? `วันที่: ${receiptData.metadata.date}\n` : "") +
-            (receiptData.metadata?.refNumber ? `อ้างอิง: ${receiptData.metadata.refNumber}\n` : "") +
-            `\nดูรายละเอียดเพิ่มเติมได้ที่หน้า "อัพโหลดสลิป"`
+          `✅ รับสเตทเมนต์แล้ว!\n\n` +
+            `รอบบิล: ${statement.period}\n` +
+            `ยอดเรียกเก็บ: ฿${statement.totalAmount.toLocaleString()}\n` +
+            `VAT: ฿${statement.vat.toLocaleString()}\n\n` +
+            `ดูรายละเอียดได้ที่หน้า "Statements"`
         );
 
         // Send notification to LINE Notify (if enabled)
         if (settings.adsLineNotifyToken) {
           await sendLineNotify(
             settings.adsLineNotifyToken,
-            `🧾 รับสลิปโฆษณาใหม่\n\n` +
-              `เลขที่: ${receipt.receiptNumber}\n` +
-              `จำนวน: ฿${receipt.amount.toLocaleString()}\n` +
-              `วิธีการ: ${methodLabel}\n` +
-              `ความแม่นยำ: ${(receiptData.confidence * 100).toFixed(0)}%\n` +
+            `📄 รับสเตทเมนต์ Ads ใหม่\n\n` +
+              `รอบบิล: ${statement.period}\n` +
+              `ยอดเรียกเก็บ: ฿${statement.totalAmount.toLocaleString()}\n` +
+              `VAT: ฿${statement.vat.toLocaleString()}\n` +
               `วันที่: ${new Date().toLocaleDateString("th-TH")}`
           );
         }
@@ -278,23 +253,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        if (text.includes("help") || text.includes("ช่วย") || text.includes("วิธี")) {
+        if (
+          text.includes("help") ||
+          text.includes("ช่วย") ||
+          text.includes("วิธี")
+        ) {
           await replyMessage(
             replyToken,
             settings.adsLineChannelAccessToken,
-            `📋 วิธีใช้งานระบบอ่านสลิป:\n\n` +
-              `1. ถ่ายรูปสลิปจากการจ่ายเงินโฆษณา\n` +
-              `   (Meta Ads/Facebook Ads/Google Ads)\n\n` +
-              `2. ส่งรูปเข้ากลุ่มนี้\n\n` +
-              `3. ระบบจะอ่านข้อมูลอัตโนมัติ 2 วิธี:\n` +
-              `   🎯 QR Code (ความแม่นยำ 99%+)\n` +
-              `   📄 OCR อ่านข้อความ (ความแม่นยำ 90%+)\n\n` +
-              `4. ข้อมูลถูกบันทึกในระบบทันที\n\n` +
-              `💡 เคล็ดลับ:\n` +
-              `• ถ่ายรูปให้ชัดเจน ไม่มัว\n` +
-              `• แสงสว่างเพียงพอ\n` +
-              `• ให้เห็น QR Code และจำนวนเงินชัดเจน\n` +
-              `• ระบบรองรับภาษาไทย + อังกฤษ`
+            `📋 วิธีใช้งาน:\n\n` +
+              `1. ดาวน์โหลดสเตทเมนต์ (PDF) จาก Meta Business Suite\n` +
+              `2. ส่งไฟล์ PDF เข้ากลุ่มนี้\n` +
+              `3. ระบบจะอ่านและบันทึกข้อมูลอัตโนมัติ\n\n` +
+              `⚠️ กรุณาส่งไฟล์ PDF สเตทเมนต์จาก Meta Ads เท่านั้น`
           );
         }
       }
@@ -313,7 +284,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return NextResponse.json({
     status: "ok",
-    message: "LINE Ads webhook ready",
+    message: "LINE Ads webhook ready (for Statements)",
     endpoint: "/api/webhooks/line-ads",
   });
 }
