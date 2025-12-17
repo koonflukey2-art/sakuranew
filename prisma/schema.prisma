@@ -282,7 +282,7 @@ model BudgetItem {
   notes    String? // หมายเหตุ
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 
   @@index([budgetId])
 }
@@ -558,6 +558,7 @@ model FacebookAdsStatement {
 
   @@index([organizationId, startDate])
   @@index([source])
+  @@unique([organizationId, fileHash])
 }
 
 // ============================

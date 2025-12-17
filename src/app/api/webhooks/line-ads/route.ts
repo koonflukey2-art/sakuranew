@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // ประมวลผล PDF → ดึง period, amount, vat
+        // ประมวลผล PDF → ดึง period, amount, vat + fileHash
         const statementMeta = await processStatementPDF(
           fileData.buffer,
           originalFileName,
@@ -250,6 +250,44 @@ export async function POST(request: NextRequest) {
               "❌ ไม่สามารถอ่านข้อมูลจากสเตทเมนต์ได้\n\n" +
               "กรุณาตรวจสอบว่าเป็นไฟล์ PDF จาก Meta Ads และลองส่งใหม่อีกครั้ง",
           });
+          continue;
+        }
+
+        // 🔁 เช็คว่าไฟล์นี้ (fileHash) เคยบันทึกแล้วหรือยัง
+        const duplicate = await prisma.facebookAdsStatement.findFirst({
+          where: {
+            organizationId: settings.organizationId,
+            fileHash: statementMeta.fileHash,
+          },
+        });
+
+        if (duplicate) {
+          console.warn(
+            `⚠️ Duplicate statement from LINE. messageId=${messageId}, existingId=${duplicate.id}`
+          );
+
+          await replyMessage({
+            replyToken,
+            channelAccessToken: settings.adsLineChannelAccessToken,
+            text:
+              "⚠️ ไฟล์สเตทเมนต์นี้ถูกบันทึกไว้แล้วในระบบ\n\n" +
+              `รอบบิลเดิม: ${duplicate.period}\n` +
+              `ยอดเรียกเก็บ: ฿${duplicate.totalAmount.toLocaleString(
+                "th-TH"
+              )}`,
+          });
+
+          if (settings.adsLineNotifyToken) {
+            await sendLineNotify(
+              settings.adsLineNotifyToken,
+              `⚠️ มีการส่งสเตทเมนต์ซ้ำจาก LINE\n\n` +
+                `รอบบิล: ${duplicate.period}\n` +
+                `ยอดเรียกเก็บ: ฿${duplicate.totalAmount.toLocaleString(
+                  "th-TH"
+                )}`
+            );
+          }
+
           continue;
         }
 
@@ -306,7 +344,6 @@ export async function POST(request: NextRequest) {
         } catch (err: any) {
           console.error("❌ Error saving FacebookAdsStatement:", err);
 
-          // เผื่ออนาคตมี unique fileHash
           if (err?.code === "P2002") {
             await replyMessage({
               replyToken,
@@ -326,7 +363,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // จัดการเฉพาะ event นี้เสร็จแล้ว ไป event ถัดไป
         continue;
       }
 
@@ -358,7 +394,6 @@ export async function POST(request: NextRequest) {
               "จากนั้นสามารถดูสรุปทั้งหมดได้ในหน้า \"Facebook Ads Statements\" บนเว็บ",
           });
         } else {
-          // ข้อความอื่น ๆ จะไม่ตอบ (กันบอทรบกวน)
           console.log("ℹ️ Non-help text – ignored");
         }
       }
