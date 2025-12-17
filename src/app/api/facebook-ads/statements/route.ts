@@ -42,19 +42,48 @@ let mockStatements: Statement[] = [
   },
 ];
 
-// ---------- helpers ----------
-async function getPdfTextAndBuffer(file: File): Promise<{ buffer: Buffer; text: string }> {
+// ---------- pdf-parse loader (CJS ใน Next Node runtime) ----------
+let cachedPdfParse: null | ((buffer: Buffer) => Promise<{ text: string }>) = null;
+
+async function loadPdfParse(): Promise<(buffer: Buffer) => Promise<{ text: string }>> {
+  if (cachedPdfParse) return cachedPdfParse;
+
+  let lastError: unknown = null;
+
+  try {
+    // ใช้ require ผ่าน eval เพื่อเลี่ยง webpack transform
+    const req = eval("require") as any;
+    const mod = req("pdf-parse");
+    const fn = (mod && (mod.default || mod)) as any;
+
+    if (typeof fn === "function") {
+      cachedPdfParse = fn;
+      return fn;
+    }
+
+    lastError = new Error("pdf-parse require() returned non-function");
+  } catch (e) {
+    lastError = e;
+  }
+
+  console.error("❌ pdf-parse module shape unexpected, lastError:", lastError);
+  throw new Error("pdf-parse loaded but is not a function");
+}
+
+async function getPdfTextAndBuffer(
+  file: File
+): Promise<{ buffer: Buffer; text: string }> {
   // แปลง File → Buffer (ใช้ได้เฉพาะ runtime nodejs)
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // import pdf-parse แบบรองรับทั้ง CJS / ESM
-  const mod: any = await import("pdf-parse");
-  const pdfParse = mod.default || mod; // ตรงนี้แหละที่แก้ t is not a function
-
+  const pdfParse = await loadPdfParse();
   const result = await pdfParse(buffer);
+
   return { buffer, text: String(result.text ?? "") };
 }
+
+// ---------- helpers ----------
 
 function toIsoFromDmy(dmy: string): string {
   // format ในไฟล์: 6/10/2025
@@ -82,14 +111,21 @@ function parseMetaInvoice(text: string) {
   const endThai = periodMatch?.[2];
 
   // ยอดเรียกเก็บ + VAT
-  const chargeMatch = normalized.match(/ยอดที่เรียกเก็บทั้งหมด\s*฿?(\d+(\.\d{1,2})?)/);
+  // แถว "ยอดที่เรียกเก็บทั้งหมด ฿xxx.xx"
+  const chargeMatch = normalized.match(
+    /ยอดที่เรียกเก็บทั้งหมด\s*฿?(\d+(\.\d{1,2})?)/
+  );
+
+  // แถว "VAT Amount: ฿xx.xx"
   const vatMatch = normalized.match(/VAT Amount:\s*฿?(\d+(\.\d{1,2})?)/);
 
   const charge = chargeMatch ? parseFloat(chargeMatch[1]) : 0;
   const vat = vatMatch ? parseFloat(vatMatch[1]) : 0;
   const totalAmount = charge + vat; // รวม VAT
 
-  const startDate = startThai ? toIsoFromDmy(startThai) : new Date().toISOString().slice(0, 10);
+  const startDate = startThai
+    ? toIsoFromDmy(startThai)
+    : new Date().toISOString().slice(0, 10);
   const endDate = endThai ? toIsoFromDmy(endThai) : startDate;
 
   const periodLabel =
@@ -160,7 +196,7 @@ export async function POST(request: NextRequest) {
       fileName: file.name,
       fileUrl,
       createdAt: new Date().toISOString(),
-      ...parsed,
+      ...parsed, // period, startDate, endDate, totalAmount, vat
     };
 
     mockStatements = [statement, ...mockStatements];
@@ -186,6 +222,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------- DELETE /api/facebook-ads/statements ----------
+// รองรับทั้ง query string (?id=xxx) และ body JSON { id }
 export async function DELETE(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -193,7 +230,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await request.json();
+    // 1) อ่านจาก query string ก่อน: /api/facebook-ads/statements?id=xxx
+    const url = new URL(request.url);
+    let id = url.searchParams.get("id");
+
+    // 2) ถ้ายังไม่เจอ ลองอ่านจาก body JSON
+    if (!id) {
+      try {
+        const body = await request.json();
+        if (body && typeof body.id === "string") {
+          id = body.id;
+        }
+      } catch {
+        // ไม่มี body / JSON ไม่ครบ ไม่เป็นไร ปล่อยไป
+      }
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
@@ -203,7 +255,10 @@ export async function DELETE(request: NextRequest) {
     const deleted = mockStatements.length < before;
 
     if (!deleted) {
-      return NextResponse.json({ error: "Statement not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Statement not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true });
