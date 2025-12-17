@@ -36,7 +36,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Upload, Eye, FileText, Download, ArrowLeft, Trash2, MessageSquare } from "lucide-react";
+import {
+  Upload,
+  Eye,
+  FileText,
+  Download,
+  ArrowLeft,
+  Trash2,
+  MessageSquare,
+} from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -46,7 +54,7 @@ interface Statement {
   period: string;
   startDate: string;
   endDate: string;
-  totalAmount: number;
+  totalAmount: number; // รวม VAT
   vat: number;
   fileUrl: string;
   fileName: string;
@@ -58,13 +66,16 @@ export default function FacebookAdsStatementsPage() {
   const { toast } = useToast();
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewingStatement, setViewingStatement] = useState<Statement | null>(null);
+  const [viewingStatement, setViewingStatement] = useState<Statement | null>(
+    null
+  );
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // สำหรับลบ
-  const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null);
+  const [statementToDelete, setStatementToDelete] =
+    useState<Statement | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -181,8 +192,22 @@ export default function FacebookAdsStatementsPage() {
     }
   };
 
-  const totalAmount = statements.reduce((sum, s) => sum + s.totalAmount, 0);
+  // ====== รวมยอดต่าง ๆ ======
+  const totalBeforeVAT = statements.reduce(
+    (sum, s) => sum + (s.totalAmount - s.vat),
+    0
+  );
   const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
+  const totalWithVAT = statements.reduce(
+    (sum, s) => sum + s.totalAmount,
+    0
+  );
+
+  const formatMoney = (value: number) =>
+    value.toLocaleString("th-TH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   return (
     <div className="space-y-6 p-6">
@@ -228,7 +253,7 @@ export default function FacebookAdsStatementsPage() {
         </AlertDescription>
       </Alert>
 
-      {/* Summary Cards */}
+      {/* Summary Cards ด้านบน */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
@@ -247,28 +272,28 @@ export default function FacebookAdsStatementsPage() {
         <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-green-300">
-              ยอดรวมทั้งหมด
+              ยอดรวมสุทธิ (รวม VAT)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-400">
-              ฿{totalAmount.toLocaleString()}
+              ฿{formatMoney(totalWithVAT)}
             </div>
-            <p className="text-xs text-green-300 mt-1">รวม VAT</p>
+            <p className="text-xs text-green-300 mt-1">รวม VAT แล้ว</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-900/30 to-purple-950/30 border-purple-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-purple-300">
-              VAT รวม
+              VAT รวมทั้งหมด
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-400">
-              ฿{totalVAT.toLocaleString()}
+              ฿{formatMoney(totalVAT)}
             </div>
-            <p className="text-xs text-purple-300 mt-1">ภาษีมูลค่าเพิ่ม</p>
+            <p className="text-xs text-purple-300 mt-1">ภาษีมูลค่าเพิ่มรวม</p>
           </CardContent>
         </Card>
       </div>
@@ -277,11 +302,37 @@ export default function FacebookAdsStatementsPage() {
       <Card>
         <CardHeader>
           <CardTitle>รายการสเตทเมนต์ทั้งหมด</CardTitle>
-          <CardDescription>
-            สเตทเมนต์ค่าโฆษณาจาก Meta Ads
-          </CardDescription>
+          <CardDescription>สเตทเมนต์ค่าโฆษณาจาก Meta Ads</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* แถบสรุปในส่วน "รายการสเตทเมนต์ทั้งหมด" */}
+          {!loading && statements.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-3 text-sm">
+              <div className="px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-700/80">
+                <p className="text-xs text-muted-foreground">
+                  ยอดรวมก่อน VAT
+                </p>
+                <p className="font-semibold text-slate-50">
+                  ฿{formatMoney(totalBeforeVAT)}
+                </p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-700/80">
+                <p className="text-xs text-muted-foreground">VAT รวม</p>
+                <p className="font-semibold text-purple-300">
+                  ฿{formatMoney(totalVAT)}
+                </p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-700/80">
+                <p className="text-xs text-muted-foreground">
+                  ยอดรวมสุทธิ (รวม VAT)
+                </p>
+                <p className="font-semibold text-green-400">
+                  ฿{formatMoney(totalWithVAT)}
+                </p>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">
               กำลังโหลดข้อมูล...
@@ -299,7 +350,7 @@ export default function FacebookAdsStatementsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>รอบบิล</TableHead>
-                  <TableHead>ยอดเรียกเก็บ</TableHead>
+                  <TableHead>ยอดรวม (รวม VAT)</TableHead>
                   <TableHead>VAT</TableHead>
                   <TableHead>ไฟล์</TableHead>
                   <TableHead>วันที่อัพโหลด</TableHead>
@@ -319,11 +370,17 @@ export default function FacebookAdsStatementsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="font-bold text-green-500">
-                        ฿{statement.totalAmount.toLocaleString()}
+                        ฿{statement.totalAmount.toLocaleString("th-TH", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </TableCell>
                     <TableCell>
-                      ฿{statement.vat.toLocaleString()}
+                      ฿{statement.vat.toLocaleString("th-TH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

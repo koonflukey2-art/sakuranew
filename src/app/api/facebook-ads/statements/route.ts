@@ -9,13 +9,12 @@ import { createHash } from "crypto";
 
 export const runtime = "nodejs";
 
-// ---------- Types ----------
 type Statement = {
   id: string;
   period: string;
   startDate: string;
   endDate: string;
-  totalAmount: number;
+  totalAmount: number; // รวม VAT
   vat: number;
   fileUrl: string;
   fileName: string;
@@ -23,16 +22,18 @@ type Statement = {
   createdAt: string;
 };
 
-// ---------- pdf-parse loader (CJS ใน Next Node runtime) ----------
-let cachedPdfParse: null | ((buffer: Buffer) => Promise<{ text: string }>) = null;
+// ---------- pdf-parse loader (CJS) ----------
+let cachedPdfParse: null | ((buffer: Buffer) => Promise<{ text: string }>) =
+  null;
 
-async function loadPdfParse(): Promise<(buffer: Buffer) => Promise<{ text: string }>> {
+async function loadPdfParse(): Promise<
+  (buffer: Buffer) => Promise<{ text: string }>
+> {
   if (cachedPdfParse) return cachedPdfParse;
 
   let lastError: unknown = null;
 
   try {
-    // ใช้ require ผ่าน eval เพื่อเลี่ยง webpack transform
     const req = eval("require") as any;
     const mod = req("pdf-parse");
     const fn = (mod && (mod.default || mod)) as any;
@@ -54,7 +55,6 @@ async function loadPdfParse(): Promise<(buffer: Buffer) => Promise<{ text: strin
 async function getPdfTextAndBuffer(
   file: File
 ): Promise<{ buffer: Buffer; text: string }> {
-  // แปลง File → Buffer (ใช้ได้เฉพาะ runtime nodejs)
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
@@ -65,25 +65,21 @@ async function getPdfTextAndBuffer(
 }
 
 // ---------- helpers ----------
-
 function toIsoFromDmy(dmy: string): string {
-  // format ในไฟล์: 6/10/2025
   const [dStr, mStr, yStr] = dmy.split("/");
   const d = Number(dStr);
   const m = Number(mStr) - 1;
   const y = Number(yStr);
   const iso = new Date(Date.UTC(y, m, d)).toISOString();
-  return iso.slice(0, 10); // YYYY-MM-DD
+  return iso.slice(0, 10);
 }
 
 function parseMetaInvoice(text: string) {
-  // ลบ space แปลก ๆ และ comma เพื่อดึงเลขง่าย ๆ
   const normalized = text
     .replace(/\u00a0/g, " ")
     .replace(/,/g, "")
     .replace(/\s+/g, " ");
 
-  // ช่วงเวลา: "รายงานการเรียกเก็บเงิน: 6/10/2025 - 13/10/2025"
   const periodMatch = normalized.match(
     /รายงานการเรียกเก็บเงิน.*?(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/
   );
@@ -91,18 +87,14 @@ function parseMetaInvoice(text: string) {
   const startThai = periodMatch?.[1];
   const endThai = periodMatch?.[2];
 
-  // ยอดเรียกเก็บ + VAT
-  // แถว "ยอดที่เรียกเก็บทั้งหมด ฿xxx.xx"
   const chargeMatch = normalized.match(
     /ยอดที่เรียกเก็บทั้งหมด\s*฿?(\d+(\.\d{1,2})?)/
   );
-
-  // แถว "VAT Amount: ฿xx.xx"
   const vatMatch = normalized.match(/VAT Amount:\s*฿?(\d+(\.\d{1,2})?)/);
 
   const charge = chargeMatch ? parseFloat(chargeMatch[1]) : 0;
   const vat = vatMatch ? parseFloat(vatMatch[1]) : 0;
-  const totalAmount = charge + vat; // รวม VAT
+  const totalAmount = charge + vat;
 
   const startDate = startThai
     ? toIsoFromDmy(startThai)
@@ -128,7 +120,7 @@ function getUploadDir() {
   );
 }
 
-// ---------- GET /api/facebook-ads/statements ----------
+// ---------- GET ----------
 export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
@@ -150,7 +142,6 @@ export async function GET(_request: NextRequest) {
 
     const orgId = dbUser.organizationId;
 
-    // Fetch from database
     const statements = await prisma.facebookAdsStatement.findMany({
       where: { organizationId: orgId },
       orderBy: { createdAt: "desc" },
@@ -168,7 +159,6 @@ export async function GET(_request: NextRequest) {
       },
     });
 
-    // Format dates for frontend
     const formattedStatements: Statement[] = statements.map((s) => ({
       id: s.id,
       period: s.period,
@@ -182,13 +172,21 @@ export async function GET(_request: NextRequest) {
       createdAt: s.createdAt.toISOString(),
     }));
 
-    const totalAmount = statements.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalAmount = statements.reduce(
+      (sum, s) => sum + s.totalAmount,
+      0
+    );
     const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
+    const totalBeforeVAT = statements.reduce(
+      (sum, s) => sum + (s.totalAmount - s.vat),
+      0
+    );
 
     return NextResponse.json({
       statements: formattedStatements,
-      totalAmount,
+      totalAmount, // รวม VAT
       totalVAT,
+      totalBeforeVAT,
     });
   } catch (error: any) {
     console.error("Failed to fetch statements:", error);
@@ -199,7 +197,7 @@ export async function GET(_request: NextRequest) {
   }
 }
 
-// ---------- POST /api/facebook-ads/statements ----------
+// ---------- POST ----------
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -235,27 +233,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ดึง text + buffer จาก PDF
     const { buffer, text } = await getPdfTextAndBuffer(file);
     const parsed = parseMetaInvoice(text);
 
-    // Save file to disk
     const uploadsDir = getUploadDir();
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
     const fileHash = sha256Hex(buffer);
-    // ✅ ไม่ใช้ crypto.randomBytes แล้ว
     const filename = `statement-${Date.now()}-${fileHash.slice(0, 8)}.pdf`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
 
-    // URL ที่ frontend จะใช้เปิด / ดาวน์โหลด (คุณต้องมี route หรือ static serve ให้ path นี้ใช้ได้จริง)
     const fileUrl = `/api/uploads/statements/${filename}`;
 
-    // Create statement in database
     const statement = await prisma.facebookAdsStatement.create({
       data: {
         organizationId: orgId,
@@ -299,7 +292,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ---------- DELETE /api/facebook-ads/statements ----------
+// ---------- DELETE ----------
 export async function DELETE(request: NextRequest) {
   try {
     const user = await currentUser();
@@ -321,7 +314,6 @@ export async function DELETE(request: NextRequest) {
 
     const orgId = dbUser.organizationId;
 
-    // อ่านจาก query string: /api/facebook-ads/statements?id=xxx
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
 
@@ -329,7 +321,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    // ก่อนลบ: หา record ให้แน่ใจว่าเป็นของ org นี้ + เอา fileUrl ไปใช้ลบไฟล์ด้วย
     const existing = await prisma.facebookAdsStatement.findFirst({
       where: {
         id,
@@ -348,7 +339,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // พยายามลบไฟล์บนดิสก์ (ถ้า path เราคุมเอง)
     if (existing.fileUrl?.startsWith("/api/uploads/statements/")) {
       try {
         const filename = basename(existing.fileUrl);
@@ -360,7 +350,6 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // ลบจาก DB (ใช้ id อย่างเดียว เพราะเป็น PK)
     await prisma.facebookAdsStatement.delete({
       where: { id: existing.id },
     });
