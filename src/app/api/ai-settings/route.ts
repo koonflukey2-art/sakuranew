@@ -114,7 +114,7 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT - ทดสอบ API Key ของ provider หนึ่งตัว
+// PUT - ทดสอบ API Key ของ provider หนึ่งตัว (ยังเก็บไว้ เผื่อมีที่อื่นเรียก)
 export async function PUT(request: Request) {
   try {
     const clerk = await currentUser();
@@ -143,6 +143,13 @@ export async function PUT(request: Request) {
       );
     }
 
+    if (!aiProvider.apiKey) {
+      return NextResponse.json(
+        { error: "No API key saved" },
+        { status: 400 }
+      );
+    }
+
     const apiKey = decrypt(aiProvider.apiKey);
     let isValid = false;
     let testMessage = "";
@@ -160,6 +167,9 @@ export async function PUT(request: Request) {
         const result = await testN8N(apiKey);
         isValid = result.success;
         testMessage = result.message;
+      } else {
+        isValid = false;
+        testMessage = "Unknown provider";
       }
     } catch (error: any) {
       isValid = false;
@@ -213,14 +223,11 @@ export async function DELETE(request: Request) {
 // Helper functions
 // =========================
 
-// ✅ เวอร์ชันใหม่: เช็คด้วยการ list models แทน ไม่ผูกกับชื่อโมเดลใด ๆ
 async function testGemini(apiKey: string) {
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      {
-        method: "GET",
-      }
+      { method: "GET" }
     );
 
     if (!response.ok) {
@@ -236,9 +243,7 @@ async function testGemini(apiKey: string) {
 
     const data = (await response.json().catch(() => ({}))) as any;
     const models: string[] = Array.isArray(data?.models)
-      ? data.models
-          .map((m: any) => m?.name || "")
-          .filter(Boolean)
+      ? data.models.map((m: any) => m?.name || "").filter(Boolean)
       : [];
 
     const sample =

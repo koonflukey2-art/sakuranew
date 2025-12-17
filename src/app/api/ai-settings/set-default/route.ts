@@ -1,3 +1,4 @@
+// src/app/api/ai-settings/set-default/route.ts
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
