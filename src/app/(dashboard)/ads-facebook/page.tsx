@@ -16,9 +16,6 @@ import {
   Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -28,10 +25,8 @@ import {
 } from "recharts";
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   MousePointerClick,
-  Eye,
   Target,
   ArrowUpRight,
   Loader2,
@@ -73,8 +68,6 @@ interface AdMetrics {
   avgROAS: number;
 }
 
-const COLORS = ["#8b5cf6", "#ec4899", "#3b82f6", "#10b981", "#f59e0b"];
-
 export default function AdsFacebookPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -82,8 +75,10 @@ export default function AdsFacebookPage() {
   const [metrics, setMetrics] = useState<AdMetrics | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("7days");
-  const [totalSpentFromReceipts, setTotalSpentFromReceipts] = useState(0);
-  const [receiptsCount, setReceiptsCount] = useState(0);
+
+  // ✅ เปลี่ยนจาก receipts → statements
+  const [totalSpentFromStatements, setTotalSpentFromStatements] = useState(0);
+  const [statementsCount, setStatementsCount] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -91,16 +86,18 @@ export default function AdsFacebookPage() {
     // Auto-refresh every 5 minutes
     const interval = setInterval(fetchData, 300000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeriod]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      const [campaignsRes, metricsRes, receiptsRes] = await Promise.all([
+      const [campaignsRes, metricsRes, statementsRes] = await Promise.all([
         fetch("/api/ads/campaigns?platform=FACEBOOK"),
         fetch(`/api/ads/metrics?platform=FACEBOOK&period=${selectedPeriod}`),
-        fetch("/api/ads/receipts"), // ✅ Get REAL ads spend from receipts
+        // ✅ ดึงจาก statements
+        fetch("/api/facebook-ads/statements"),
       ]);
 
       if (campaignsRes.ok) {
@@ -114,11 +111,11 @@ export default function AdsFacebookPage() {
         setChartData(metricsData.chartData || []);
       }
 
-      // ✅ NEW: Get REAL ads spending from uploaded receipts
-      if (receiptsRes.ok) {
-        const receiptsData = await receiptsRes.json();
-        setTotalSpentFromReceipts(receiptsData.totalAmount || 0);
-        setReceiptsCount(receiptsData.receipts?.length || 0);
+      // ✅ NEW: ใช้ค่าโฆษณาจาก statements
+      if (statementsRes.ok) {
+        const statementsData = await statementsRes.json();
+        setTotalSpentFromStatements(statementsData.totalAmount || 0);
+        setStatementsCount(statementsData.statements?.length || 0);
       }
     } catch (error) {
       console.error("Failed to fetch ads data:", error);
@@ -164,7 +161,7 @@ export default function AdsFacebookPage() {
             <ArrowUpRight className="w-4 h-4 mr-2" />
             รีเฟรช
           </Button>
-          <Button onClick={() => window.location.href = "/upload-receipt"}>
+          <Button onClick={() => (window.location.href = "/upload-receipt")}>
             <Plus className="w-4 h-4 mr-2" />
             อัพโหลดสลิป
           </Button>
@@ -173,20 +170,20 @@ export default function AdsFacebookPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Spent - NOW FROM RECEIPTS! */}
+        {/* ✅ Total Spent - NOW FROM STATEMENTS */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2 text-blue-300">
               <DollarSign className="w-4 h-4" />
-              ค่าโฆษณาทั้งหมด (จากสลิป)
+              ค่าโฆษณาทั้งหมด (จากสเตทเมนต์)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-400">
-              ฿{totalSpentFromReceipts.toLocaleString()}
+              ฿{totalSpentFromStatements.toLocaleString()}
             </div>
             <p className="text-xs text-blue-300 mt-1">
-              จาก {receiptsCount} สลิป
+              จาก {statementsCount} สเตทเมนต์
             </p>
           </CardContent>
         </Card>
@@ -201,10 +198,10 @@ export default function AdsFacebookPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-400">
-              ฿{metrics?.totalRevenue.toLocaleString() || 0}
+              ฿{(metrics?.totalRevenue ?? 0).toLocaleString()}
             </div>
             <p className="text-xs text-green-300 mt-1">
-              ROAS: {metrics?.avgROAS.toFixed(2)}x
+              ROAS: {metrics ? metrics.avgROAS.toFixed(2) : "0.00"}x
             </p>
           </CardContent>
         </Card>
@@ -219,10 +216,10 @@ export default function AdsFacebookPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-400">
-              ฿{metrics?.totalProfit.toLocaleString() || 0}
+              ฿{(metrics?.totalProfit ?? 0).toLocaleString()}
             </div>
             <p className="text-xs text-purple-300 mt-1">
-              จาก {metrics?.totalConversions || 0} คอนเวอร์ชั่น
+              จาก {metrics?.totalConversions ?? 0} คอนเวอร์ชั่น
             </p>
           </CardContent>
         </Card>
@@ -237,10 +234,10 @@ export default function AdsFacebookPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-pink-400">
-              ฿{metrics?.avgCPC.toFixed(2) || 0}
+              ฿{metrics ? metrics.avgCPC.toFixed(2) : "0.00"}
             </div>
             <p className="text-xs text-pink-300 mt-1">
-              CTR: {metrics?.avgCTR.toFixed(2)}%
+              CTR: {metrics ? metrics.avgCTR.toFixed(2) : "0.00"}%
             </p>
           </CardContent>
         </Card>
@@ -257,7 +254,10 @@ export default function AdsFacebookPage() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
                   <XAxis dataKey="date" stroke="#9ca3af" />
                   <YAxis stroke="#9ca3af" />
                   <Tooltip
@@ -304,7 +304,10 @@ export default function AdsFacebookPage() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={campaigns.slice(0, 5)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
                   <XAxis dataKey="campaignName" stroke="#9ca3af" />
                   <YAxis stroke="#9ca3af" />
                   <Tooltip
@@ -336,11 +339,9 @@ export default function AdsFacebookPage() {
           {campaigns.length === 0 ? (
             <div className="text-center py-12">
               <Facebook className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                ยังไม่มีแคมเปญโฆษณา
-              </p>
+              <p className="text-muted-foreground">ยังไม่มีแคมเปญโฆษณา</p>
               <p className="text-sm text-muted-foreground mt-2">
-                อัพโหลดสลิปเพื่อเพิ่มข้อมูลแคมเปญ
+                อัพโหลดสลิปหรือสเตทเมนต์เพื่อเพิ่มข้อมูลแคมเปญ
               </p>
             </div>
           ) : (
@@ -395,7 +396,9 @@ export default function AdsFacebookPage() {
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-3 pt-3 border-t">
                       <div>
-                        <p className="text-xs text-muted-foreground">Impressions</p>
+                        <p className="text-xs text-muted-foreground">
+                          Impressions
+                        </p>
                         <p className="font-medium">
                           {campaign.impressions.toLocaleString()}
                         </p>
@@ -408,11 +411,15 @@ export default function AdsFacebookPage() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">CPC</p>
-                        <p className="font-medium">฿{campaign.cpc.toFixed(2)}</p>
+                        <p className="font-medium">
+                          ฿{campaign.cpc.toFixed(2)}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">CTR</p>
-                        <p className="font-medium">{campaign.ctr.toFixed(2)}%</p>
+                        <p className="font-medium">
+                          {campaign.ctr.toFixed(2)}%
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">ROAS</p>
