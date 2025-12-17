@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
-import { join } from "path";
+import { join, basename } from "path";
 import { createHash } from "crypto";
 
 export const runtime = "nodejs";
@@ -122,7 +122,10 @@ function sha256Hex(input: Buffer | string) {
 }
 
 function getUploadDir() {
-  return process.env.UPLOAD_DIR || join(process.cwd(), "public", "uploads", "statements");
+  return (
+    process.env.UPLOAD_DIR ||
+    join(process.cwd(), "public", "uploads", "statements")
+  );
 }
 
 // ---------- GET /api/facebook-ads/statements ----------
@@ -139,7 +142,10 @@ export async function GET(_request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      );
     }
 
     const orgId = dbUser.organizationId;
@@ -163,7 +169,7 @@ export async function GET(_request: NextRequest) {
     });
 
     // Format dates for frontend
-    const formattedStatements = statements.map((s) => ({
+    const formattedStatements: Statement[] = statements.map((s) => ({
       id: s.id,
       period: s.period,
       startDate: s.startDate.toISOString().split("T")[0],
@@ -172,7 +178,7 @@ export async function GET(_request: NextRequest) {
       vat: s.vat,
       fileUrl: s.fileUrl,
       fileName: s.fileName,
-      source: s.source,
+      source: s.source ?? undefined,
       createdAt: s.createdAt.toISOString(),
     }));
 
@@ -207,7 +213,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      );
     }
 
     const orgId = dbUser.organizationId;
@@ -237,12 +246,13 @@ export async function POST(request: NextRequest) {
     }
 
     const fileHash = sha256Hex(buffer);
-    const filename = `statement-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.pdf`;
+    // ✅ ไม่ใช้ crypto.randomBytes แล้ว
+    const filename = `statement-${Date.now()}-${fileHash.slice(0, 8)}.pdf`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
 
-    // Use route to serve the file
+    // URL ที่ frontend จะใช้เปิด / ดาวน์โหลด (คุณต้องมี route หรือ static serve ให้ path นี้ใช้ได้จริง)
     const fileUrl = `/api/uploads/statements/${filename}`;
 
     // Create statement in database
@@ -303,7 +313,10 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      );
     }
 
     const orgId = dbUser.organizationId;
@@ -316,12 +329,40 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    // Delete from database
-    await prisma.facebookAdsStatement.delete({
+    // ก่อนลบ: หา record ให้แน่ใจว่าเป็นของ org นี้ + เอา fileUrl ไปใช้ลบไฟล์ด้วย
+    const existing = await prisma.facebookAdsStatement.findFirst({
       where: {
         id,
-        organizationId: orgId, // Ensure user can only delete their org's statements
+        organizationId: orgId,
       },
+      select: {
+        id: true,
+        fileUrl: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Statement not found" },
+        { status: 404 }
+      );
+    }
+
+    // พยายามลบไฟล์บนดิสก์ (ถ้า path เราคุมเอง)
+    if (existing.fileUrl?.startsWith("/api/uploads/statements/")) {
+      try {
+        const filename = basename(existing.fileUrl);
+        const uploadsDir = getUploadDir();
+        const filepath = join(uploadsDir, filename);
+        await unlink(filepath).catch(() => {});
+      } catch (fileErr) {
+        console.warn("Failed to delete statement file:", fileErr);
+      }
+    }
+
+    // ลบจาก DB (ใช้ id อย่างเดียว เพราะเป็น PK)
+    await prisma.facebookAdsStatement.delete({
+      where: { id: existing.id },
     });
 
     return NextResponse.json({ success: true });
