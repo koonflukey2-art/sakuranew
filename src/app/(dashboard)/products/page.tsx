@@ -348,7 +348,7 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
           <p className="text-gray-400 mt-1">
             สร้างและจัดการสินค้า รวมถึงประเภทสินค้าสำหรับ LINE
           </p>
@@ -616,7 +616,7 @@ export default function ProductsPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ต้นทุน (บาท)</Label>
                 <Input
@@ -950,7 +950,7 @@ export default function ProductsPage() {
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="pt-6">
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label>หมายเลขประเภท</Label>
                       <Input

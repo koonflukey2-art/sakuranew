@@ -215,7 +215,7 @@ export default function UploadReceiptPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 อัพโหลดสลิปโฆษณา
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -284,93 +284,95 @@ export default function UploadReceiptPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>เลขที่</TableHead>
-                  <TableHead>แพลตฟอร์ม</TableHead>
-                  <TableHead>จำนวนเงิน</TableHead>
-                  <TableHead>วิธีการชำระ</TableHead>
-                  <TableHead>วันที่</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead className="text-right">การจัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {receipts.map((receipt) => (
-                  <TableRow key={receipt.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <ReceiptIcon className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-mono text-sm">
-                          {receipt.receiptNumber}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>เลขที่</TableHead>
+                    <TableHead>แพลตฟอร์ม</TableHead>
+                    <TableHead>จำนวนเงิน</TableHead>
+                    <TableHead>วิธีการชำระ</TableHead>
+                    <TableHead>วันที่</TableHead>
+                    <TableHead>สถานะ</TableHead>
+                    <TableHead className="text-right">การจัดการ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receipts.map((receipt) => (
+                    <TableRow key={receipt.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <ReceiptIcon className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-mono text-sm">
+                            {receipt.receiptNumber}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{receipt.platform}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-bold text-green-500">
+                          ฿{receipt.amount.toLocaleString()}
                         </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{receipt.platform}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-bold text-green-500">
-                        ฿{receipt.amount.toLocaleString()}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          receipt.qrCodeData ? "default" : "secondary"
-                        }
-                      >
-                        {receipt.qrCodeData ? "QR Code" : "ธนาคาร"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(receipt.paidAt).toLocaleDateString("th-TH", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={receipt.isProcessed ? "default" : "secondary"}
-                      >
-                        {receipt.isProcessed ? "ประมวลผลแล้ว" : "รอดำเนินการ"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setViewingReceipt(receipt)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          ดู
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            window.open(receipt.receiptUrl, "_blank")
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            receipt.qrCodeData ? "default" : "secondary"
                           }
                         >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => setReceiptToDelete(receipt)}
+                          {receipt.qrCodeData ? "QR Code" : "ธนาคาร"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(receipt.paidAt).toLocaleDateString("th-TH", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={receipt.isProcessed ? "default" : "secondary"}
                         >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          ลบ
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          {receipt.isProcessed ? "ประมวลผลแล้ว" : "รอดำเนินการ"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewingReceipt(receipt)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            ดู
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              window.open(receipt.receiptUrl, "_blank")
+                            }
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setReceiptToDelete(receipt)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            ลบ
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -435,7 +437,7 @@ export default function UploadReceiptPage() {
         open={!!viewingReceipt}
         onOpenChange={() => setViewingReceipt(null)}
       >
-        <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
               สลิป - {viewingReceipt?.receiptNumber}

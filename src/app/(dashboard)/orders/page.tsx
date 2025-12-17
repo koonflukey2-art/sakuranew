@@ -390,7 +390,7 @@ export default function OrdersPage() {
       {/* Header + actions */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-4xl font-bold text-gradient-pink mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink mb-2">
             รายการออเดอร์
           </h1>
           <p className="text-gray-200 text-lg">
@@ -686,7 +686,7 @@ export default function OrdersPage() {
 
       {/* Create Order Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>➕ เพิ่มออเดอร์ (พิมพ์มือ / วางข้อความ LINE)</DialogTitle>
           </DialogHeader>
@@ -717,7 +717,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ประเภทสินค้า</Label>
                 <Select
@@ -753,7 +753,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ยอดเงิน (฿)</Label>
                 <Input
@@ -778,7 +778,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>ชื่อลูกค้า</Label>
                 <Input
@@ -816,7 +816,7 @@ export default function OrdersPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>สถานะ</Label>
                 <Select
@@ -887,7 +887,7 @@ export default function OrdersPage() {
 
       {/* Edit Dialog / Confirm Edit / Confirm Delete (เหมือนเดิมของคุณ) */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               แก้ไขออเดอร์ #
@@ -897,7 +897,7 @@ export default function OrdersPage() {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>ชื่อลูกค้า</Label>
                   <Input
@@ -951,7 +951,7 @@ export default function OrdersPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>ยอดเงิน (฿)</Label>
                   <Input
