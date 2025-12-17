@@ -272,6 +272,186 @@ async function preprocessImageForOCR(buffer: Buffer): Promise<Buffer> {
  * Parse amount from extracted OCR text
  * Enhanced for Thai receipt formats
  */
+// ======================================================
+// STATEMENT PDF PROCESSING (FOR LINE WEBHOOK)
+// ======================================================
+
+interface StatementData {
+  period: string;
+  startDate: Date;
+  endDate: Date;
+  totalAmount: number;
+  vat: number;
+  fileUrl: string;
+  fileName: string;
+  fileHash: string;
+}
+
+/**
+ * Process Facebook Ads Statement PDF from LINE
+ */
+export async function processStatementPDF(
+  pdfBuffer: Buffer,
+  fileName: string,
+  organizationId: string
+): Promise<StatementData | null> {
+  try {
+    console.log("📄 Processing statement PDF...");
+
+    // Generate hash for duplicate detection
+    const fileHash = crypto.createHash("sha256").update(pdfBuffer).digest("hex");
+
+    // Parse PDF to extract text
+    const pdfText = await extractPDFText(pdfBuffer);
+
+    if (!pdfText) {
+      console.error("❌ Could not extract text from PDF");
+      return null;
+    }
+
+    // Parse metadata from PDF text
+    const metadata = parseStatementMetadata(pdfText);
+
+    if (!metadata) {
+      console.error("❌ Could not parse statement metadata");
+      return null;
+    }
+
+    // Save PDF file to disk
+    const uploadsDir = join(process.cwd(), "public", "uploads", "statements");
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
+
+    const newFileName = `statement-${Date.now()}-${crypto
+      .randomBytes(4)
+      .toString("hex")}.pdf`;
+    const filepath = join(uploadsDir, newFileName);
+
+    await writeFile(filepath, pdfBuffer);
+
+    // Use API route to serve the file
+    const fileUrl = `/api/uploads/statements/${newFileName}`;
+
+    console.log(`✅ Statement processed: ${fileName} → ${newFileName}`);
+    console.log(`   Period: ${metadata.period}`);
+    console.log(`   Total: ฿${metadata.totalAmount.toLocaleString()}`);
+    console.log(`   VAT: ฿${metadata.vat.toLocaleString()}`);
+
+    return {
+      period: metadata.period,
+      startDate: metadata.startDate,
+      endDate: metadata.endDate,
+      totalAmount: metadata.totalAmount,
+      vat: metadata.vat,
+      fileUrl,
+      fileName: fileName || newFileName,
+      fileHash,
+    };
+  } catch (error) {
+    console.error("Process statement PDF error:", error);
+    return null;
+  }
+}
+
+/**
+ * Extract text from PDF buffer
+ */
+async function extractPDFText(pdfBuffer: Buffer): Promise<string | null> {
+  try {
+    // Load pdf-parse dynamically (CJS module)
+    const pdfParse = eval("require")("pdf-parse");
+    const result = await pdfParse(pdfBuffer);
+    return result.text || null;
+  } catch (error) {
+    console.error("PDF text extraction error:", error);
+    return null;
+  }
+}
+
+/**
+ * Parse statement metadata from PDF text
+ */
+function parseStatementMetadata(text: string): {
+  period: string;
+  startDate: Date;
+  endDate: Date;
+  totalAmount: number;
+  vat: number;
+} | null {
+  try {
+    // Normalize text (remove weird spaces, normalize commas)
+    const normalized = text
+      .replace(/\u00a0/g, " ")
+      .replace(/,/g, "")
+      .replace(/\s+/g, " ");
+
+    // Extract billing period dates
+    // Format: "รายงานการเรียกเก็บเงิน: 6/10/2025 - 13/10/2025"
+    const periodMatch = normalized.match(
+      /รายงานการเรียกเก็บเงิน.*?(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/
+    );
+
+    const startDateStr = periodMatch?.[1];
+    const endDateStr = periodMatch?.[2];
+
+    // Extract total amount charged
+    // Format: "ยอดที่เรียกเก็บทั้งหมด ฿xxx.xx"
+    const chargeMatch = normalized.match(
+      /ยอดที่เรียกเก็บทั้งหมด\s*฿?(\d+(\.\d{1,2})?)/
+    );
+
+    // Extract VAT amount
+    // Format: "VAT Amount: ฿xx.xx"
+    const vatMatch = normalized.match(/VAT Amount:\s*฿?(\d+(\.\d{1,2})?)/);
+
+    const charge = chargeMatch ? parseFloat(chargeMatch[1]) : 0;
+    const vat = vatMatch ? parseFloat(vatMatch[1]) : 0;
+    const totalAmount = charge + vat; // Total including VAT
+
+    // Parse dates
+    const startDate = startDateStr
+      ? parseDDMMYYYY(startDateStr)
+      : new Date();
+    const endDate = endDateStr ? parseDDMMYYYY(endDateStr) : startDate;
+
+    // Format period label
+    const periodLabel =
+      startDateStr && endDateStr
+        ? `${startDateStr} - ${endDateStr}`
+        : startDateStr || endDateStr || new Date().toLocaleDateString("th-TH");
+
+    // Validate parsed data
+    if (totalAmount === 0 || !startDateStr || !endDateStr) {
+      console.warn("⚠️ Incomplete statement data parsed");
+      console.warn(`   Total: ${totalAmount}, Dates: ${startDateStr} - ${endDateStr}`);
+    }
+
+    return {
+      period: periodLabel,
+      startDate,
+      endDate,
+      totalAmount,
+      vat,
+    };
+  } catch (error) {
+    console.error("Parse statement metadata error:", error);
+    return null;
+  }
+}
+
+/**
+ * Parse DD/MM/YYYY date format to Date object
+ */
+function parseDDMMYYYY(dateStr: string): Date {
+  const [day, month, year] = dateStr.split("/").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+// ======================================================
+// RECEIPT IMAGE PROCESSING (KEEP FOR EXISTING RECEIPTS)
+// ======================================================
+
 export function parseAmountFromText(text: string): number {
   try {
     // Clean and normalize text

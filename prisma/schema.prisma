@@ -543,10 +543,21 @@ model FacebookAdsStatement {
 
   fileUrl  String // URL ไปที่ไฟล์ PDF (เช่น Supabase / S3)
   fileName String // ชื่อไฟล์จริง
+  fileHash String? // For duplicate detection
+
+  // Source tracking
+  source        String   @default("WEB") // "WEB" or "LINE"
+  lineMessageId String? // LINE message ID if from LINE
+
+  // Processing
+  isProcessed Boolean   @default(false)
+  processedAt DateTime?
+  notes       String?
 
   createdAt DateTime @default(now())
 
   @@index([organizationId, startDate])
+  @@index([source])
 }
 
 // ============================

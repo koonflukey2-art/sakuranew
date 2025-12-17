@@ -36,49 +36,63 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Upload, Eye, FileText, Download, ArrowLeft, Trash2 } from "lucide-react";
+import {
+  Upload,
+  Eye,
+  FileText,
+  Download,
+  ArrowLeft,
+  Trash2,
+  Receipt as ReceiptIcon,
+} from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
-interface Statement {
+interface Receipt {
   id: string;
-  period: string;
-  startDate: string;
-  endDate: string;
-  totalAmount: number;
-  vat: number;
-  fileUrl: string;
-  fileName: string;
-  createdAt: string;
+  receiptNumber: string;
+  platform: string;
+  amount: number;
+  currency: string;
+  receiptUrl: string;
+  qrCodeData: string | null;
+  isProcessed: boolean;
+  paidAt: string;
+  campaign?: {
+    campaignName: string;
+  };
 }
 
-export default function FacebookAdsStatementsPage() {
+export default function UploadReceiptPage() {
   const { toast } = useToast();
-  const [statements, setStatements] = useState<Statement[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewingStatement, setViewingStatement] = useState<Statement | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<Receipt | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // สำหรับลบ
-  const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null);
+  const [receiptToDelete, setReceiptToDelete] = useState<Receipt | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [totalAmount, setTotalAmount] = useState(0);
+
   useEffect(() => {
-    fetchStatements();
+    fetchReceipts();
   }, []);
 
-  const fetchStatements = async () => {
+  const fetchReceipts = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/facebook-ads/statements");
+      const response = await fetch("/api/ads/receipts");
 
       if (response.ok) {
         const data = await response.json();
-        setStatements(data.statements || []);
+        setReceipts(data.receipts || []);
+        setTotalAmount(data.totalAmount || 0);
       }
     } catch (error) {
-      console.error("Failed to fetch statements:", error);
+      console.error("Failed to fetch receipts:", error);
     } finally {
       setLoading(false);
     }
@@ -88,10 +102,10 @@ export default function FacebookAdsStatementsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== "application/pdf") {
+    if (!file.type.startsWith("image/")) {
       toast({
         title: "ไฟล์ไม่ถูกต้อง",
-        description: "กรุณาอัพโหลดไฟล์ PDF เท่านั้น",
+        description: "กรุณาอัพโหลดไฟล์รูปภาพเท่านั้น (JPG, PNG)",
         variant: "destructive",
       });
       return;
@@ -113,9 +127,10 @@ export default function FacebookAdsStatementsPage() {
       setUploading(true);
 
       const formData = new FormData();
-      formData.append("statement", selectedFile);
+      formData.append("receipt", selectedFile);
+      formData.append("platform", "META_ADS");
 
-      const response = await fetch("/api/facebook-ads/statements", {
+      const response = await fetch("/api/ads/receipts/upload", {
         method: "POST",
         body: formData,
       });
@@ -127,20 +142,23 @@ export default function FacebookAdsStatementsPage() {
 
       const data = await response.json();
 
-      toast({
-        title: "✅ อัพโหลดสำเร็จ",
-        description: "อัพโหลดสเตทเมนต์แล้ว",
-      });
-
-      // อัพเดต state ทันทีไม่ต้อง refetch ทั้งหมดก็ได้
-      if (data.statement) {
-        setStatements((prev) => [data.statement, ...prev]);
+      if (data.needsManualAmount) {
+        toast({
+          title: "⚠️ ไม่สามารถอ่านจำนวนเงินได้",
+          description:
+            "ระบบไม่สามารถอ่านจำนวนเงินจากสลิปได้ กรุณาตรวจสอบและแก้ไข",
+          variant: "destructive",
+        });
       } else {
-        fetchStatements();
+        toast({
+          title: "✅ อัพโหลดสำเร็จ",
+          description: `อ่านจำนวนเงิน: ฿${data.amount?.toLocaleString()} (${data.detectMethod})`,
+        });
       }
 
       setUploadDialogOpen(false);
       setSelectedFile(null);
+      fetchReceipts();
     } catch (error: any) {
       console.error(error);
       toast({
@@ -154,16 +172,13 @@ export default function FacebookAdsStatementsPage() {
   };
 
   const handleDelete = async () => {
-    if (!statementToDelete) return;
+    if (!receiptToDelete) return;
 
     try {
       setDeleting(true);
-      const res = await fetch(
-        `/api/facebook-ads/statements?id=${statementToDelete.id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const res = await fetch(`/api/ads/receipts?id=${receiptToDelete.id}`, {
+        method: "DELETE",
+      });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -171,28 +186,22 @@ export default function FacebookAdsStatementsPage() {
       }
 
       toast({
-        title: "✅ ลบสเตทเมนต์สำเร็จ",
+        title: "✅ ลบสลิปสำเร็จ",
       });
 
-      // ลบออกจาก state เลย
-      setStatements((prev) =>
-        prev.filter((s) => s.id !== statementToDelete.id)
-      );
-      setStatementToDelete(null);
+      setReceipts((prev) => prev.filter((r) => r.id !== receiptToDelete.id));
+      setReceiptToDelete(null);
     } catch (error: any) {
       console.error(error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: error.message || "ไม่สามารถลบสเตทเมนต์ได้",
+        description: error.message || "ไม่สามารถลบสลิปได้",
         variant: "destructive",
       });
     } finally {
       setDeleting(false);
     }
   };
-
-  const totalAmount = statements.reduce((sum, s) => sum + s.totalAmount, 0);
-  const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -207,10 +216,10 @@ export default function FacebookAdsStatementsPage() {
             </Link>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Facebook Ads Statements
+                อัพโหลดสลิปโฆษณา
               </h1>
               <p className="text-muted-foreground mt-1">
-                ดูและจัดการสเตทเมนต์ค่าโฆษณา Facebook
+                อัพโหลดสลิปการจ่ายเงินค่าโฆษณา (รูปภาพ)
               </p>
             </div>
           </div>
@@ -218,23 +227,23 @@ export default function FacebookAdsStatementsPage() {
 
         <Button onClick={() => setUploadDialogOpen(true)}>
           <Upload className="w-4 h-4 mr-2" />
-          อัพโหลดสเตทเมนต์
+          อัพโหลดสลิป
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border-blue-500/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-blue-300">
-              จำนวนสเตทเมนต์
+              จำนวนสลิปทั้งหมด
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-400">
-              {statements.length}
+              {receipts.length}
             </div>
-            <p className="text-xs text-blue-300 mt-1">ทั้งหมดในระบบ</p>
+            <p className="text-xs text-blue-300 mt-1">ใบเสร็จในระบบ</p>
           </CardContent>
         </Card>
 
@@ -248,104 +257,102 @@ export default function FacebookAdsStatementsPage() {
             <div className="text-3xl font-bold text-green-400">
               ฿{totalAmount.toLocaleString()}
             </div>
-            <p className="text-xs text-green-300 mt-1">รวม VAT</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-900/30 to-purple-950/30 border-purple-500/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-purple-300">
-              VAT รวม
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-400">
-              ฿{totalVAT.toLocaleString()}
-            </div>
-            <p className="text-xs text-purple-300 mt-1">ภาษีมูลค่าเพิ่ม</p>
+            <p className="text-xs text-green-300 mt-1">รวมค่าโฆษณาทั้งหมด</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Statements Table */}
+      {/* Receipts Table */}
       <Card>
         <CardHeader>
-          <CardTitle>รายการสเตทเมนต์ทั้งหมด</CardTitle>
-          <CardDescription>สเตทเมนต์ค่าโฆษณาจาก Meta Ads</CardDescription>
+          <CardTitle>รายการสลิปทั้งหมด</CardTitle>
+          <CardDescription>
+            สลิปการจ่ายเงินค่าโฆษณาที่อัพโหลดผ่านเว็บ
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">
               กำลังโหลดข้อมูล...
             </div>
-          ) : statements.length === 0 ? (
+          ) : receipts.length === 0 ? (
             <div className="text-center py-12">
-              <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">ยังไม่มีสเตทเมนต์</p>
+              <ReceiptIcon className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">ยังไม่มีสลิป</p>
               <p className="text-sm text-muted-foreground mt-2">
-                คลิก "อัพโหลดสเตทเมนต์" เพื่อเพิ่มไฟล์
+                คลิก "อัพโหลดสลิป" เพื่อเพิ่มไฟล์
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>รอบบิล</TableHead>
-                  <TableHead>ยอดเรียกเก็บ</TableHead>
-                  <TableHead>VAT</TableHead>
-                  <TableHead>ไฟล์</TableHead>
-                  <TableHead>วันที่อัพโหลด</TableHead>
+                  <TableHead>เลขที่</TableHead>
+                  <TableHead>แพลตฟอร์ม</TableHead>
+                  <TableHead>จำนวนเงิน</TableHead>
+                  <TableHead>วิธีการชำระ</TableHead>
+                  <TableHead>วันที่</TableHead>
+                  <TableHead>สถานะ</TableHead>
                   <TableHead className="text-right">การจัดการ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {statements.map((statement) => (
-                  <TableRow key={statement.id}>
+                {receipts.map((receipt) => (
+                  <TableRow key={receipt.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{statement.period}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {statement.startDate} ถึง {statement.endDate}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <ReceiptIcon className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-mono text-sm">
+                          {receipt.receiptNumber}
+                        </span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{receipt.platform}</Badge>
                     </TableCell>
                     <TableCell>
                       <span className="font-bold text-green-500">
-                        ฿{statement.totalAmount.toLocaleString()}
+                        ฿{receipt.amount.toLocaleString()}
                       </span>
                     </TableCell>
-                    <TableCell>฿{statement.vat.toLocaleString()}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{statement.fileName}</span>
-                      </div>
+                      <Badge
+                        variant={
+                          receipt.qrCodeData ? "default" : "secondary"
+                        }
+                      >
+                        {receipt.qrCodeData ? "QR Code" : "ธนาคาร"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(statement.createdAt).toLocaleDateString(
-                        "th-TH",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        }
-                      )}
+                      {new Date(receipt.paidAt).toLocaleDateString("th-TH", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={receipt.isProcessed ? "default" : "secondary"}
+                      >
+                        {receipt.isProcessed ? "ประมวลผลแล้ว" : "รอดำเนินการ"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setViewingStatement(statement)}
+                          onClick={() => setViewingReceipt(receipt)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          ดูไฟล์
+                          ดู
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() =>
-                            window.open(statement.fileUrl, "_blank")
+                            window.open(receipt.receiptUrl, "_blank")
                           }
                         >
                           <Download className="w-4 h-4" />
@@ -353,7 +360,7 @@ export default function FacebookAdsStatementsPage() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => setStatementToDelete(statement)}
+                          onClick={() => setReceiptToDelete(receipt)}
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
                           ลบ
@@ -372,14 +379,14 @@ export default function FacebookAdsStatementsPage() {
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>อัพโหลดสเตทเมนต์</DialogTitle>
+            <DialogTitle>อัพโหลดสลิปโฆษณา</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>เลือกไฟล์ PDF</Label>
+              <Label>เลือกไฟล์รูปภาพ (JPG, PNG)</Label>
               <Input
                 type="file"
-                accept=".pdf"
+                accept="image/*"
                 onChange={handleFileSelect}
                 className="mt-1"
               />
@@ -388,6 +395,16 @@ export default function FacebookAdsStatementsPage() {
                   ไฟล์: {selectedFile.name}
                 </p>
               )}
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+              <p className="font-semibold mb-2">💡 เคล็ดลับ:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>ถ่ายรูปให้ชัดเจน ไม่มัว</li>
+                <li>แสงสว่างเพียงพอ</li>
+                <li>ให้เห็น QR Code และจำนวนเงินชัดเจน</li>
+                <li>ระบบจะอ่านข้อมูลอัตโนมัติ</li>
+              </ul>
             </div>
 
             <div className="flex gap-2">
@@ -413,21 +430,23 @@ export default function FacebookAdsStatementsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View PDF Dialog */}
+      {/* View Receipt Dialog */}
       <Dialog
-        open={!!viewingStatement}
-        onOpenChange={() => setViewingStatement(null)}
+        open={!!viewingReceipt}
+        onOpenChange={() => setViewingReceipt(null)}
       >
         <DialogContent className="max-w-4xl h-[80vh]">
           <DialogHeader>
-            <DialogTitle>สเตทเมนต์ - {viewingStatement?.period}</DialogTitle>
+            <DialogTitle>
+              สลิป - {viewingReceipt?.receiptNumber}
+            </DialogTitle>
           </DialogHeader>
-          {viewingStatement && (
+          {viewingReceipt && (
             <div className="flex-1 h-full">
-              <iframe
-                src={viewingStatement.fileUrl}
-                className="w-full h-full rounded-lg"
-                title="Statement PDF"
+              <img
+                src={viewingReceipt.receiptUrl}
+                alt="Receipt"
+                className="w-full h-full object-contain rounded-lg"
               />
             </div>
           )}
@@ -436,33 +455,31 @@ export default function FacebookAdsStatementsPage() {
 
       {/* Delete Confirm Dialog */}
       <AlertDialog
-        open={!!statementToDelete}
+        open={!!receiptToDelete}
         onOpenChange={(open) => {
-          if (!open) setStatementToDelete(null);
+          if (!open) setReceiptToDelete(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>ลบสเตทเมนต์นี้?</AlertDialogTitle>
+            <AlertDialogTitle>ลบสลิปนี้?</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ว่าต้องการลบสเตทเมนต์{" "}
+              คุณแน่ใจหรือไม่ว่าต้องการลบสลิป{" "}
               <span className="font-semibold">
-                {statementToDelete?.fileName}
+                {receiptToDelete?.receiptNumber}
               </span>
               <br />
               การลบนี้ไม่สามารถย้อนกลับได้
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              ยกเลิก
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>ยกเลิก</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-white hover:bg-destructive/90"
               disabled={deleting}
             >
-              {deleting ? "กำลังลบ..." : "ลบสเตทเมนต์"}
+              {deleting ? "กำลังลบ..." : "ลบสลิป"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
