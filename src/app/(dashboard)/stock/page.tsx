@@ -24,6 +24,31 @@ import {
   Cell,
 } from "recharts";
 
+// Dynamic color palette for unlimited products
+const COLORS = [
+  "#3b82f6", // blue
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#84cc16", // lime
+  "#6366f1", // indigo
+];
+
+interface ProductType {
+  productType: number;
+  name: string;
+  currentStock: number;
+  costPrice: number;
+  sellingPrice: number;
+  totalRevenue: number;
+  totalOrders: number;
+  totalQuantitySold: number;
+}
+
 /** ✅ Tooltip แบบโทนมืด */
 function DarkTooltip({
   active,
@@ -73,8 +98,7 @@ function DarkTooltip({
 }
 
 export default function StockPage() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [budget, setBudget] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -93,27 +117,23 @@ export default function StockPage() {
       setLoading(true);
       setErrorText(null);
 
-      const [productsRes, ordersRes, budgetRes] = await Promise.all([
-        fetch("/api/products"),
-        fetch("/api/orders"),
+      const [productTypesRes, budgetRes] = await Promise.all([
+        fetch("/api/products/types"),
         fetch("/api/capital-budget"),
       ]);
 
-      if (!productsRes.ok || !ordersRes.ok || !budgetRes.ok) {
+      if (!productTypesRes.ok || !budgetRes.ok) {
         console.error("Fetch error:", {
-          productsStatus: productsRes.status,
-          ordersStatus: ordersRes.status,
+          productTypesStatus: productTypesRes.status,
           budgetStatus: budgetRes.status,
         });
         setErrorText("โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
 
-      const productsData = await productsRes.json().catch(() => []);
-      const ordersData = await ordersRes.json().catch(() => []);
+      const productTypesData = await productTypesRes.json().catch(() => []);
       const budgetData = await budgetRes.json().catch(() => null);
 
-      setProducts(Array.isArray(productsData) ? productsData : []);
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      setProductTypes(Array.isArray(productTypesData) ? productTypesData : []);
 
       // ✅ รองรับทั้งกรณีคืนมาเป็น array และ object
       if (Array.isArray(budgetData)) {
@@ -123,8 +143,9 @@ export default function StockPage() {
       }
 
       console.log("StockPage data:", {
-        productsCount: Array.isArray(productsData) ? productsData.length : 0,
-        ordersCount: Array.isArray(ordersData) ? ordersData.length : 0,
+        productTypesCount: Array.isArray(productTypesData)
+          ? productTypesData.length
+          : 0,
       });
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -134,55 +155,35 @@ export default function StockPage() {
     }
   };
 
-  // Today (local)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // ✅ Get top 5 products by revenue
+  const top5ByRevenue = [...productTypes]
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .slice(0, 5)
+    .map((p, index) => ({
+      name: p.name,
+      revenue: p.totalRevenue,
+      color: COLORS[index % COLORS.length],
+    }));
 
-  // ✅ นิยามออเดอร์จาก LINE
-  const lineOrdersAll = orders.filter(
-    (o) =>
-      (typeof o.rawMessage === "string" && o.rawMessage.trim() !== "") ||
-      o.productType !== null
+  // ✅ Get top 5 products by orders
+  const top5ByOrders = [...productTypes]
+    .sort((a, b) => b.totalOrders - a.totalOrders)
+    .slice(0, 5)
+    .map((p, index) => ({
+      name: p.name,
+      orders: p.totalOrders,
+      color: COLORS[index % COLORS.length],
+    }));
+
+  // Calculate total LINE orders from all products
+  const totalLineOrders = productTypes.reduce(
+    (sum, p) => sum + p.totalOrders,
+    0
   );
-
-  const lineOrderStats = lineOrdersAll.reduce(
-    (acc, order) => {
-      acc.total += 1;
-      acc.revenue += order.amount || 0;
-      return acc;
-    },
-    { total: 0, revenue: 0 }
+  const totalLineRevenue = productTypes.reduce(
+    (sum, p) => sum + p.totalRevenue,
+    0
   );
-
-  const lineOrdersToday = lineOrdersAll
-    .filter((o) => {
-      if (!o.orderDate) return false;
-      const orderDate = new Date(o.orderDate);
-      orderDate.setHours(0, 0, 0, 0);
-      return orderDate.getTime() === today.getTime();
-    })
-    .reduce(
-      (acc, order) => {
-        acc.total += 1;
-        acc.revenue += order.amount || 0;
-        return acc;
-      },
-      { total: 0, revenue: 0 }
-    );
-
-  // สถิติออเดอร์ตามสินค้า
-  const ordersByType = products.map((product) => {
-    const relatedOrders = orders.filter(
-      (o) => o.productType === product.productType
-    );
-    return {
-      name: product.name,
-      orders: relatedOrders.length,
-      revenue: relatedOrders.reduce((sum, o) => sum + (o.amount || 0), 0),
-    };
-  });
-
-  const COLORS = ["#8b5cf6", "#ec4899", "#3b82f6", "#10b981"];
 
   if (loading) {
     return (
@@ -196,14 +197,13 @@ export default function StockPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">สต็อกสินค้า</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">
+            สต็อกสินค้า
+          </h1>
           <p className="text-gray-400 mt-1">
-            ข้อมูลสินค้า ออเดอร์จาก LINE และงบประมาณ
-            (อัปเดตอัตโนมัติทุก 30 วินาที)
+            ข้อมูลสินค้า ออเดอร์ และงบประมาณ (อัปเดตอัตโนมัติทุก 30 วินาที)
           </p>
-          {errorText && (
-            <p className="text-xs text-red-400 mt-1">{errorText}</p>
-          )}
+          {errorText && <p className="text-xs text-red-400 mt-1">{errorText}</p>}
         </div>
         <Button
           onClick={fetchData}
@@ -211,7 +211,9 @@ export default function StockPage() {
           variant="outline"
           className="border-purple-400 text-purple-200"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
           รีเฟรช
         </Button>
       </div>
@@ -227,7 +229,7 @@ export default function StockPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-400">
-              {products.length}
+              {productTypes.length}
             </div>
           </CardContent>
         </Card>
@@ -236,16 +238,14 @@ export default function StockPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-blue-300 flex items-center gap-2">
               <TrendingDown className="w-4 h-4" />
-              ออเดอร์ LINE วันนี้
+              ออเดอร์ทั้งหมด
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-400">
-              {lineOrdersToday.total}
+              {totalLineOrders}
             </div>
-            <p className="text-xs text-blue-300 mt-1">
-              ทั้งหมด: {lineOrderStats.total} ออเดอร์
-            </p>
+            <p className="text-xs text-blue-300 mt-1">รวมทุกสินค้า</p>
           </CardContent>
         </Card>
 
@@ -253,16 +253,14 @@ export default function StockPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-green-300 flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              รายได้ LINE วันนี้
+              รายได้รวม
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-400">
-              ฿{lineOrdersToday.revenue.toLocaleString()}
+              ฿{totalLineRevenue.toLocaleString()}
             </div>
-            <p className="text-xs text-green-300 mt-1">
-              ทั้งหมด: ฿{lineOrderStats.revenue.toLocaleString()}
-            </p>
+            <p className="text-xs text-green-300 mt-1">รวมทุกสินค้า</p>
           </CardContent>
         </Card>
 
@@ -281,16 +279,18 @@ export default function StockPage() {
         </Card>
       </div>
 
-      {/* Charts */}
+      {/* Charts - TOP 5 ONLY */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-white">ออเดอร์แยกตามประเภทสินค้า</CardTitle>
+            <CardTitle className="text-white">
+              ออเดอร์แยกตามประเภทสินค้า (Top 5)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ordersByType}>
+                <BarChart data={top5ByOrders}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="rgba(255,255,255,0.1)"
@@ -300,10 +300,7 @@ export default function StockPage() {
                     stroke="#9ca3af"
                     tick={{ fill: "#E5E7EB" }}
                   />
-                  <YAxis
-                    stroke="#9ca3af"
-                    tick={{ fill: "#E5E7EB" }}
-                  />
+                  <YAxis stroke="#9ca3af" tick={{ fill: "#E5E7EB" }} />
                   <Tooltip
                     content={
                       <DarkTooltip
@@ -316,11 +313,8 @@ export default function StockPage() {
                     }
                   />
                   <Bar dataKey="orders" radius={[8, 8, 0, 0]}>
-                    {ordersByType.map((_, index) => (
-                      <Cell
-                        key={`bar-cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
+                    {top5ByOrders.map((entry, index) => (
+                      <Cell key={`bar-cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -332,7 +326,7 @@ export default function StockPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-white">
-              รายได้แยกตามประเภทสินค้า
+              รายได้แยกตามประเภทสินค้า (Top 5)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -340,14 +334,14 @@ export default function StockPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={ordersByType}
+                    data={top5ByRevenue}
                     dataKey="revenue"
                     nameKey="name"
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
                     label={(props: any) => {
-                      const { x, y, name } = props;
+                      const { x, y, name, percent } = props;
                       return (
                         <text
                           x={x}
@@ -357,17 +351,14 @@ export default function StockPage() {
                           dominantBaseline="central"
                           fontSize={12}
                         >
-                          {name}
+                          {name} ({(percent * 100).toFixed(0)}%)
                         </text>
                       );
                     }}
                     labelLine={{ stroke: "rgba(255,255,255,0.25)" }}
                   >
-                    {ordersByType.map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
+                    {top5ByRevenue.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
 
@@ -385,53 +376,65 @@ export default function StockPage() {
         </Card>
       </div>
 
-      {/* Products List */}
+      {/* Products List - ALL PRODUCTS with Statistics */}
       <Card>
         <CardHeader>
           <CardTitle className="text-white">รายการสินค้าในสต็อก</CardTitle>
         </CardHeader>
         <CardContent>
-          {products.length === 0 ? (
-            <p className="text-sm text-gray-400">ยังไม่มีสินค้าในระบบ</p>
+          {productTypes.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              ยังไม่มีสินค้าในระบบ
+            </p>
           ) : (
             <div className="space-y-3">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                      <Package className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white">{product.name}</p>
-                      <p className="text-sm text-gray-400">
-                        ประเภท: {product.productType ?? "-"} | ต้นทุน: ฿
-                        {product.costPrice}
-                      </p>
-                    </div>
-                  </div>
+              {productTypes.map((product) => (
+                <Card key={product.productType} className="bg-white/5">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                          <Package className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg text-white">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm text-gray-400">
+                            ประเภท {product.productType}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">สต็อก</p>
-                      <p className="text-xl font-bold text-white">
-                        {product.quantity}
-                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-400">สต็อก</p>
+                          <p className="font-bold text-white">
+                            {product.currentStock}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">รายได้</p>
+                          <p className="font-bold text-green-400">
+                            ฿{product.totalRevenue.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">ออเดอร์</p>
+                          <p className="font-bold text-blue-400">
+                            {product.totalOrders}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">ขายไป</p>
+                          <p className="font-bold text-purple-400">
+                            {product.totalQuantitySold}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-
-                    {product.quantity < product.minStockLevel && (
-                      <Badge
-                        variant="destructive"
-                        className="flex items-center gap-1"
-                      >
-                        <AlertTriangle className="w-3 h-3" />
-                        ต่ำ
-                      </Badge>
-                    )}
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}

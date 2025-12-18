@@ -105,6 +105,15 @@ type Order = {
   } | null;
 };
 
+type ProductType = {
+  productType: number;
+  name: string;
+  currentStock: number;
+  totalRevenue: number;
+  totalOrders: number;
+  totalQuantitySold: number;
+};
+
 const DONUT_COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"];
 
 const formatCurrency = (value: number) => `฿${value.toLocaleString()}`;
@@ -147,6 +156,7 @@ function DarkTooltip({
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [budget, setBudget] = useState<Budget | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -156,12 +166,14 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      const [statsRes, budgetRes, productsRes, ordersRes] = await Promise.all([
-        fetch("/api/orders/stats"),
-        fetch("/api/capital-budget"),
-        fetch("/api/products"),
-        fetch("/api/orders"),
-      ]);
+      const [statsRes, budgetRes, productsRes, ordersRes, productTypesRes] =
+        await Promise.all([
+          fetch("/api/orders/stats"),
+          fetch("/api/capital-budget"),
+          fetch("/api/products"),
+          fetch("/api/orders"),
+          fetch("/api/products/types"),
+        ]);
 
       if (statsRes.ok) {
         const statsData = await statsRes.json();
@@ -181,6 +193,11 @@ export default function DashboardPage() {
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         setOrders(ordersData);
+      }
+
+      if (productTypesRes.ok) {
+        const productTypesData = await productTypesRes.json();
+        setProductTypes(productTypesData);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -696,6 +713,62 @@ export default function DashboardPage() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ✅ Top 5 Products Card */}
+        <Card className="premium-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              สินค้าขายดี Top 5
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              สินค้าที่มียอดขายสูงสุด
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {productTypes.length > 0 ? (
+              <div className="space-y-3">
+                {productTypes
+                  .sort((a, b) => b.totalRevenue - a.totalRevenue)
+                  .slice(0, 5)
+                  .map((product, index) => (
+                    <div
+                      key={product.productType}
+                      className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white"
+                        >
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white">
+                            {product.name}
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            {product.totalOrders} ออเดอร์ · {product.totalQuantitySold} ชิ้น
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-400">
+                          ฿{product.totalRevenue.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          สต็อก: {product.currentStock}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 py-10">
+                ยังไม่มีข้อมูลสินค้า
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
