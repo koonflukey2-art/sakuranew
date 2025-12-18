@@ -57,12 +57,6 @@ interface Order {
   notes?: string;
 }
 
-interface ProductType {
-  productType: number;
-  name: string;
-  currentStock: number;
-}
-
 const ITEMS_PER_PAGE = 10;
 
 // key สำหรับช่วงเวลา
@@ -96,7 +90,6 @@ const DEFAULT_FORM: CreateForm = {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -125,7 +118,6 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
     fetchUserRole();
-    fetchProductTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter, productTypeFilter, dateRange]);
 
@@ -138,18 +130,6 @@ export default function OrdersPage() {
       }
     } catch (error) {
       console.error("Failed to fetch user role:", error);
-    }
-  };
-
-  const fetchProductTypes = async () => {
-    try {
-      const res = await fetch("/api/products/types");
-      if (res.ok) {
-        const data = await res.json();
-        setProductTypes(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch product types:", error);
     }
   };
 
@@ -490,14 +470,10 @@ export default function OrdersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">ทั้งหมด</SelectItem>
-                  {productTypes.map((product) => (
-                    <SelectItem
-                      key={product.productType}
-                      value={String(product.productType)}
-                    >
-                      {product.name} (ประเภท {product.productType})
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="1">สินค้าหมายเลข 1</SelectItem>
+                  <SelectItem value="2">สินค้าหมายเลข 2</SelectItem>
+                  <SelectItem value="3">สินค้าหมายเลข 3</SelectItem>
+                  <SelectItem value="4">สินค้าหมายเลข 4</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -561,10 +537,7 @@ export default function OrdersPage() {
                           variant="outline"
                           className="bg-blue-500/15 text-blue-200 border-blue-400/60"
                         >
-                          {productTypes.find(
-                            (p) => p.productType === order.productType
-                          )?.name ||
-                            order.productName ||
+                          {order.productName ||
                             `สินค้าหมายเลข ${order.productType}`}
                         </Badge>
                         <Badge
@@ -757,14 +730,10 @@ export default function OrdersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {productTypes.map((product) => (
-                      <SelectItem
-                        key={product.productType}
-                        value={String(product.productType)}
-                      >
-                        {product.name} (ประเภท {product.productType})
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

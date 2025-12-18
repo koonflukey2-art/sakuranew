@@ -71,42 +71,6 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // ✅ VALIDATE PRODUCT EXISTS BEFORE CREATING ORDER
-        const product = await prisma.product.findFirst({
-          where: {
-            organizationId: settings.organizationId,
-            productType: orderData.productType,
-          },
-        });
-
-        if (!product) {
-          if (settings.lineChannelAccessToken) {
-            await replyLineMessage(
-              replyToken,
-              settings.lineChannelAccessToken,
-              `❌ ไม่พบสินค้าประเภท ${orderData.productType}\n\n` +
-                `กรุณาสร้างสินค้าประเภทนี้ในระบบก่อน\n` +
-                `หรือตรวจสอบหมายเลขประเภทสินค้า`
-            );
-          }
-          continue;
-        }
-
-        // ✅ CHECK STOCK AVAILABILITY
-        if (product.quantity < orderData.quantity) {
-          if (settings.lineChannelAccessToken) {
-            await replyLineMessage(
-              replyToken,
-              settings.lineChannelAccessToken,
-              `❌ สต็อกไม่พอ!\n\n` +
-                `สินค้า: ${product.name}\n` +
-                `สต็อกคงเหลือ: ${product.quantity} ชิ้น\n` +
-                `ต้องการ: ${orderData.quantity} ชิ้น`
-            );
-          }
-          continue;
-        }
-
         // Check if need to reset daily counter
         await resetDailySequenceIfNeeded(settings.organizationId);
 
@@ -144,7 +108,6 @@ export async function POST(request: NextRequest) {
             orderNumber,
             dailySequence,
             productType: orderData.productType,
-            productName: product.name, // ✅ Store product name
             quantity: orderData.quantity,
             amount: orderData.amount,
             unitPrice: orderData.amount / orderData.quantity,
@@ -156,16 +119,25 @@ export async function POST(request: NextRequest) {
         });
 
         // Update product stock
-        await prisma.product.update({
-          where: { id: product.id },
-          data: {
-            quantity: {
-              decrement: orderData.quantity,
-            },
+        const product = await prisma.product.findFirst({
+          where: {
+            organizationId: settings.organizationId,
+            productType: orderData.productType,
           },
         });
 
-        // ✅ Reply with product name
+        if (product) {
+          await prisma.product.update({
+            where: { id: product.id },
+            data: {
+              quantity: {
+                decrement: orderData.quantity,
+              },
+            },
+          });
+        }
+
+        // Reply with daily sequence
         if (settings.lineChannelAccessToken) {
           await replyLineMessage(
             replyToken,
@@ -173,22 +145,20 @@ export async function POST(request: NextRequest) {
             `✅ รับออเดอร์แล้ว!\n\n` +
               `📋 รายการที่ ${dailySequence} (วันนี้)\n` +
               `เลขที่: ${order.orderNumber}\n` +
-              `สินค้า: ${product.name}\n` +
-              `ประเภท: ${orderData.productType}\n` +
+              `สินค้า: ประเภท ${orderData.productType}\n` +
               `จำนวน: ${orderData.quantity} ชิ้น\n` +
               `ราคา: ฿${orderData.amount.toLocaleString()}\n\n` +
               `🕐 รอตัดยอดเวลา ${String(settings.dailyCutOffHour).padStart(2, "0")}:${String(settings.dailyCutOffMinute).padStart(2, "0")} น.`
           );
         }
 
-        // ✅ Send notification with product name
+        // Send notification
         if (settings.notifyOnOrder && settings.lineNotifyToken) {
           await sendLineNotify(
             settings.lineNotifyToken,
             `🔔 ออเดอร์ใหม่ - รายการที่ ${dailySequence}\n\n` +
               `เลขที่: ${order.orderNumber}\n` +
-              `สินค้า: ${product.name}\n` +
-              `ประเภท: ${orderData.productType}\n` +
+              `สินค้า: ประเภท ${orderData.productType}\n` +
               `จำนวน: ${orderData.quantity} ชิ้น\n` +
               `ราคา: ฿${orderData.amount.toLocaleString()}`
           );
