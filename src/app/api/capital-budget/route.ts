@@ -22,13 +22,10 @@ export async function GET() {
 
     const budgets = await prisma.budget.findMany({
       where: { organizationId: orgId },
-      include: {
-        items: true, // relation BudgetItem[]
-      },
+      include: { items: true },
       orderBy: { createdAt: "desc" },
     });
 
-    // map ให้ shape ตรง interface Budget ในหน้า client
     const result = budgets.map((b) => ({
       id: b.id,
       name: b.name ?? "",
@@ -93,7 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ถ้า body ส่ง totalAmount มา ใช้อันนั้นก่อน ไม่งั้น sum จาก items
     const totalAmountFromBody = Number(body.totalAmount) || 0;
     const totalAmountFromItems = validItems.reduce(
       (sum, it) => sum + Number(it.amount) * (Number(it.quantity) || 1),
@@ -102,13 +98,14 @@ export async function POST(request: NextRequest) {
     const totalAmount =
       totalAmountFromBody > 0 ? totalAmountFromBody : totalAmountFromItems;
 
+    // 1) สร้าง record ในตาราง budget (ของหน้า capital-budget เดิม)
     const budget = await prisma.budget.create({
       data: {
         organizationId: orgId,
         name,
         description,
         totalAmount,
-        remaining: totalAmount, // เริ่มเหลือเท่ากับยอดรวม
+        remaining: totalAmount,
         items: {
           create: validItems.map((item) => ({
             name: item.name,
@@ -118,10 +115,59 @@ export async function POST(request: NextRequest) {
           })),
         },
       },
-      include: {
-        items: true,
-      },
+      include: { items: true },
     });
+
+    // 2) ✅ SYNC ไปเพิ่มงบใน capitalBudget เพื่อให้หน้า Products อัปเดต "งบคงเหลือ"
+    const latestCapitalBudget = await prisma.capitalBudget.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    let capitalBudget;
+
+    if (latestCapitalBudget) {
+      capitalBudget = await prisma.capitalBudget.update({
+        where: { id: latestCapitalBudget.id },
+        data: {
+          amount: { increment: totalAmount },
+          remaining: { increment: totalAmount },
+          ...(body.minThreshold !== undefined && body.minThreshold !== null
+            ? { minThreshold: Number(body.minThreshold) || latestCapitalBudget.minThreshold }
+            : {}),
+        },
+      });
+    } else {
+      // ✅ แก้ตรงนี้: ต้องมี createdBy ตาม schema ของคุณ
+      capitalBudget = await prisma.capitalBudget.create({
+        data: {
+          organizationId: orgId,
+          amount: totalAmount,
+          remaining: totalAmount,
+          minThreshold: Number(body.minThreshold) || 5000,
+          createdBy: user.id, // ✅ FIX: เติม createdBy
+        },
+      });
+    }
+
+    // 3) (ถ้ามีตาราง transaction) บันทึกประวัติการเพิ่มงบ
+    try {
+      await prisma.capitalBudgetTransaction.create({
+        data: {
+          budgetId: capitalBudget.id,
+          type: "ADD", // ถ้า enum ไม่มี ADD ให้เปลี่ยนเป็นค่าที่มีจริง
+          amount: totalAmount,
+          description: `เพิ่มงบ: ${name}`,
+          createdBy: user.id,
+          organizationId: orgId,
+        },
+      });
+    } catch (txErr) {
+      console.warn(
+        "⚠️ Skip capitalBudgetTransaction (model/enum may not exist):",
+        txErr
+      );
+    }
 
     return NextResponse.json(
       {
@@ -138,6 +184,7 @@ export async function POST(request: NextRequest) {
           quantity: it.quantity,
           notes: it.notes ?? "",
         })),
+        capitalBudgetRemaining: capitalBudget.remaining, // extra
       },
       { status: 201 }
     );

@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization found" }, { status: 403 });
+    }
 
     // Get all capital budgets for the organization
     const budgets = await prisma.capitalBudget.findMany({
@@ -40,9 +43,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Failed to get available budget:", error);
-    return NextResponse.json(
-      { error: "Failed to get budget" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to get budget" }, { status: 500 });
   }
 }
