@@ -74,9 +74,9 @@ export async function getUserRole(): Promise<UserRole> {
  * - Stock Management
  * - Budget Requests
  * - Analytics
- * - AI Features (Chat, Assistant, Dashboard)
+ * - ❌ NO AI Features (restricted)
  *
- * ADMIN can access everything
+ * ADMIN can access everything (except AI cannot access system-settings)
  */
 export function getRolePermissions(role: UserRole): RolePermissions {
   if (role === "ADMIN") {
@@ -101,14 +101,14 @@ export function getRolePermissions(role: UserRole): RolePermissions {
   }
 
   if (role === "STOCK") {
-    // Stock role has access to stock management and most features
+    // Stock role has access to stock management and most features including AI
     return {
       canAccessDashboard: true,
       canAccessStock: true,
       canAccessBudget: true,
       canAccessBudgetRequests: true,
       canAccessAnalytics: true,
-      canAccessAI: true,
+      canAccessAI: true, // Stock can use AI
       canAccessSettings: false, // No settings access
       canAccessAutomation: false, // No automation
       canAccessWorkflows: false, // No workflows
@@ -128,7 +128,7 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     canAccessBudget: false, // No budget access
     canAccessBudgetRequests: true, // Can request budgets
     canAccessAnalytics: true,
-    canAccessAI: true, // Can use AI features
+    canAccessAI: false, // ❌ CANNOT use AI features
     canAccessSettings: false, // No settings
     canAccessAutomation: false, // No automation
     canAccessWorkflows: false, // No workflows

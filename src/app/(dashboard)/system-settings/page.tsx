@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import {
   Card,
   CardContent,
@@ -50,8 +51,10 @@ import {
   Receipt,
   Sparkles,
   FileText,
+  Lock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { hasPermission, type UserRole } from "@/lib/rbac-core";
 
 // ========== INTERFACES ==========
 
@@ -109,11 +112,17 @@ interface AdAccount {
 }
 
 export default function SystemSettingsPage() {
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Check admin access
+  const userRole = (user?.publicMetadata?.role as UserRole) || "EMPLOYEE";
+  const isAdmin = userRole === "ADMIN";
+  const hasSettingsAccess = hasPermission(userRole, "canAccessSettings");
 
   // System Settings State
   const [settings, setSettings] = useState<SystemSettings>({
@@ -809,6 +818,23 @@ export default function SystemSettingsPage() {
   };
 
   // ========== RENDER GUARDS ==========
+
+  // Check if user has settings access (Admin only)
+  if (!hasSettingsAccess) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive" className="max-w-2xl mx-auto">
+          <Lock className="w-4 h-4" />
+          <AlertDescription>
+            <strong className="block mb-2">ไม่มีสิทธิ์เข้าถึง System Settings</strong>
+            หน้านี้สำหรับผู้ดูแลระบบ (Admin) เท่านั้น
+            <br />
+            กรุณาติดต่อผู้ดูแลระบบหากคุณต้องการเปลี่ยนแปลงการตั้งค่า
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (isAuthorized === null || loading) {
     return (

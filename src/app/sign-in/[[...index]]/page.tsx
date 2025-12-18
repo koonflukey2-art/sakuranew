@@ -4,20 +4,25 @@ import { SignIn } from "@clerk/nextjs";
 
 export default function SignInPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 flex items-center justify-center px-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
       <div className="w-full max-w-xl mx-auto">
-        {/* Header ของเราเอง */}
-        <header className="text-center mb-8 space-y-1">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
-            Sakura
+        {/* Header */}
+        <header className="text-center mb-8 space-y-2">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <span className="text-4xl">🌸</span>
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+            ระบบจัดการสต็อก Sakura
           </h1>
-          <p className="text-slate-400 text-sm tracking-wide">
-            E-Commerce AI Platform
+          <p className="text-gray-600 text-sm">
+            เข้าสู่ระบบเพื่อเริ่มใช้งาน
           </p>
         </header>
 
-        {/* การ์ด Sign In */}
-        <section className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-3xl shadow-2xl shadow-fuchsia-500/10 p-8">
+        {/* Clerk Sign In Component */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
           <SignIn
             appearance={{
               layout: {
@@ -27,7 +32,7 @@ export default function SignInPage() {
                 rootBox: "w-full",
                 card: "w-full bg-transparent shadow-none border-0 p-0",
 
-                // ซ่อนหัว Sign in to Sakura เดิมของ Clerk
+                // Hide default Clerk header
                 header: "hidden",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
@@ -36,33 +41,39 @@ export default function SignInPage() {
                 main: "mt-0",
                 form: "space-y-4",
 
+                // Social buttons
                 socialButtonsBlockButton:
-                  "w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100",
+                  "w-full bg-white border-2 border-gray-300 hover:border-blue-500 text-gray-700 hover:bg-blue-50 transition-colors",
                 socialButtonsBlockButtonText:
-                  "text-slate-100 font-medium text-sm",
+                  "text-gray-700 font-medium text-sm",
 
+                // Primary button
                 formButtonPrimary:
-                  "w-full bg-violet-500 hover:bg-violet-600 text-white normal-case shadow-lg shadow-violet-500/30",
+                  "w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white normal-case shadow-lg transition-all",
 
+                // Input fields
                 formFieldInput:
-                  "bg-slate-900 border border-slate-700 focus:border-violet-500 text-slate-100 placeholder:text-slate-500",
-                formFieldLabel: "text-slate-300 font-medium",
+                  "bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900 placeholder:text-gray-500 transition-all",
+                formFieldLabel: "text-gray-700 font-medium",
 
-                dividerLine: "bg-slate-700",
-                dividerText: "text-slate-400 text-xs",
+                // Divider
+                dividerLine: "bg-gray-300",
+                dividerText: "text-gray-500 text-xs",
 
+                // OTP code
                 otpCodeFieldInput:
-                  "border-slate-700 focus:border-violet-500 text-slate-100",
+                  "border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900",
 
+                // Links
                 formResendCodeLink:
-                  "text-violet-400 hover:text-violet-300 text-sm",
-                identityPreviewText: "text-slate-300",
+                  "text-blue-600 hover:text-blue-700 text-sm font-medium",
+                identityPreviewText: "text-gray-700",
                 identityPreviewEditButton:
-                  "text-violet-400 hover:text-violet-300 text-sm",
+                  "text-blue-600 hover:text-blue-700 text-sm",
                 formFieldInputShowPasswordButton:
-                  "text-slate-400 hover:text-slate-200",
+                  "text-gray-600 hover:text-gray-900",
 
-                // เผื่อไว้: ซ่อน footer เดิมของ Clerk ด้วย
+                // Hide footer
                 footer: "hidden",
                 footerAction: "hidden",
                 footerActionText: "hidden",
@@ -72,10 +83,23 @@ export default function SignInPage() {
             path="/sign-in"
             signUpUrl="/sign-up"
           />
-        </section>
+        </div>
 
-        <p className="text-center text-slate-500 mt-6 text-sm">
-          ยินดีต้อนรับสู่ระบบจัดการร้านค้า Sakura E-Commerce
+        {/* Footer */}
+        <div className="text-center mt-6">
+          <p className="text-sm text-gray-600">
+            ยังไม่มีบัญชี?{" "}
+            <a
+              href="/sign-up"
+              className="text-blue-600 hover:text-blue-700 font-semibold underline"
+            >
+              สมัครสมาชิก
+            </a>
+          </p>
+        </div>
+
+        <p className="text-center text-gray-500 mt-8 text-xs">
+          ยินดีต้อนรับสู่ระบบจัดการสต็อก Sakura Biotech
         </p>
       </div>
     </main>
