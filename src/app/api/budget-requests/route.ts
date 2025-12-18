@@ -3,9 +3,17 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 interface BudgetRequestPayload {
+  title?: string;
   purpose?: string;
   amount?: number;
   reason?: string;
+  description?: string;
+  items?: Array<{
+    name: string;
+    amount: number;
+    quantity: number;
+    notes?: string;
+  }>;
 }
 
 export async function GET() {
@@ -22,7 +30,7 @@ export async function GET() {
       );
     }
 
-    // ADMIN เห็นทุกคำขอใน org, คนอื่นเห็นเฉพาะที่ตัวเองขอ
+    // ADMIN sees all, others see only their own
     const whereClause =
       user.role === "ADMIN"
         ? { organizationId: user.organizationId }
@@ -41,54 +49,28 @@ export async function GET() {
             email: true,
           },
         },
+        items: true,
       },
     });
 
-    // รวบรวม reviewerIds ทั้งหมด (user.id ที่เคยอนุมัติ/รีเจ็ค)
-    const reviewerIds = requests
-      .map((req) => req.reviewedBy)
-      .filter((id): id is string => Boolean(id));
-
-    const reviewers =
-      reviewerIds.length > 0
-        ? await prisma.user.findMany({
-            where: { id: { in: reviewerIds } },
-            select: { id: true, name: true, email: true },
-          })
-        : [];
-
-    const reviewerMap = reviewers.reduce<
-      Record<string, { name: string; email: string }>
-    >((acc, reviewer) => {
-      acc[reviewer.id] = {
-        name: reviewer.name || "ผู้ตรวจสอบ",
-        email: reviewer.email,
-      };
-      return acc;
-    }, {});
-
-    // map ให้ตรงกับ interface ที่หน้า React ใช้
+    // Map to frontend format
     const response = requests.map((request) => ({
       id: request.id,
-      purpose: request.purpose,
+      title: request.title || request.purpose,
+      description: request.description || "",
       amount: request.amount,
-      // description ใน DB -> reason ใน frontend
-      reason: request.description || "",
+      reason: request.reason || "",
+      requesterName: request.requesterName,
       status: request.status,
-      requestedBy: {
-        name: request.requester?.name || "User",
-        email: request.requester?.email || "",
-      },
+      items: request.items.map((item) => ({
+        name: item.name,
+        amount: item.amount,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      })),
       createdAt: request.createdAt.toISOString(),
-      reviewedAt: request.reviewedAt
-        ? request.reviewedAt.toISOString()
-        : undefined,
-      reviewedBy: request.reviewedBy
-        ? reviewerMap[request.reviewedBy] || {
-            name: "ผู้ตรวจสอบ",
-            email: "",
-          }
-        : undefined,
+      approvedAt: request.approvedAt?.toISOString(),
+      rejectedReason: request.rejectedReason || undefined,
     }));
 
     return NextResponse.json(response);
@@ -117,22 +99,38 @@ export async function POST(request: Request) {
 
     const body: BudgetRequestPayload = await request.json();
 
-    if (!body.purpose || !body.reason || typeof body.amount !== "number") {
+    if (!body.title || !body.reason || !body.items || body.items.length === 0) {
       return NextResponse.json(
-        { error: "กรุณาระบุวัตถุประสงค์ จำนวนเงิน และเหตุผล" },
+        { error: "กรุณาระบุหัวข้อ เหตุผล และรายการอย่างน้อย 1 รายการ" },
         { status: 400 }
       );
     }
 
+    // Calculate total amount
+    const totalAmount = body.items.reduce(
+      (sum, item) => sum + item.amount * item.quantity,
+      0
+    );
+
     const created = await prisma.budgetRequest.create({
       data: {
-        purpose: body.purpose,
-        amount: body.amount,
-        // reason จาก frontend -> description ใน DB
-        description: body.reason,
+        title: body.title,
+        purpose: body.title, // Backward compatibility
+        amount: totalAmount,
+        description: body.description || "",
+        reason: body.reason || "",
         status: "PENDING",
         organizationId: user.organizationId,
         requesterId: user.id,
+        requesterName: user.name || user.email,
+        items: {
+          create: body.items.map((item) => ({
+            name: item.name,
+            amount: item.amount,
+            quantity: item.quantity,
+            notes: item.notes || "",
+          })),
+        },
       },
     });
 

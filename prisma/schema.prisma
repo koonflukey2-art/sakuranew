@@ -324,27 +324,62 @@ model CapitalBudgetTransaction {
 }
 
 model BudgetRequest {
-  id      String @id @default(cuid())
-  amount  Float
-  purpose String
-
-  description String?
-  status      BudgetRequestStatus @default(PENDING)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
+  id             String              @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  requesterId String
-  requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  // Requester info
+  requesterId   String
+  requester     User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterName String // Store name for easy display
 
-  reviewedBy String?
-  reviewedAt DateTime?
-  reviewNote String?
+  // Request details
+  title       String  // "ค่ากล่องพัสดุ"
+  purpose     String  // Keep for backward compatibility
+  description String? // รายละเอียดเพิ่มเติม
+  amount      Float   // จำนวนเงินที่ขอ (total)
+  reason      String? // เหตุผลที่ขอ
+
+  // Budget items (detailed breakdown)
+  items BudgetRequestItem[]
+
+  // Status
+  status BudgetRequestStatus @default(PENDING)
+
+  // Approval info
+  reviewedBy     String?   // Admin who reviewed
+  reviewedAt     DateTime?
+  reviewNote     String?   // Keep for backward compatibility
+  approvedBy     String?   // Duplicate of reviewedBy for clarity
+  approvedAt     DateTime?
+  rejectedReason String?   // Reason for rejection
+
+  // Result - link to created Budget
+  budgetId String? // Budget ID after approval
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([requesterId])
+  @@index([status])
+}
+
+model BudgetRequestItem {
+  id              String        @id @default(cuid())
+  budgetRequestId String
+  budgetRequest   BudgetRequest @relation(fields: [budgetRequestId], references: [id], onDelete: Cascade)
+
+  name     String  // "กล่องพัสดุขนาด S"
+  amount   Float   // ราคาต่อหน่วย
+  quantity Int     // จำนวน
+  notes    String? // หมายเหตุ
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([budgetRequestId])
 }
 
 // ============================

@@ -33,6 +33,8 @@ import {
   Receipt,
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
+import { useUser } from "@clerk/nextjs";
+import { hasPermission, type UserRole } from "@/lib/rbac-core";
 
 interface MenuItem {
   label: string;
@@ -111,9 +113,14 @@ const menuStructure: MenuSection[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { user } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Get user role from Clerk metadata
+  const userRole = (user?.publicMetadata?.role as UserRole) || "EMPLOYEE";
+  const isAdmin = userRole === "ADMIN";
 
   // Load saved state
   useEffect(() => {
@@ -145,6 +152,53 @@ export function Sidebar() {
       return newSet;
     });
   };
+
+  // Filter menu items based on role permissions
+  const shouldShowMenuItem = (href: string): boolean => {
+    // AI features - only for ADMIN and STOCK, not EMPLOYEE
+    if (href.includes("/ai-")) {
+      return hasPermission(userRole, "canAccessAI");
+    }
+
+    // System settings - ADMIN only
+    if (href === "/system-settings") {
+      return hasPermission(userRole, "canAccessSettings");
+    }
+
+    // Capital budget - ADMIN only
+    if (href === "/capital-budget") {
+      return hasPermission(userRole, "canAccessBudget");
+    }
+
+    // Profit calculator - ADMIN and STOCK only
+    if (href === "/profit") {
+      return hasPermission(userRole, "canAccessProfit");
+    }
+
+    // Users management - ADMIN only
+    if (href === "/users") {
+      return hasPermission(userRole, "canAccessUsers");
+    }
+
+    // Ads management - ADMIN and STOCK only
+    if (href.includes("/ads-") || href.includes("/upload-receipt")) {
+      return hasPermission(userRole, "canAccessAds");
+    }
+
+    // Reports - ADMIN and STOCK only
+    if (href === "/analysis" || href === "/kpi" || href === "/workflow") {
+      return hasPermission(userRole, "canAccessReports");
+    }
+
+    // Everything else is accessible by default
+    return true;
+  };
+
+  // Filter menu structure based on permissions
+  const filteredMenuStructure = menuStructure.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => shouldShowMenuItem(item.href)),
+  })).filter((section) => section.items.length > 0); // Remove empty sections
 
   return (
     <>
@@ -239,7 +293,7 @@ export function Sidebar() {
 
           {/* Menu */}
           <nav className="space-y-6">
-            {menuStructure.map((section) => {
+            {filteredMenuStructure.map((section) => {
               const isCollapsed = collapsedSections.has(section.section);
 
               return (

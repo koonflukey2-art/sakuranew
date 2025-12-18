@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -24,8 +27,10 @@ import {
   Plus,
   MessageSquare,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { hasPermission, type UserRole } from "@/lib/rbac-core";
 
 interface AIConfig {
   id: string;
@@ -57,6 +62,8 @@ interface ChatSession {
 }
 
 export default function AIChatPage() {
+  const { user } = useUser();
+  const router = useRouter();
   const [configs, setConfigs] = useState<AIConfig[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>("");
@@ -66,6 +73,39 @@ export default function AIChatPage() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Check AI access permission
+  const userRole = (user?.publicMetadata?.role as UserRole) || "EMPLOYEE";
+  const hasAIAccess = hasPermission(userRole, "canAccessAI");
+
+  // Redirect if no access
+  useEffect(() => {
+    if (user && !hasAIAccess) {
+      toast({
+        title: "ไม่มีสิทธิ์เข้าถึง",
+        description: "คุณไม่สามารถเข้าถึงฟีเจอร์ AI ได้",
+        variant: "destructive",
+      });
+      router.push("/");
+    }
+  }, [user, hasAIAccess, router, toast]);
+
+  // Show access denied message if no permission
+  if (!hasAIAccess) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive" className="max-w-2xl mx-auto">
+          <Lock className="w-4 h-4" />
+          <AlertDescription>
+            <strong className="block mb-2">ไม่มีสิทธิ์เข้าถึงฟีเจอร์ AI</strong>
+            ฟีเจอร์นี้สำหรับ Admin และ Stock เท่านั้น
+            <br />
+            กรุณาติดต่อผู้ดูแลระบบหากคุณต้องการใช้งานฟีเจอร์นี้
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchConfigs();
