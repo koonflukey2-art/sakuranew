@@ -58,12 +58,18 @@ import { useRouter } from "next/navigation";
 interface SystemSettings {
   id?: string;
   organizationId?: string;
+
   dailyCutOffHour: number;
   dailyCutOffMinute: number;
+
+  // Stock LINE
   lineNotifyToken: string;
   lineChannelAccessToken: string;
   lineChannelSecret: string;
   lineWebhookUrl: string;
+
+  // ✅ NEW: LINE Push Target ID (userId หรือ groupId)
+  lineTargetId: string;
 
   // ✅ Ads
   adsLineNotifyToken?: string;
@@ -119,10 +125,14 @@ export default function SystemSettingsPage() {
   const [settings, setSettings] = useState<SystemSettings>({
     dailyCutOffHour: 23,
     dailyCutOffMinute: 59,
+
     lineNotifyToken: "",
     lineChannelAccessToken: "",
     lineChannelSecret: "",
     lineWebhookUrl: "",
+
+    // ✅ NEW
+    lineTargetId: "",
 
     // ✅ Ads initial
     adsLineNotifyToken: "",
@@ -220,6 +230,7 @@ export default function SystemSettingsPage() {
         }
 
         setIsAuthorized(true);
+
         // Fetch all settings
         fetchSettings();
         fetchProviders();
@@ -247,7 +258,6 @@ export default function SystemSettingsPage() {
 
       const data = await res.json();
 
-      // ถ้า token เป็น masked (มี "...") ให้ใช้ค่าว่างแทน
       setSettings({
         dailyCutOffHour: data.dailyCutOffHour ?? 23,
         dailyCutOffMinute: data.dailyCutOffMinute ?? 59,
@@ -264,7 +274,10 @@ export default function SystemSettingsPage() {
           : data.lineChannelSecret || "",
         lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
 
-        // ✅ Ads LINE (IMPORTANT)
+        // ✅ NEW
+        lineTargetId: data.lineTargetId || "",
+
+        // ✅ Ads LINE
         adsLineNotifyToken: data.adsLineNotifyToken?.includes("...")
           ? ""
           : data.adsLineNotifyToken || "",
@@ -297,13 +310,15 @@ export default function SystemSettingsPage() {
     try {
       setSaving(true);
 
-      // payload ส่งเฉพาะค่าที่จำเป็น + token ที่กรอกใหม่
       const payload: any = {
         dailyCutOffHour: settings.dailyCutOffHour,
         dailyCutOffMinute: settings.dailyCutOffMinute,
 
         // Stock webhook
         lineWebhookUrl: webhookUrl,
+
+        // ✅ NEW: ส่ง lineTargetId ไป backend
+        lineTargetId: (settings.lineTargetId || "").trim(),
 
         // ✅ Ads webhook
         adsLineWebhookUrl: adsWebhookUrl,
@@ -352,7 +367,6 @@ export default function SystemSettingsPage() {
         throw new Error(data.error || "Failed to save settings");
       }
 
-      // อัปเดต state ด้วยค่าที่มาจากเซิร์ฟเวอร์ทันที (แสดงค่าที่บันทึกแล้ว)
       setSettings((prev) => ({
         ...prev,
         dailyCutOffHour: data.dailyCutOffHour ?? prev.dailyCutOffHour,
@@ -360,6 +374,9 @@ export default function SystemSettingsPage() {
 
         lineWebhookUrl: data.lineWebhookUrl || webhookUrl,
         adsLineWebhookUrl: data.adsLineWebhookUrl || adsWebhookUrl,
+
+        // ✅ NEW: อย่าให้ lineTargetId หายหลังเซฟ
+        lineTargetId: data.lineTargetId ?? prev.lineTargetId,
 
         adminEmails: data.adminEmails ?? "",
         notifyOnOrder:
@@ -376,7 +393,6 @@ export default function SystemSettingsPage() {
             : prev.notifyDailySummary,
 
         // token จาก API จะเป็น masked/null เพื่อความปลอดภัย
-        // ฝั่ง UI ให้เคลียร์ไว้รอกรอกใหม่เวลาจะเปลี่ยน
         lineNotifyToken: "",
         lineChannelAccessToken: "",
         lineChannelSecret: "",
@@ -916,6 +932,7 @@ export default function SystemSettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* NOTE: Line Notify เลิกใช้แล้วก็ได้ แต่ยังเก็บไว้เผื่อมีบาง org ใช้ */}
               <div>
                 <Label>LINE Notify Token</Label>
                 <div className="flex gap-2">
@@ -928,7 +945,7 @@ export default function SystemSettingsPage() {
                         lineNotifyToken: e.target.value,
                       })
                     }
-                    placeholder="ใส่ token ใหม่เพื่ออัพเดท"
+                    placeholder="ใส่ token ใหม่เพื่ออัพเดท (ถ้าเลิกใช้ ปล่อยว่างได้)"
                   />
                   <Button
                     variant="outline"
@@ -961,7 +978,7 @@ export default function SystemSettingsPage() {
                         lineChannelAccessToken: e.target.value,
                       })
                     }
-                    placeholder="ใส่ token ใหม่เพื่ออัพเดท"
+                    placeholder="ใส่ token ใหม่เพื่ออัพเดท (Messaging API)"
                   />
                   <Button
                     variant="outline"
@@ -1020,6 +1037,25 @@ export default function SystemSettingsPage() {
                 <Input value={webhookUrl} readOnly className="bg-muted" />
                 <p className="text-xs text-muted-foreground mt-1">
                   ใช้ URL นี้ใน LINE Developers Console
+                </p>
+              </div>
+
+              {/* ✅ NEW: lineTargetId */}
+              <div>
+                <Label>LINE Target ID (User/Group ID)</Label>
+                <Input
+                  value={settings.lineTargetId}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lineTargetId: e.target.value,
+                    })
+                  }
+                  placeholder="เช่น Uxxxxxxxxxxxx หรือ Cxxxxxxxxxxxx (groupId)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ใช้สำหรับส่งข้อความผ่าน LINE Messaging API (Push). ถ้าส่งเข้ากลุ่ม
+                  ให้ใส่ groupId
                 </p>
               </div>
             </CardContent>
@@ -1162,7 +1198,9 @@ export default function SystemSettingsPage() {
               <Alert className="bg-blue-500/10 border-blue-500/30">
                 <Info className="w-4 h-4" />
                 <AlertDescription className="text-blue-200">
-                  <p className="font-semibold mb-2">📝 วิธีตั้งค่า LINE Ads Bot:</p>
+                  <p className="font-semibold mb-2">
+                    📝 วิธีตั้งค่า LINE Ads Bot:
+                  </p>
                   <ol className="text-sm space-y-1 list-decimal list-inside">
                     <li>ไปที่ LINE Developers Console</li>
                     <li>

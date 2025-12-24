@@ -43,10 +43,12 @@ function toInt(v: any, fallback: number) {
 export async function GET(_request: NextRequest) {
   try {
     const user = await currentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const orgId = await getOrganizationId();
-    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
+    if (!orgId)
+      return NextResponse.json({ error: "No organization" }, { status: 400 });
 
     let settings = await prisma.systemSettings.findUnique({
       where: { organizationId: orgId },
@@ -63,7 +65,7 @@ export async function GET(_request: NextRequest) {
           notifyDailySummary: true,
           dailySummaryLastSentAt: null,
 
-          // กัน null/undefined ให้ครบ (ถ้า schema มี fields)
+          // กัน null/undefined ให้ครบ
           lineWebhookUrl: null,
           lineTargetId: null,
 
@@ -88,7 +90,8 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // ตรวจ role แอดมิน
     const dbUser = await prisma.user.findUnique({
@@ -104,7 +107,8 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
-    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
+    if (!orgId)
+      return NextResponse.json({ error: "No organization" }, { status: 400 });
 
     const body = await request.json().catch(() => ({} as any));
 
@@ -137,8 +141,10 @@ export async function POST(request: NextRequest) {
     const updateData: any = {};
 
     // Cut-off time
-    if (body.dailyCutOffHour !== undefined) updateData.dailyCutOffHour = toInt(body.dailyCutOffHour, 23);
-    if (body.dailyCutOffMinute !== undefined) updateData.dailyCutOffMinute = toInt(body.dailyCutOffMinute, 59);
+    if (body.dailyCutOffHour !== undefined)
+      updateData.dailyCutOffHour = toInt(body.dailyCutOffHour, 23);
+    if (body.dailyCutOffMinute !== undefined)
+      updateData.dailyCutOffMinute = toInt(body.dailyCutOffMinute, 59);
 
     // Stock LINE
     if (body.lineWebhookUrl !== undefined) updateData.lineWebhookUrl = body.lineWebhookUrl;
@@ -156,11 +162,12 @@ export async function POST(request: NextRequest) {
       if (v && !isMaskedValue(v)) updateData.lineChannelSecret = v;
     }
 
+    // ✅ lineTargetId (push)
     if (typeof body.lineTargetId === "string") {
       updateData.lineTargetId = body.lineTargetId.trim() || null;
     }
 
-    // Ads LINE (Separate) — กัน masked value ไม่ให้ไปทับของจริง
+    // Ads LINE
     if (typeof body.adsLineNotifyToken === "string") {
       const v = body.adsLineNotifyToken.trim();
       if (v && !isMaskedValue(v)) updateData.adsLineNotifyToken = v;
