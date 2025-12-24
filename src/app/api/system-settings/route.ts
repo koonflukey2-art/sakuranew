@@ -1,4 +1,4 @@
-// app/api/system-settings/route.ts
+// src/app/api/system-settings/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -6,82 +6,70 @@ import { getOrganizationId } from "@/lib/organization";
 
 export const runtime = "nodejs";
 
-// ใช้สำหรับ mask token ใน response (ไม่ให้ frontend เห็นเต็ม ๆ)
-function maskToken(token: string | null | undefined): string | null {
-  if (!token || token.length < 10) return null;
-  return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
+type Payload = {
+  // Ads LINE (ใช้กับ /api/webhooks/line-ads)
+  adsLineChannelAccessToken?: string | null;
+  adsLineChannelSecret?: string | null;
+  adsLineWebhookUrl?: string | null;
+  adsLineNotifyToken?: string | null;
+
+  // (optional) เก็บ targetId ที่จะใช้ push ถ้าไม่มี replyToken
+  lineTargetId?: string | null;
+
+  // เผื่อ UI ส่งชื่อ generic มา (compat)
+  channelAccessToken?: string | null;
+  channelSecret?: string | null;
+  webhookUrl?: string | null;
+
+  isActive?: boolean; // ถ้ามีใน schema ค่อยใช้ (ถ้าไม่มีจะ ignore)
+};
+
+function pickString(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length ? t : null;
 }
 
-// กันไม่ให้ค่าที่ถูก mask (เช่น "abcd...wxyz") ไปถูก save ทับของจริงใน DB
-function isMaskedValue(v: string): boolean {
-  return /^[A-Za-z0-9_-]{2,8}\.\.\.[A-Za-z0-9_-]{2,8}$/.test(v);
-}
-
-function toSafeSettings(settings: any) {
-  return {
-    ...settings,
-
-    // Stock LINE
-    lineNotifyToken: maskToken(settings.lineNotifyToken),
-    lineChannelAccessToken: maskToken(settings.lineChannelAccessToken),
-    lineChannelSecret: maskToken(settings.lineChannelSecret),
-
-    // Ads LINE
-    adsLineNotifyToken: maskToken(settings.adsLineNotifyToken),
-    adsLineChannelAccessToken: maskToken(settings.adsLineChannelAccessToken),
-    adsLineChannelSecret: maskToken(settings.adsLineChannelSecret),
-
-    dailySummaryLastSentAt: settings.dailySummaryLastSentAt,
-  };
-}
-
-function toInt(v: any, fallback: number) {
-  const n = parseInt(String(v), 10);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
-    const user = await currentUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const u = await currentUser();
+    if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const orgId = await getOrganizationId();
-    if (!orgId)
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
-    let settings = await prisma.systemSettings.findUnique({
+    const settings = await prisma.systemSettings.findUnique({
       where: { organizationId: orgId },
+      select: {
+        organizationId: true,
+
+        adsLineChannelAccessToken: true,
+        adsLineChannelSecret: true,
+        adsLineWebhookUrl: true,
+        adsLineNotifyToken: true,
+        lineTargetId: true,
+
+        // ถ้ามีฟิลด์อื่น ๆ ใน SystemSettings แล้วอยากให้ UI เห็น ก็เติม select ได้
+      },
     });
 
+    // ถ้ายังไม่มี row ให้คืนค่า default ไปก่อน (กันหน้า UI พัง)
     if (!settings) {
-      settings = await prisma.systemSettings.create({
-        data: {
-          organizationId: orgId,
-          dailyCutOffHour: 23,
-          dailyCutOffMinute: 59,
-          notifyOnOrder: true,
-          notifyOnLowStock: true,
-          notifyDailySummary: true,
-          dailySummaryLastSentAt: null,
-
-          // กัน null/undefined ให้ครบ
-          lineWebhookUrl: null,
-          lineTargetId: null,
-
-          adsLineWebhookUrl: null,
-          adsLineNotifyToken: null,
-          adsLineChannelAccessToken: null,
-          adsLineChannelSecret: null,
-        } as any,
+      return NextResponse.json({
+        organizationId: orgId,
+        adsLineChannelAccessToken: null,
+        adsLineChannelSecret: null,
+        adsLineWebhookUrl: null,
+        adsLineNotifyToken: null,
+        lineTargetId: null,
       });
     }
 
-    return NextResponse.json(toSafeSettings(settings));
-  } catch (error: any) {
-    console.error("GET system settings error:", error);
+    return NextResponse.json(settings);
+  } catch (e: any) {
+    console.error("Error fetching SystemSettings:", e);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch settings" },
+      { error: e?.message || "Failed to fetch settings" },
       { status: 500 }
     );
   }
@@ -89,129 +77,46 @@ export async function GET(_request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // ตรวจ role แอดมิน
-    const dbUser = await prisma.user.findUnique({
-      where: { clerkId: user.id },
-      select: { role: true },
-    });
-
-    if (!dbUser || dbUser.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Only ADMIN can modify settings" },
-        { status: 403 }
-      );
-    }
+    const u = await currentUser();
+    if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const orgId = await getOrganizationId();
-    if (!orgId)
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
-    const body = await request.json().catch(() => ({} as any));
+    const body = (await request.json()) as Payload;
 
-    // ✅ reset daily summary sent flag
-    const wantsReset =
-      body?.action === "resetDailySummary" || body?.resetDailySummary === true;
+    // ✅ รองรับทั้งชื่อฟิลด์แบบ adsLine... และ generic จาก UI เดิม
+    const accessToken =
+      pickString(body.adsLineChannelAccessToken) ?? pickString(body.channelAccessToken);
+    const secret =
+      pickString(body.adsLineChannelSecret) ?? pickString(body.channelSecret);
+    const webhookUrl =
+      pickString(body.adsLineWebhookUrl) ?? pickString(body.webhookUrl);
+    const notifyToken = pickString(body.adsLineNotifyToken);
+    const lineTargetId = pickString(body.lineTargetId);
 
-    if (wantsReset) {
-      const settings = await prisma.systemSettings.upsert({
-        where: { organizationId: orgId },
-        update: { dailySummaryLastSentAt: null },
-        create: {
-          organizationId: orgId,
-          dailyCutOffHour: 23,
-          dailyCutOffMinute: 59,
-          notifyOnOrder: true,
-          notifyOnLowStock: true,
-          notifyDailySummary: true,
-          dailySummaryLastSentAt: null,
-        },
-      });
+    const data: any = {
+      adsLineChannelAccessToken: accessToken,
+      adsLineChannelSecret: secret,
+      adsLineWebhookUrl: webhookUrl,
+      adsLineNotifyToken: notifyToken,
+      ...(lineTargetId ? { lineTargetId } : {}),
+    };
 
-      return NextResponse.json({
-        ok: true,
-        action: "resetDailySummary",
-        settings: toSafeSettings(settings),
-      });
-    }
-
-    const updateData: any = {};
-
-    // Cut-off time
-    if (body.dailyCutOffHour !== undefined)
-      updateData.dailyCutOffHour = toInt(body.dailyCutOffHour, 23);
-    if (body.dailyCutOffMinute !== undefined)
-      updateData.dailyCutOffMinute = toInt(body.dailyCutOffMinute, 59);
-
-    // Stock LINE
-    if (body.lineWebhookUrl !== undefined) updateData.lineWebhookUrl = body.lineWebhookUrl;
-
-    if (typeof body.lineNotifyToken === "string") {
-      const v = body.lineNotifyToken.trim();
-      if (v && !isMaskedValue(v)) updateData.lineNotifyToken = v;
-    }
-    if (typeof body.lineChannelAccessToken === "string") {
-      const v = body.lineChannelAccessToken.trim();
-      if (v && !isMaskedValue(v)) updateData.lineChannelAccessToken = v;
-    }
-    if (typeof body.lineChannelSecret === "string") {
-      const v = body.lineChannelSecret.trim();
-      if (v && !isMaskedValue(v)) updateData.lineChannelSecret = v;
-    }
-
-    // ✅ lineTargetId (push)
-    if (typeof body.lineTargetId === "string") {
-      updateData.lineTargetId = body.lineTargetId.trim() || null;
-    }
-
-    // Ads LINE
-    if (typeof body.adsLineNotifyToken === "string") {
-      const v = body.adsLineNotifyToken.trim();
-      if (v && !isMaskedValue(v)) updateData.adsLineNotifyToken = v;
-    }
-    if (typeof body.adsLineChannelAccessToken === "string") {
-      const v = body.adsLineChannelAccessToken.trim();
-      if (v && !isMaskedValue(v)) updateData.adsLineChannelAccessToken = v;
-    }
-    if (typeof body.adsLineChannelSecret === "string") {
-      const v = body.adsLineChannelSecret.trim();
-      if (v && !isMaskedValue(v)) updateData.adsLineChannelSecret = v;
-    }
-    if (body.adsLineWebhookUrl !== undefined) {
-      updateData.adsLineWebhookUrl = body.adsLineWebhookUrl;
-    }
-
-    // Notification flags
-    if (body.notifyOnOrder !== undefined) updateData.notifyOnOrder = !!body.notifyOnOrder;
-    if (body.notifyOnLowStock !== undefined) updateData.notifyOnLowStock = !!body.notifyOnLowStock;
-    if (body.notifyDailySummary !== undefined) updateData.notifyDailySummary = !!body.notifyDailySummary;
-
-    // Admin emails
-    if (body.adminEmails !== undefined) updateData.adminEmails = body.adminEmails;
-
-    const settings = await prisma.systemSettings.upsert({
+    const saved = await prisma.systemSettings.upsert({
       where: { organizationId: orgId },
-      update: updateData,
       create: {
         organizationId: orgId,
-        dailyCutOffHour: 23,
-        dailyCutOffMinute: 59,
-        notifyOnOrder: true,
-        notifyOnLowStock: true,
-        notifyDailySummary: true,
-        dailySummaryLastSentAt: null,
-        ...updateData,
+        ...data,
       },
+      update: data,
     });
 
-    return NextResponse.json(toSafeSettings(settings));
-  } catch (error: any) {
-    console.error("POST system settings error:", error);
+    return NextResponse.json(saved);
+  } catch (e: any) {
+    console.error("Error saving SystemSettings:", e);
     return NextResponse.json(
-      { error: error.message || "Failed to save settings" },
+      { error: e?.message || "Failed to save settings" },
       { status: 500 }
     );
   }

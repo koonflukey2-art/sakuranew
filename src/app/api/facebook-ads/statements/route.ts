@@ -1,3 +1,4 @@
+// src/app/api/facebook-ads/statements/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -120,6 +121,10 @@ function getUploadDir() {
   );
 }
 
+function isPrismaTableMissing(err: any) {
+  return err?.code === "P2021" || String(err?.message || "").includes("does not exist");
+}
+
 // ---------- GET ----------
 export async function GET(_request: NextRequest) {
   try {
@@ -142,22 +147,37 @@ export async function GET(_request: NextRequest) {
 
     const orgId = dbUser.organizationId;
 
-    const statements = await prisma.facebookAdsStatement.findMany({
-      where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        period: true,
-        startDate: true,
-        endDate: true,
-        totalAmount: true,
-        vat: true,
-        fileUrl: true,
-        fileName: true,
-        source: true,
-        createdAt: true,
-      },
-    });
+    let statements: any[] = [];
+    try {
+      statements = await prisma.facebookAdsStatement.findMany({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          period: true,
+          startDate: true,
+          endDate: true,
+          totalAmount: true,
+          vat: true,
+          fileUrl: true,
+          fileName: true,
+          source: true,
+          createdAt: true,
+        },
+      });
+    } catch (e: any) {
+      if (isPrismaTableMissing(e)) {
+        console.warn("⚠️ Table FacebookAdsStatement missing. Return empty list.");
+        return NextResponse.json({
+          statements: [],
+          totalAmount: 0,
+          totalVAT: 0,
+          totalBeforeVAT: 0,
+          warning: "TABLE_MISSING",
+        });
+      }
+      throw e;
+    }
 
     const formattedStatements: Statement[] = statements.map((s) => ({
       id: s.id,
@@ -172,10 +192,7 @@ export async function GET(_request: NextRequest) {
       createdAt: s.createdAt.toISOString(),
     }));
 
-    const totalAmount = statements.reduce(
-      (sum, s) => sum + s.totalAmount,
-      0
-    );
+    const totalAmount = statements.reduce((sum, s) => sum + s.totalAmount, 0);
     const totalVAT = statements.reduce((sum, s) => sum + s.vat, 0);
     const totalBeforeVAT = statements.reduce(
       (sum, s) => sum + (s.totalAmount - s.vat),
@@ -184,7 +201,7 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json({
       statements: formattedStatements,
-      totalAmount, // รวม VAT
+      totalAmount,
       totalVAT,
       totalBeforeVAT,
     });
@@ -236,37 +253,73 @@ export async function POST(request: NextRequest) {
     const { buffer, text } = await getPdfTextAndBuffer(file);
     const parsed = parseMetaInvoice(text);
 
+    const fileHash = sha256Hex(buffer);
+
+    // duplicate check
+    try {
+      const existing = await prisma.facebookAdsStatement.findFirst({
+        where: { organizationId: orgId, fileHash },
+      });
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: "DUPLICATE_STATEMENT",
+            message:
+              "ไฟล์สเตทเมนต์นี้ถูกอัพโหลดไว้แล้วในระบบ\n" +
+              `รอบบิล: ${existing.period}`,
+          },
+          { status: 409 }
+        );
+      }
+    } catch (e: any) {
+      if (isPrismaTableMissing(e)) {
+        return NextResponse.json(
+          { error: "TABLE_MISSING", message: "ตาราง FacebookAdsStatement ยังไม่มีใน DB" },
+          { status: 500 }
+        );
+      }
+      throw e;
+    }
+
     const uploadsDir = getUploadDir();
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    const fileHash = sha256Hex(buffer);
     const filename = `statement-${Date.now()}-${fileHash.slice(0, 8)}.pdf`;
     const filepath = join(uploadsDir, filename);
 
     await writeFile(filepath, buffer);
 
+    // NOTE: คุณอาจมี route เสิร์ฟไฟล์ที่ /api/uploads/statements/[filename]
     const fileUrl = `/api/uploads/statements/${filename}`;
 
-    const statement = await prisma.facebookAdsStatement.create({
-      data: {
-        organizationId: orgId,
-        period: parsed.period,
-        startDate: new Date(parsed.startDate),
-        endDate: new Date(parsed.endDate),
-        totalAmount: parsed.totalAmount,
-        vat: parsed.vat,
-        fileUrl,
-        fileName: file.name,
-      },
-    });
-
-    console.log(
-      `✅ Statement uploaded: ${file.name} (${(file.size / 1024).toFixed(
-        2
-      )} KB) total=${statement.totalAmount} vat=${statement.vat}`
-    );
+    let statement: any;
+    try {
+      statement = await prisma.facebookAdsStatement.create({
+        data: {
+          organizationId: orgId,
+          period: parsed.period,
+          startDate: new Date(parsed.startDate),
+          endDate: new Date(parsed.endDate),
+          totalAmount: parsed.totalAmount,
+          vat: parsed.vat,
+          fileUrl,
+          fileName: file.name,
+          fileHash,
+          source: "WEB",
+        },
+      });
+    } catch (e: any) {
+      if (isPrismaTableMissing(e)) {
+        return NextResponse.json(
+          { error: "TABLE_MISSING", message: "ตาราง FacebookAdsStatement ยังไม่มีใน DB" },
+          { status: 500 }
+        );
+      }
+      throw e;
+    }
 
     return NextResponse.json({
       success: true,
@@ -321,22 +374,24 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const existing = await prisma.facebookAdsStatement.findFirst({
-      where: {
-        id,
-        organizationId: orgId,
-      },
-      select: {
-        id: true,
-        fileUrl: true,
-      },
-    });
+    let existing: any;
+    try {
+      existing = await prisma.facebookAdsStatement.findFirst({
+        where: { id, organizationId: orgId },
+        select: { id: true, fileUrl: true },
+      });
+    } catch (e: any) {
+      if (isPrismaTableMissing(e)) {
+        return NextResponse.json(
+          { error: "TABLE_MISSING", message: "ตาราง FacebookAdsStatement ยังไม่มีใน DB" },
+          { status: 500 }
+        );
+      }
+      throw e;
+    }
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Statement not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Statement not found" }, { status: 404 });
     }
 
     if (existing.fileUrl?.startsWith("/api/uploads/statements/")) {
@@ -350,19 +405,14 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    await prisma.facebookAdsStatement.delete({
-      where: { id: existing.id },
-    });
+    await prisma.facebookAdsStatement.delete({ where: { id: existing.id } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Delete statement error:", error);
 
-    if (error.code === "P2025") {
-      return NextResponse.json(
-        { error: "Statement not found" },
-        { status: 404 }
-      );
+    if (error?.code === "P2025") {
+      return NextResponse.json({ error: "Statement not found" }, { status: 404 });
     }
 
     return NextResponse.json(
