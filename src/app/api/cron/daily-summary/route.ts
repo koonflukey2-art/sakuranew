@@ -11,6 +11,31 @@ const BKK_OFFSET_HOURS = 7;
 const MS_HOUR = 3600 * 1000;
 const MS_MIN = 60 * 1000;
 
+function parseEnvInt(name: string, min: number, max: number): number | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    console.warn(
+      `Invalid ${name}="${raw}" (expected integer ${min}-${max}); falling back to SystemSettings.`
+    );
+    return null;
+  }
+  return value;
+}
+
+function parseEnvBool(name: string): boolean | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null;
+  const normalized = raw.trim().toLowerCase();
+  if (["true", "1", "yes", "y"].includes(normalized)) return true;
+  if (["false", "0", "no", "n"].includes(normalized)) return false;
+  console.warn(
+    `Invalid ${name}="${raw}" (expected true/false); falling back to SystemSettings.`
+  );
+  return null;
+}
+
 function toBangkok(date = new Date()) {
   const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
   return new Date(utcMs + BKK_OFFSET_HOURS * MS_HOUR);
@@ -111,6 +136,19 @@ export async function GET(req: Request) {
       );
     }
 
+    const envCutOffHour = parseEnvInt("DAILY_CUTOFF_HOUR", 0, 23);
+    const envCutOffMinute = parseEnvInt("DAILY_CUTOFF_MINUTE", 0, 59);
+    const envDailySummary = parseEnvBool("ENABLE_DAILY_SUMMARY");
+
+    if (envDailySummary === false) {
+      return NextResponse.json({
+        ok: true,
+        processed: 0,
+        skipped: true,
+        reason: "ENABLE_DAILY_SUMMARY=false",
+      });
+    }
+
     // --- โหลด org ที่เปิด notifyDailySummary และมี token ใช้งานได้ ---
     const settings = await prisma.systemSettings.findMany({
       where: {
@@ -150,8 +188,8 @@ export async function GET(req: Request) {
 
     for (const s of settings) {
       try {
-        const cutOffHour = s.dailyCutOffHour ?? 23;
-        const cutOffMinute = s.dailyCutOffMinute ?? 59;
+        const cutOffHour = envCutOffHour ?? s.dailyCutOffHour ?? 23;
+        const cutOffMinute = envCutOffMinute ?? s.dailyCutOffMinute ?? 59;
 
         // ✅ cut-off วันนี้ (ในมุม UTC ของ startUtc ที่แทน 00:00 BKK)
         const cutoffUtc = new Date(
@@ -260,42 +298,27 @@ export async function GET(req: Request) {
         const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
         // ✅ 1) สร้าง/อัปเดต DailySummary ลง DB เสมอ (เมื่อถึงเวลา cut-off แล้ว)
-        // NOTE: schema ของคุณยังไม่มี @@unique(orgId,date) เลยทำ upsert ตรงๆไม่ได้
-        // เราใช้ findFirst -> update/create แทน (ไม่ต้อง migrate)
-        const existing = await prisma.dailySummary.findFirst({
-          where: {
+        await prisma.dailySummary.upsert({
+          where: { organizationId_date: { organizationId: s.organizationId, date: startUtc } },
+          create: {
             organizationId: s.organizationId,
-            date: startUtc, // ✅ ใช้ startUtc ให้ match กับ from/to ที่หน้าเว็บส่งมา
+            date: startUtc,
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            totalOrders: orderCount,
+            productsSold,
+            cutOffTime: cutoffUtc,
           },
-          select: { id: true },
+          update: {
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            totalOrders: orderCount,
+            productsSold,
+            cutOffTime: cutoffUtc,
+          },
         });
-
-        if (existing?.id) {
-          await prisma.dailySummary.update({
-            where: { id: existing.id },
-            data: {
-              totalRevenue,
-              totalCost,
-              totalProfit,
-              totalOrders: orderCount,
-              productsSold,
-              cutOffTime: cutoffUtc,
-            },
-          });
-        } else {
-          await prisma.dailySummary.create({
-            data: {
-              organizationId: s.organizationId,
-              date: startUtc,
-              totalRevenue,
-              totalCost,
-              totalProfit,
-              totalOrders: orderCount,
-              productsSold,
-              cutOffTime: cutoffUtc,
-            },
-          });
-        }
 
         // ✅ 2) ส่ง LINE เฉพาะ "ครั้งแรกของวัน"
         const sentBefore = alreadySentToday({

@@ -63,14 +63,44 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    const totalAmount = Number(body.totalAmount);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      return NextResponse.json(
+        { error: "totalAmount ต้องเป็นตัวเลขมากกว่า 0" },
+        { status: 400 }
+      );
+    }
+
+    const items = Array.isArray(body.items) ? body.items : [];
+    const validItems = items
+      .map((item) => ({
+        name: typeof item?.name === "string" ? item.name.trim() : "",
+        amount: Number(item?.amount),
+        quantity: Number(item?.quantity) || 1,
+        notes: typeof item?.notes === "string" ? item.notes.trim() : "",
+      }))
+      .filter((item) => item.name && Number.isFinite(item.amount) && item.amount >= 0);
+
     const budget = await prisma.budget.create({
       data: {
-        amount: body.amount,
-        purpose: body.purpose,
-        spent: body.spent || 0,
-        startDate: new Date(body.startDate),
-        endDate: new Date(body.endDate),
+        name: typeof body.name === "string" ? body.name.trim() : null,
+        description:
+          typeof body.description === "string" ? body.description.trim() : null,
+        totalAmount,
+        remaining: totalAmount,
         organizationId: user.organizationId, // ✅ ใช้ org แทน user
+        ...(validItems.length > 0
+          ? {
+              items: {
+                create: validItems.map((item) => ({
+                  name: item.name,
+                  amount: item.amount,
+                  quantity: item.quantity,
+                  notes: item.notes || null,
+                })),
+              },
+            }
+          : {}),
       },
     });
 
@@ -101,14 +131,32 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
 
+    const totalAmount =
+      body.totalAmount !== undefined ? Number(body.totalAmount) : undefined;
+    if (
+      totalAmount !== undefined &&
+      (!Number.isFinite(totalAmount) || totalAmount <= 0)
+    ) {
+      return NextResponse.json(
+        { error: "totalAmount ต้องเป็นตัวเลขมากกว่า 0" },
+        { status: 400 }
+      );
+    }
+
     const budget = await prisma.budget.update({
       where: { id: body.id },
       data: {
-        purpose: body.purpose,
-        amount: body.amount,
-        spent: body.spent,
-        startDate: new Date(body.startDate),
-        endDate: new Date(body.endDate),
+        name: typeof body.name === "string" ? body.name.trim() : undefined,
+        description:
+          typeof body.description === "string"
+            ? body.description.trim()
+            : undefined,
+        ...(totalAmount !== undefined
+          ? {
+              totalAmount,
+              remaining: totalAmount,
+            }
+          : {}),
       },
     });
 

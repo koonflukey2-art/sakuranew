@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-
-async function getOrganizationId(): Promise<string> {
-  // Get from session or default org - implement based on your auth setup
-  const user = await getCurrentUser();
-  if (!user) throw new Error("Unauthorized");
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { organizationId: true },
-  });
-
-  return dbUser?.organizationId || "default-org";
-}
+import { getOrganizationId } from "@/lib/organization";
+import { requireOrganizationId } from "@/lib/organization-guard";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,12 +12,16 @@ export async function GET(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
+    const { organizationId, response } = requireOrganizationId(orgId);
+    if (response) {
+      return response;
+    }
     const { searchParams } = new URL(request.url);
     const platform = searchParams.get("platform");
 
     const campaigns = await prisma.adCampaign.findMany({
       where: {
-        organizationId: orgId,
+        organizationId,
         ...(platform && { platform: platform as any }),
       },
       orderBy: { createdAt: "desc" },
@@ -52,11 +45,15 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = await getOrganizationId();
+    const { organizationId, response } = requireOrganizationId(orgId);
+    if (response) {
+      return response;
+    }
     const body = await request.json();
 
     const campaign = await prisma.adCampaign.create({
       data: {
-        organizationId: orgId,
+        organizationId,
         campaignName: body.campaignName,
         platform: body.platform || "FACEBOOK",
         startDate: new Date(body.startDate),

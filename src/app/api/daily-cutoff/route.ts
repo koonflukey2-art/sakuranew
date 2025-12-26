@@ -96,7 +96,10 @@ export async function POST(req: NextRequest) {
       if (body?.date) targetDate = new Date(body.date);
     } catch {}
 
-    const { summary, created } = await createDailySummaryForOrg(organizationId, targetDate);
+    const { summary, created } = await createDailySummaryForOrg(organizationId, {
+      date: targetDate,
+      sendLine: false,
+    });
 
     // ✅ ส่ง LINE ทันทีหลังตัดยอด
     const lineSettings = await getLineSettings(organizationId);

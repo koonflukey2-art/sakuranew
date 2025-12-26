@@ -27,32 +27,12 @@ export async function GET() {
       );
     }
 
-    const budgets = await prisma.budget.findMany({
+    const budgets = await prisma.capitalBudget.findMany({
       where: { organizationId: orgId },
-      include: {
-        items: true, // relation BudgetItem[]
-      },
       orderBy: { createdAt: "desc" },
     });
 
-    // map ให้ shape ตรง interface Budget ในหน้า client
-    const result = budgets.map((b) => ({
-      id: b.id,
-      name: b.name ?? "",
-      description: b.description ?? "",
-      totalAmount: b.totalAmount,
-      remaining: b.remaining,
-      createdAt: b.createdAt.toISOString(),
-      items: b.items.map((it) => ({
-        id: it.id,
-        name: it.name,
-        amount: it.amount,
-        quantity: it.quantity,
-        notes: it.notes ?? "",
-      })),
-    }));
-
-    return NextResponse.json(result);
+    return NextResponse.json(budgets);
   } catch (error) {
     console.error("Failed to fetch budgets:", error);
     return NextResponse.json(
@@ -87,71 +67,51 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const name: string = body.name ?? "งบประมาณ";
-    const description: string = body.description ?? "";
-    const items: Array<{
-      name: string;
-      amount: number;
-      quantity: number;
-      notes?: string;
-    }> = body.items ?? [];
-
-    const validItems = items.filter(
-      (item) => item.name?.trim() && Number(item.amount) > 0
-    );
-
-    if (validItems.length === 0) {
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
-        { error: "ต้องมีรายการค่าใช้จ่ายอย่างน้อย 1 รายการ" },
+        { error: "amount ต้องเป็นตัวเลขมากกว่า 0" },
         { status: 400 }
       );
     }
 
-    // ถ้า body ส่ง totalAmount มา ใช้อันนั้นก่อน ไม่งั้น sum จาก items
-    const totalAmountFromBody = Number(body.totalAmount) || 0;
-    const totalAmountFromItems = validItems.reduce(
-      (sum, it) => sum + Number(it.amount) * (Number(it.quantity) || 1),
-      0
-    );
-    const totalAmount =
-      totalAmountFromBody > 0 ? totalAmountFromBody : totalAmountFromItems;
+    const minThreshold =
+      typeof body.minThreshold === "number" && body.minThreshold >= 0
+        ? body.minThreshold
+        : undefined;
+    const description =
+      typeof body.description === "string" ? body.description.trim() : null;
 
-    const budget = await prisma.budget.create({
-      data: {
-        organizationId: orgId,
-        name,
-        description,
-        totalAmount,
-        remaining: totalAmount, // เริ่มเหลือเท่ากับยอดรวม
-        items: {
-          create: validItems.map((item) => ({
-            name: item.name,
-            amount: Number(item.amount),
-            quantity: Number(item.quantity) || 1,
-            notes: item.notes ?? "",
-          })),
+    const { budget, transaction } = await prisma.$transaction(async (tx) => {
+      const createdBudget = await tx.capitalBudget.create({
+        data: {
+          amount,
+          remaining: amount,
+          minThreshold,
+          description,
+          organizationId: orgId,
+          createdBy: user.id,
         },
-      },
-      include: {
-        items: true,
-      },
+      });
+
+      const createdTransaction = await tx.capitalBudgetTransaction.create({
+        data: {
+          budgetId: createdBudget.id,
+          type: "TOPUP",
+          amount,
+          description: description || "Initial funding",
+          createdBy: user.id,
+          organizationId: orgId,
+        },
+      });
+
+      return { budget: createdBudget, transaction: createdTransaction };
     });
 
     return NextResponse.json(
       {
-        id: budget.id,
-        name: budget.name ?? "",
-        description: budget.description ?? "",
-        totalAmount: budget.totalAmount,
-        remaining: budget.remaining,
-        createdAt: budget.createdAt.toISOString(),
-        items: budget.items.map((it) => ({
-          id: it.id,
-          name: it.name,
-          amount: it.amount,
-          quantity: it.quantity,
-          notes: it.notes ?? "",
-        })),
+        budget,
+        transaction,
       },
       { status: 201 }
     );
