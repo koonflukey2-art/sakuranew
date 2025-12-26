@@ -45,12 +45,14 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel
+            type="button" // ✅ กัน submit ใน form
             disabled={loading}
             className="bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
           >
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
+            type="button" // ✅ กัน submit ใน form
             onClick={(e) => {
               e.preventDefault();
               onConfirm();

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
@@ -8,43 +10,61 @@ export interface AuthUser {
   email: string;
   name: string | null;
   role: UserRole;
-  organizationId: string | null; // ✅ เพิ่ม
+  organizationId: string | null;
 }
 
-// ...
+function normalizeRole(dbRole: unknown): UserRole {
+  const role = String(dbRole ?? "").toUpperCase();
 
+  // รองรับ legacy role เผื่อมีข้อมูลเก่า
+  if (role === "STOCK_STAFF") return "STOCK";
+  if (role === "USER") return "EMPLOYEE";
+
+  if (role === "ADMIN") return "ADMIN";
+  if (role === "STOCK") return "STOCK";
+  return "EMPLOYEE";
+}
+
+/**
+ * Server-only helper: ดึง user จาก session -> ไปอ่าน role/organizationId จาก DB จริง
+ */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return null;
-    }
+    const sessionUserId = session?.user?.id;
+
+    if (!sessionUserId) return null;
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: sessionUserId },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
-        organizationId: true, // ✅ เพิ่ม
+        organizationId: true,
       },
     });
 
-    if (!user) {
-      return null;
-    }
-
-    let role = user.role as UserRole;
-    if (user.role === "STOCK_STAFF") role = "STOCK";
-    if (user.role === "USER") role = "EMPLOYEE";
+    if (!user) return null;
 
     return {
-      ...user,
-      role,
+      id: user.id,
+      email: user.email,
+      name: user.name ?? null,
+      role: normalizeRole(user.role),
+      organizationId: user.organizationId ?? null,
     };
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;
   }
+}
+
+/**
+ * ใช้เช็ค role แบบง่าย ๆ
+ */
+export function hasRole(user: AuthUser, allowed: UserRole | UserRole[]): boolean {
+  const list = Array.isArray(allowed) ? allowed : [allowed];
+  return list.includes(user.role);
 }

@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogBody, // ✅ เพิ่ม
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -48,7 +49,6 @@ interface Product {
   minStockLevel: number;
   costPrice: number;
   sellPrice: number;
-  // ทำให้เป็น optional กัน undefined จาก product เก่า ๆ
   budgetUsed?: number;
 }
 
@@ -179,7 +179,6 @@ export default function ProductsPage() {
     }
   };
 
-  // Edit product name
   const handleEditProduct = async () => {
     if (!editingProduct || !editName.trim()) {
       toast({
@@ -210,7 +209,6 @@ export default function ProductsPage() {
     }
   };
 
-  // Add stock
   const handleAddStock = async () => {
     if (!addingStockProduct || addStockQuantity <= 0) {
       toast({
@@ -268,7 +266,6 @@ export default function ProductsPage() {
     }
   };
 
-  // Delete product
   const handleDeleteProduct = async () => {
     if (!deletingProduct) return;
 
@@ -285,9 +282,7 @@ export default function ProductsPage() {
 
       toast({
         title: "✅ ลบสินค้าสำเร็จ",
-        description: `งบคืน: ฿${
-          (data.budgetReturned ?? 0).toLocaleString() // กัน undefined เช่นกัน
-        }`,
+        description: `งบคืน: ฿${(data.budgetReturned ?? 0).toLocaleString()}`,
       });
 
       setDeletingProduct(null);
@@ -348,7 +343,9 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">จัดการสินค้า</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">
+            จัดการสินค้า
+          </h1>
           <p className="text-gray-400 mt-1">
             สร้างและจัดการสินค้า รวมถึงประเภทสินค้าสำหรับ LINE
           </p>
@@ -424,15 +421,20 @@ export default function ProductsPage() {
                     <Badge className="bg-purple-500">
                       ประเภท {type.typeNumber}
                     </Badge>
+
+                    {/* ✅ ทำให้เห็นชัด + มีคำว่าแก้ไข */}
                     <Button
-                      variant="ghost"
-                      size="icon"
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         setEditingType(type);
                         setOpenEditType(true);
                       }}
+                      className="h-8 px-2 border-purple-400/60 text-purple-100 bg-purple-500/10 hover:bg-purple-500/20"
+                      title="แก้ไขประเภท"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">แก้ไข</span>
                     </Button>
                   </div>
                   <p className="font-semibold text-white">{type.typeName}</p>
@@ -505,7 +507,6 @@ export default function ProductsPage() {
                           <div>
                             <p className="text-gray-400">งบที่ใช้</p>
                             <p className="font-medium text-green-400">
-                              {/* ใช้ fallback 0 กัน undefined */}
                               ฿{(product.budgetUsed ?? 0).toLocaleString()}
                             </p>
                           </div>
@@ -562,7 +563,9 @@ export default function ProductsPage() {
           <DialogHeader>
             <DialogTitle>สร้างสินค้าใหม่</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+
+          {/* ✅ ทำให้ส่วนเนื้อหาเลื่อนได้ ปุ่มไม่หาย */}
+          <DialogBody className="space-y-4">
             <div>
               <Label>ชื่อสินค้า</Label>
               <Input
@@ -687,10 +690,7 @@ export default function ProductsPage() {
                   <div className="flex justify-between font-semibold text-white">
                     <span>ต้นทุนรวม:</span>
                     <span>
-                      ฿
-                      {(
-                        newProduct.costPrice * newProduct.quantity
-                      ).toLocaleString()}
+                      ฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -701,26 +701,24 @@ export default function ProductsPage() {
                     <AlertDescription>
                       <strong>⚠️ งบประมาณไม่เพียงพอ!</strong>
                       <br />
-                      ต้องการ: ฿
-                      {(
-                        newProduct.costPrice * newProduct.quantity
-                      ).toLocaleString()}
+                      ต้องการ: ฿{(newProduct.costPrice * newProduct.quantity).toLocaleString()}
                       <br />
                       มีเพียง: ฿{availableBudget.toLocaleString()}
                       <br />
                       ขาดอีก: ฿
                       {Math.max(
                         0,
-                        newProduct.costPrice * newProduct.quantity -
-                          availableBudget
+                        newProduct.costPrice * newProduct.quantity - availableBudget
                       ).toLocaleString()}
                     </AlertDescription>
                   </Alert>
                 )}
               </CardContent>
             </Card>
-          </div>
-          <DialogFooter>
+          </DialogBody>
+
+          {/* ✅ Footer ติดล่างเสมอ */}
+          <DialogFooter className="pt-3 border-t border-slate-200">
             <Button
               onClick={createProduct}
               disabled={budgetWarning || loading}
@@ -826,15 +824,12 @@ export default function ProductsPage() {
               />
             </div>
 
-            {/* Cost Summary */}
             <Card className="bg-muted">
               <CardContent className="p-4">
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>จำนวน:</span>
-                    <span className="font-bold">
-                      {addStockQuantity} ชิ้น
-                    </span>
+                    <span className="font-bold">{addStockQuantity} ชิ้น</span>
                   </div>
                   <div className="flex justify-between">
                     <span>ราคาทุน/ชิ้น:</span>
@@ -846,23 +841,20 @@ export default function ProductsPage() {
                   <div className="flex justify-between text-lg">
                     <span className="font-semibold">ยอดรวม:</span>
                     <span className="font-bold text-green-500">
-                      ฿
-                      {(addStockCost * addStockQuantity).toLocaleString()}
+                      ฿{(addStockCost * addStockQuantity).toLocaleString()}
                     </span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Warning if exceeds budget */}
             {addStockCost * addStockQuantity > availableBudget && (
               <Alert variant="destructive">
                 <AlertTriangle className="w-4 h-4" />
                 <AlertDescription>
                   งบประมาณไม่พอ!
                   <br />
-                  ต้องการ: ฿
-                  {(addStockCost * addStockQuantity).toLocaleString()}
+                  ต้องการ: ฿{(addStockCost * addStockQuantity).toLocaleString()}
                   <br />
                   มี: ฿{availableBudget.toLocaleString()}
                 </AlertDescription>
@@ -907,8 +899,7 @@ export default function ProductsPage() {
               <br />
               <div className="bg-muted p-3 rounded-lg space-y-1">
                 <p>
-                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity}{" "}
-                  ชิ้น
+                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity} ชิ้น
                 </p>
                 <p>
                   <strong>ราคาทุน/ชิ้น:</strong> ฿
@@ -918,8 +909,7 @@ export default function ProductsPage() {
                   <strong>งบที่จะคืน:</strong> ฿
                   {deletingProduct
                     ? (
-                        deletingProduct.costPrice *
-                        deletingProduct.quantity
+                        deletingProduct.costPrice * deletingProduct.quantity
                       ).toLocaleString()
                     : 0}
                 </p>
@@ -1000,16 +990,21 @@ export default function ProductsPage() {
                       LINE command: "{type.typeNumber} [จำนวน] [ราคา]"
                     </p>
                   </div>
+
+                  {/* ✅ ทำให้เห็นชัด + มีคำว่าแก้ไข */}
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       setEditingType(type);
                       setOpenManageTypes(false);
                       setOpenEditType(true);
                     }}
+                    className="h-8 px-2 border-slate-500/60 text-slate-100 bg-slate-800/40 hover:bg-slate-800/70"
+                    title="แก้ไข"
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-4 h-4 mr-1" />
+                    แก้ไข
                   </Button>
                 </div>
               ))}

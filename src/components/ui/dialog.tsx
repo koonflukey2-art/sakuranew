@@ -7,11 +7,8 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
-
 const DialogTrigger = DialogPrimitive.Trigger;
-
 const DialogPortal = DialogPrimitive.Portal;
-
 const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
@@ -29,6 +26,11 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/**
+ * ✅ DialogContent: เปลี่ยนจาก grid -> flex-col
+ * เพื่อให้ Header/Body/Footer ทำงานเป็น 3 ส่วน
+ * และ Footer ไม่หลุดจอ
+ */
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
@@ -38,19 +40,31 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // ====== ตรงนี้เปลี่ยนเป็นพื้นหลังขาว ตัวหนังสือโทนดำ ======
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4",
+        // position
+        "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
+
+        // ✅ layout: flex-col เพื่อให้ footer อยู่ล่างเสมอ
+        "flex flex-col",
+
+        // ✅ กันยืดเกินจอ + กันเนื้อหาทะลุ
+        "max-h-[85vh] overflow-hidden",
+
+        // style
         "border border-slate-200 bg-white text-slate-900 p-6 shadow-2xl sm:rounded-xl",
+
+        // animations
         "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
         "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+
         className
       )}
       {...props}
     >
       {children}
+
       <DialogPrimitive.Close
         className={cn(
           "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity",
@@ -66,12 +80,31 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
+/**
+ * ✅ DialogBody: ส่วนที่ scroll ได้ (ให้ปุ่มอยู่เสมอ)
+ * - ใส่ flex-1 เพื่อกินพื้นที่ที่เหลือ
+ * - overflow-y-auto เพื่อเลื่อน
+ */
+const DialogBody = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn("flex-1 overflow-y-auto pr-2", className)}
+    {...props}
+  />
+);
+DialogBody.displayName = "DialogBody";
+
 const DialogHeader = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}
+    className={cn(
+      "flex flex-col space-y-1.5 text-center sm:text-left",
+      className
+    )}
     {...props}
   />
 );
@@ -83,7 +116,8 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      // ✅ ให้ footer อยู่ล่าง + ชัดเจน
+      "mt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
       className
     )}
     {...props}
@@ -126,6 +160,7 @@ export {
   DialogTrigger,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogFooter,
   DialogTitle,
   DialogDescription,

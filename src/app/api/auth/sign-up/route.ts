@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
+const DEFAULT_ORG_SLUG = "sakura";
+const DEFAULT_ORG_NAME = "Sakura Biotech";
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -18,6 +21,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ ensure single organization exists (or create it)
+    const org = await prisma.organization.upsert({
+      where: { slug: DEFAULT_ORG_SLUG },
+      update: {},
+      create: {
+        name: DEFAULT_ORG_NAME,
+        slug: DEFAULT_ORG_SLUG,
+      },
+      select: { id: true },
+    });
+
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
@@ -25,11 +39,14 @@ export async function POST(request: Request) {
         email,
         name,
         password: passwordHash,
+        organizationId: org.id, // ✅ attach org id always
+        // role จะ default เป็น EMPLOYEE ตาม schema อยู่แล้ว
       },
       select: {
         id: true,
         email: true,
         role: true,
+        organizationId: true,
       },
     });
 

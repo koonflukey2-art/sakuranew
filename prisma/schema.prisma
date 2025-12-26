@@ -151,9 +151,13 @@ model User {
   aiProductSuggestions AIProductSuggestion[]
 
   // BudgetRequest เป็นฝั่ง requester
-  budgetRequests BudgetRequest[]  @relation("BudgetRequestRequester")
+  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
+
   AutomationRule AutomationRule[]
   MetricsPlan    MetricsPlan[]
+
+  // ✅ FIX: ฝั่งตรงข้ามของ Order.cancelledByUser (แก้ error P1012)
+  cancelledOrders Order[] @relation("OrderCancelledByUser")
 
   @@index([organizationId])
 }
@@ -196,8 +200,8 @@ model Promotion {
   name        String
   description String?
 
-  buyQuantity  Int
-  freeQuantity Int
+  buyQuantity     Int
+  freeQuantity    Int
   discountPercent Float?
   discountAmount  Float?
 
@@ -255,9 +259,9 @@ model Budget {
   organizationId String
 
   // Budget info
-  name        String? // "งบประมาณเดือน มกราคม"
-  totalAmount Float // ยอดรวมทั้งหมด
-  remaining   Float // เหลืออยู่
+  name        String?
+  totalAmount Float
+  remaining   Float
   description String?
 
   // Budget items (expense breakdown)
@@ -276,11 +280,10 @@ model BudgetItem {
   budgetId String
   budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
-  // Item details
-  name     String // "ค่ากล่องพัสดุ", "ค่าขนส่ง"
-  amount   Float // จำนวนเงิน
-  quantity Int     @default(1) // จำนวน (ถ้ามี)
-  notes    String? // หมายเหตุ
+  name     String
+  amount   Float
+  quantity Int     @default(1)
+  notes    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -308,7 +311,7 @@ model CapitalBudget {
 model CapitalBudgetTransaction {
   id             String   @id @default(cuid())
   budgetId       String
-  type           String // "ADD" | "DEDUCT"
+  type           String
   amount         Float
   description    String?
   productId      String?
@@ -360,13 +363,11 @@ model AdCampaign {
   spent        Float      @default(0)
   remaining    Float      @default(0)
 
-  // Performance Metrics
   impressions Int @default(0)
   reach       Int @default(0)
   clicks      Int @default(0)
   conversions Int @default(0)
 
-  // Calculated Metrics
   ctr  Float @default(0)
   cpc  Float @default(0)
   cpm  Float @default(0)
@@ -374,7 +375,6 @@ model AdCampaign {
   roas Float @default(0)
   roi  Float @default(0)
 
-  // Revenue & Profit
   revenue      Float @default(0)
   profit       Float @default(0)
   profitMargin Float @default(0)
@@ -464,35 +464,28 @@ model AdReceipt {
   campaignId     String?
   campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
-  // Receipt Info
   receiptNumber String @unique
-  platform      String // FACEBOOK, GOOGLE, META_ADS, TIKTOK
-  paymentMethod String // QR_CODE, CREDIT_CARD, BANK_TRANSFER
+  platform      String
+  paymentMethod String
 
-  // Amount
   amount   Float
   currency String @default("THB")
 
-  // Receipt File
   receiptUrl String?
   qrCodeData String?
 
-  // ✅ optional กัน migrate error ตอนมีข้อมูลเก่า
   fileHash String? @db.Char(64)
   qrHash   String? @db.Char(64)
 
-  // Processing
   isProcessed Boolean   @default(false)
   processedAt DateTime?
 
-  // Metadata
   paidAt DateTime @default(now())
   notes  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ✅ กันซ้ำแบบ unique ต่อ org (NULL ซ้ำได้ใน Postgres)
   @@unique([organizationId, fileHash])
   @@unique([organizationId, qrHash])
   @@index([organizationId])
@@ -530,36 +523,33 @@ model AdMetrics {
   @@index([campaignId])
 }
 
-// ✅ Facebook Ads Statements (PDF summary per billing period)
 model FacebookAdsStatement {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  period      String // เช่น "2025-01" หรือ "2025-10-06 – 2025-10-13"
+  period      String
   startDate   DateTime
   endDate     DateTime
   totalAmount Float
   vat         Float
 
-  fileUrl  String // URL ไปที่ไฟล์ PDF (เช่น Supabase / S3)
-  fileName String // ชื่อไฟล์จริง
-  fileHash String? // For duplicate detection
+  fileUrl  String
+  fileName String
+  fileHash String?
 
-  // Source tracking
-  source        String   @default("WEB") // "WEB" or "LINE"
-  lineMessageId String? // LINE message ID if from LINE
+  source        String  @default("WEB")
+  lineMessageId String?
 
-  // Processing
   isProcessed Boolean   @default(false)
   processedAt DateTime?
   notes       String?
 
   createdAt DateTime @default(now())
 
+  @@unique([organizationId, fileHash])
   @@index([organizationId, startDate])
   @@index([source])
-  @@unique([organizationId, fileHash])
 }
 
 // ============================
@@ -825,8 +815,8 @@ model Order {
   id             String @id @default(cuid())
   organizationId String
 
-  orderNumber   String? // "ORD-20250101-001"
-  dailySequence Int? // 1, 2, 3, ... (รีเซ็ตทุกวัน)
+  orderNumber   String?
+  dailySequence Int?
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -838,13 +828,15 @@ model Order {
   amount    Float
   unitPrice Float @default(0)
 
-  source     String      @default("MANUAL") // "LINE", "MANUAL", "WEB"
+  source     String      @default("MANUAL")
   status     OrderStatus @default(PENDING)
   notes      String?
   rawMessage String?
+
   cancelledAt       DateTime?
   cancelledByUserId String?
-  cancelledByUser   User? @relation(fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  // ✅ FIX: ใส่ชื่อ relation ให้จับคู่กับ User.cancelledOrders
+  cancelledByUser   User?     @relation("OrderCancelledByUser", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
 
   orderDate DateTime @default(now())
   createdAt DateTime @default(now())
@@ -883,7 +875,7 @@ model LINESettings {
 
 model DailySummary {
   id             String   @id @default(cuid())
-  date           DateTime // Start of day
+  date           DateTime
   organizationId String
 
   totalRevenue Float @default(0)
@@ -908,28 +900,23 @@ model DailySummary {
 model SystemSettings {
   id String @id @default(cuid())
 
-  // ✅ ทำเป็น FK จริง (สำคัญมาก)
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Daily cut-off
   dailyCutOffHour   Int @default(23)
   dailyCutOffMinute Int @default(59)
 
   dailySummaryLastSentAt DateTime?
 
-  // Daily sequence counter (for order numbering)
-  lastCutOffTime       DateTime? // เก็บเวลาตัดยอดล่าสุด
-  currentDailySequence Int       @default(0) // เลขลำดับวันนี้
+  lastCutOffTime       DateTime?
+  currentDailySequence Int       @default(0)
 
-  // LINE Integration (Stock Management)
   lineNotifyToken        String?
   lineChannelAccessToken String?
   lineChannelSecret      String?
   lineWebhookUrl         String?
   lineTargetId           String?
 
-  // LINE Ads Integration (Separate)
   adsLineNotifyToken        String?
   adsLineChannelAccessToken String?
   adsLineChannelSecret      String?

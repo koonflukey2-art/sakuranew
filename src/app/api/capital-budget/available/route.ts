@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getOrganizationId } from "@/lib/organization";
 
+export const runtime = "nodejs";
+
 /**
  * GET /api/capital-budget/available
  * Returns available budget information
@@ -23,6 +25,14 @@ export async function GET(request: NextRequest) {
 
     const orgId = await getOrganizationId();
 
+    // ✅ guard: orgId must not be null
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "User has no organizationId. Please contact admin or re-register." },
+        { status: 400 }
+      );
+    }
+
     // Get all capital budgets for the organization
     const budgets = await prisma.capitalBudget.findMany({
       where: { organizationId: orgId },
@@ -36,14 +46,15 @@ export async function GET(request: NextRequest) {
 
     // Get the most recent budget for threshold info
     const latestBudget = budgets[0] || null;
+    const minThreshold = latestBudget?.minThreshold ?? 5000;
 
     return NextResponse.json({
       totalAmount,
       available,
       used,
       budgetCount: budgets.length,
-      minThreshold: latestBudget?.minThreshold || 5000,
-      isLow: available <= (latestBudget?.minThreshold || 5000),
+      minThreshold,
+      isLow: available <= minThreshold,
     });
   } catch (error) {
     console.error("Failed to get available budget:", error);
