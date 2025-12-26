@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   Search,
   Edit,
@@ -55,6 +56,8 @@ interface Order {
   status: string;
   orderDate: string;
   notes?: string;
+  cancelledAt?: string | null;
+  cancelledByUserId?: string | null;
 }
 
 interface ProductType {
@@ -114,6 +117,9 @@ export default function OrdersPage() {
   const [userRole, setUserRole] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false);
 
   // ✅ เพิ่ม: create dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -297,6 +303,48 @@ export default function OrdersPage() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setSubmitting(true);
+      const res = await fetch("/api/orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedOrder.id,
+          status: "CANCELLED",
+          cancelReason,
+        }),
+      });
+
+      if (res.ok) {
+        toast({
+          title: "✅ ยกเลิกออเดอร์สำเร็จ",
+          description: "บันทึกสถานะการยกเลิกแล้ว",
+        });
+        setCancelDialogOpen(false);
+        setCancelReason("");
+        fetchOrders();
+      } else {
+        const error = await res.json();
+        toast({
+          title: "❌ ไม่สามารถยกเลิกได้",
+          description: error.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ เกิดข้อผิดพลาด",
+        description: "ไม่สามารถยกเลิกออเดอร์ได้",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ✅ เพิ่ม: สร้างออเดอร์ใหม่
   const handleCreateOrder = async () => {
     try {
@@ -398,12 +446,26 @@ export default function OrdersPage() {
     return <Badge className={colors[status]}>{labels[status] || status}</Badge>;
   };
 
+  const getCancelReason = (notes?: string) => {
+    if (!notes) return null;
+    const marker = "ยกเลิก:";
+    const index = notes.lastIndexOf(marker);
+    if (index === -1) return null;
+    return notes.slice(index + marker.length).trim();
+  };
+
+  const cancelledOrders = orders.filter((order) => order.status === "CANCELLED");
+  const activeOrders = orders.filter((order) => order.status !== "CANCELLED");
+  const visibleOrders = statusFilter === "CANCELLED" ? cancelledOrders : activeOrders;
+
   const totalPages =
-    orders.length === 0 ? 1 : Math.ceil(orders.length / ITEMS_PER_PAGE);
+    visibleOrders.length === 0
+      ? 1
+      : Math.ceil(visibleOrders.length / ITEMS_PER_PAGE);
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedOrders = orders.slice(startIndex, endIndex);
+  const paginatedOrders = visibleOrders.slice(startIndex, endIndex);
 
   return (
     <div className="p-6 space-y-6">
@@ -449,7 +511,7 @@ export default function OrdersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <Label>ค้นหา</Label>
               <div className="relative">
@@ -521,6 +583,18 @@ export default function OrdersPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex flex-col justify-between gap-2">
+              <Label>ออเดอร์ยกเลิก</Label>
+              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100">
+                <span>แสดงรายการยกเลิก</span>
+                <Switch
+                  checked={showCancelled}
+                  onCheckedChange={setShowCancelled}
+                  disabled={statusFilter === "CANCELLED"}
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -531,7 +605,7 @@ export default function OrdersPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
           <p className="text-gray-400 mt-4">กำลังโหลด...</p>
         </div>
-      ) : orders.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <ShoppingCart className="w-16 h-16 text-gray-500 mx-auto mb-4" />
@@ -633,6 +707,12 @@ export default function OrdersPage() {
                           </div>
                         </div>
                       </div>
+
+                      {order.status === "CANCELLED" && (
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                          เหตุผลยกเลิก: {getCancelReason(order.notes) || "ไม่ได้ระบุ"}
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -651,6 +731,20 @@ export default function OrdersPage() {
                             <Edit className="w-4 h-4 mr-2" />
                             แก้ไข
                           </Button>
+                          {order.status !== "CANCELLED" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setCancelReason("");
+                                setCancelDialogOpen(true);
+                              }}
+                              className="border-orange-400 text-orange-100 hover:bg-orange-500/10"
+                            >
+                              ยกเลิก
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -679,8 +773,8 @@ export default function OrdersPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
             <p className="text-sm text-gray-300">
-              แสดง {startIndex + 1} - {Math.min(endIndex, orders.length)} จาก{" "}
-              {orders.length} รายการ
+              แสดง {startIndex + 1} - {Math.min(endIndex, visibleOrders.length)} จาก{" "}
+              {visibleOrders.length} รายการ
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -708,6 +802,93 @@ export default function OrdersPage() {
               </Button>
             </div>
           </div>
+
+          {statusFilter === "ALL" && showCancelled && cancelledOrders.length > 0 && (
+            <div className="mt-10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-red-200">
+                    ออเดอร์ที่ยกเลิก
+                  </h2>
+                  <p className="text-sm text-red-200/70">
+                    แยกไว้เพื่อไม่รบกวนรายการที่ยังใช้งาน
+                  </p>
+                </div>
+                <Badge className="bg-red-500/20 text-red-100 border border-red-500/40">
+                  {cancelledOrders.length} รายการ
+                </Badge>
+              </div>
+              <div className="grid gap-4">
+                {cancelledOrders.map((order) => (
+                  <Card
+                    key={order.id}
+                    className="border border-red-500/30 bg-gradient-to-br from-slate-950 to-slate-900"
+                  >
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-3 flex-1">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="bg-red-500/10 border border-red-400/60 rounded-lg px-3 py-1">
+                              <span className="text-sm font-bold text-red-100">
+                                #{order.id.slice(0, 8).toUpperCase()}
+                              </span>
+                            </div>
+                            {getStatusBadge(order.status)}
+                            <Badge
+                              variant="outline"
+                              className="bg-slate-700 text-slate-100 border-slate-500"
+                            >
+                              {order.quantity} ชิ้น
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-purple-400" />
+                              <span className="font-medium text-slate-50">
+                                {order.customer.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-emerald-400" />
+                              <span className="text-slate-200">
+                                {order.customer.phone}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                            เหตุผลยกเลิก: {getCancelReason(order.notes) || "ไม่ได้ระบุ"}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {userRole === "ADMIN" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setEditDialogOpen(true);
+                              }}
+                              className="border-purple-400 text-purple-100 hover:bg-purple-500/10"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              แก้ไข
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              ดูอย่างเดียว
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1076,6 +1257,35 @@ export default function OrdersPage() {
         variant="destructive"
         loading={submitting}
       />
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>ยกเลิกออเดอร์</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>เหตุผลการยกเลิก</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="ระบุเหตุผล เช่น ลูกค้าขอเปลี่ยนแปลง หรือชำระเงินไม่สำเร็จ"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              disabled={submitting}
+            >
+              ยกเลิก
+            </Button>
+            <Button onClick={handleCancelOrder} disabled={submitting}>
+              ยืนยันการยกเลิก
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -21,6 +21,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลประเภทสินค้า" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
@@ -34,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // Get all orders grouped by product type
     const orders = await prisma.order.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, status: { not: "CANCELLED" } },
       select: {
         productType: true,
         quantity: true,

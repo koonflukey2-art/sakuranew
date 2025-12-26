@@ -9,6 +9,13 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงการแจ้งเตือน" },
+        { status: 403 }
+      );
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
     });

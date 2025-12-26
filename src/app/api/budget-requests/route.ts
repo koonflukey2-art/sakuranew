@@ -15,6 +15,13 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงคำขอเบิกงบ" },
+        { status: 403 }
+      );
+    }
+
     if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found for this user" },
@@ -106,6 +113,13 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์สร้างคำขอเบิกงบ" },
+        { status: 403 }
+      );
     }
 
     if (!user.organizationId) {

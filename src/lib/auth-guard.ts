@@ -26,7 +26,10 @@ export async function requireRole(role: UserRole) {
   if (session?.user.role !== role) {
     return {
       session,
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      response: NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้" },
+        { status: 403 }
+      ),
     };
   }
 

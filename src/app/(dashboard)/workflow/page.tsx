@@ -48,7 +48,7 @@ export default function WorkflowPage() {
           icon: CheckCircle2,
           title: "Complete",
           description: "บันทึกรายได้และกำไร",
-          detail: "คำนวณ profit = (unitPrice - costPrice) × quantity",
+          detail: "ตัดออเดอร์ที่ยกเลิก + หักโปรโมชันก่อนคำนวณกำไรจริง",
         },
       ],
     },
@@ -73,7 +73,7 @@ export default function WorkflowPage() {
           icon: Wallet,
           title: "Deduct Budget",
           description: "หักงบประมาณอัตโนมัติ",
-          detail: "remaining -= totalCost (อนุญาตให้ติดลบ)",
+          detail: "ตรวจสอบงบก่อนหัก (ไม่อนุญาตให้ติดลบ)",
         },
         {
           icon: Database,
@@ -110,7 +110,7 @@ export default function WorkflowPage() {
           icon: TrendingUp,
           title: "Calculate Metrics",
           description: "คำนวณ KPI ทั้งหมด",
-          detail: "Revenue, Cost, Profit, Margin, Efficiency",
+          detail: "Revenue, Cost, Profit, Margin (ตัดออเดอร์ยกเลิก)",
         },
         {
           icon: Database,
@@ -159,7 +159,7 @@ export default function WorkflowPage() {
           icon: CheckCircle2,
           title: "Update Net Profit",
           description: "คำนวณกำไรสุทธิหลังหักค่าโฆษณา",
-          detail: "netProfit = grossProfit - adsSpend - budget",
+          detail: "netProfit = grossProfit - adsSpend - budget (ปรับตามโปรฯ)",
         },
       ],
     },
@@ -172,7 +172,7 @@ export default function WorkflowPage() {
           Sakura Biotech - System Workflow
         </h1>
         <p className="text-gray-400">
-          แสดงการเชื่อมต่อและการไหลของข้อมูลทั้งระบบ
+          แสดงการเชื่อมต่อและการไหลของข้อมูลทั้งระบบ พร้อมกฎสิทธิ์ล่าสุด
         </p>
       </div>
 

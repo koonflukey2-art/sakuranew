@@ -58,6 +58,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.rank = (user as { rank?: string | null }).rank ?? null;
       }
 
+      if (!token.role) {
+        token.role = "EMPLOYEE";
+      }
+
       return token;
     },
     async session({ session, token }) {

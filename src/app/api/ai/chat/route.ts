@@ -10,6 +10,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์ใช้งาน AI Chat" },
+        { status: 403 }
+      );
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
     });

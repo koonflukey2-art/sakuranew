@@ -37,6 +37,43 @@ interface Product {
   category: string;
 }
 
+interface ProfitTotals {
+  grossRevenue: number;
+  discountTotal: number;
+  netRevenue: number;
+  vatAmount: number;
+  revenueAfterVat: number;
+  productCosts: number;
+  grossProfit: number;
+  grossProfitAfterVat: number;
+  orderCount: number;
+}
+
+interface ProductProfitRow {
+  id: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+  discount: number;
+  netRevenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+}
+
+interface ProfitSummaryResponse {
+  totals: ProfitTotals;
+  products: ProductProfitRow[];
+}
+
+interface BudgetTotals {
+  capitalTotal: number;
+  capitalUsed: number;
+  operationsTotal: number;
+  operationsUsed: number;
+  approvedRequests: number;
+}
+
 interface FormData {
   // Step 1
   useExistingProduct: boolean;
@@ -69,6 +106,18 @@ export default function ProfitCalculatorPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [summary, setSummary] = useState<ProfitSummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [adsSpend, setAdsSpend] = useState(0);
+  const [budgetTotals, setBudgetTotals] = useState<BudgetTotals>({
+    capitalTotal: 0,
+    capitalUsed: 0,
+    operationsTotal: 0,
+    operationsUsed: 0,
+    approvedRequests: 0,
+  });
+  const [includeAdsCost, setIncludeAdsCost] = useState(true);
+  const adsCostStorageKey = "profit-include-ads";
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -86,6 +135,112 @@ export default function ProfitCalculatorPage() {
     };
     checkAccess();
   }, [router]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(adsCostStorageKey);
+    if (saved !== null) {
+      setIncludeAdsCost(saved === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(adsCostStorageKey, String(includeAdsCost));
+  }, [includeAdsCost]);
+
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const toNumber = (value: unknown) =>
+      Number.isFinite(Number(value)) ? Number(value) : 0;
+
+    const fetchProfitSummary = async () => {
+      try {
+        setSummaryLoading(true);
+        const [
+          summaryResponse,
+          adsResponse,
+          capitalBudgetResponse,
+          budgetsResponse,
+          budgetRequestsResponse,
+        ] = await Promise.all([
+          fetch("/api/profit/summary"),
+          fetch("/api/ads/receipts"),
+          fetch("/api/capital-budget"),
+          fetch("/api/budgets"),
+          fetch("/api/budget-requests"),
+        ]);
+
+        if (!summaryResponse.ok) {
+          throw new Error("Failed to load profit summary");
+        }
+
+        const summaryData = (await summaryResponse.json()) as ProfitSummaryResponse;
+        setSummary(summaryData);
+
+        const adsData = adsResponse.ok ? await adsResponse.json() : null;
+        setAdsSpend(toNumber(adsData?.totalAmount));
+
+        const capitalBudgets = capitalBudgetResponse.ok
+          ? await capitalBudgetResponse.json()
+          : [];
+        const capitalTotal = capitalBudgets.reduce(
+          (sum: number, budget: { totalAmount?: number }) =>
+            sum + toNumber(budget.totalAmount),
+          0
+        );
+        const capitalUsed = capitalBudgets.reduce(
+          (sum: number, budget: { totalAmount?: number; remaining?: number }) =>
+            sum + (toNumber(budget.totalAmount) - toNumber(budget.remaining)),
+          0
+        );
+
+        const budgets = budgetsResponse.ok ? await budgetsResponse.json() : [];
+        const operationsTotal = budgets.reduce(
+          (sum: number, budget: { totalAmount?: number; amount?: number }) =>
+            sum + (toNumber(budget.totalAmount) || toNumber(budget.amount)),
+          0
+        );
+        const operationsUsed = budgets.reduce(
+          (sum: number, budget: { spent?: number; totalAmount?: number; remaining?: number }) => {
+            const spent = toNumber(budget.spent);
+            if (spent > 0) return sum + spent;
+            const total = toNumber(budget.totalAmount);
+            const remaining = toNumber(budget.remaining);
+            return sum + Math.max(total - remaining, 0);
+          },
+          0
+        );
+
+        const budgetRequests = budgetRequestsResponse.ok
+          ? await budgetRequestsResponse.json()
+          : [];
+        const approvedRequests = budgetRequests.reduce(
+          (sum: number, request: { status?: string; amount?: number }) =>
+            request.status === "APPROVED" ? sum + toNumber(request.amount) : sum,
+          0
+        );
+
+        setBudgetTotals({
+          capitalTotal,
+          capitalUsed,
+          operationsTotal,
+          operationsUsed,
+          approvedRequests,
+        });
+      } catch (error) {
+        console.error("Failed to load profit summary:", error);
+        toast({
+          variant: "destructive",
+          title: "โหลดข้อมูลกำไรไม่สำเร็จ",
+          description: "ไม่สามารถดึงข้อมูลรายได้และต้นทุนจากระบบได้",
+        });
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    fetchProfitSummary();
+  }, [hasAccess, toast]);
 
   const [formData, setFormData] = useState<FormData>({
     useExistingProduct: false,
@@ -251,6 +406,23 @@ export default function ProfitCalculatorPage() {
 
   const progress = (currentStep / 3) * 100;
 
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("th-TH", {
+      style: "currency",
+      currency: "THB",
+      maximumFractionDigits: 2,
+    });
+
+  const totalBudgetUsed =
+    budgetTotals.capitalUsed +
+    budgetTotals.operationsUsed +
+    budgetTotals.approvedRequests;
+  const netProfitAfterCosts = summary
+    ? summary.totals.grossProfitAfterVat -
+      totalBudgetUsed -
+      (includeAdsCost ? adsSpend : 0)
+    : 0;
+
   if (hasAccess === null) {
     return <div className="p-6">กำลังตรวจสอบสิทธิ์...</div>;
   }
@@ -263,6 +435,201 @@ export default function ProfitCalculatorPage() {
           เครื่องมือคำนวณกำไรแบบละเอียด 3 ขั้นตอน
         </p>
       </div>
+
+      <Card className="border-white/10 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/70">
+        <CardHeader>
+          <CardTitle className="text-lg md:text-xl">ภาพรวมกำไรจากข้อมูลจริง</CardTitle>
+          <CardDescription>
+            รายได้ถูกปรับตามโปรโมชั่นจริง พร้อมคิด VAT 7% เพื่อให้ตัวเลขแม่นยำขึ้น
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm text-slate-300">รวมค่าโฆษณาในการคำนวณกำไรสุทธิ</p>
+              <p className="text-xs text-slate-500">
+                บันทึกค่าใช้จ่ายไว้ในเครื่องของคุณเพื่อความสะดวก
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-100">
+              <span>{includeAdsCost ? "รวมค่าโฆษณา" : "ไม่รวมค่าโฆษณา"}</span>
+              <Switch
+                checked={includeAdsCost}
+                onCheckedChange={setIncludeAdsCost}
+              />
+            </div>
+          </div>
+
+          {summaryLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-28 rounded-xl border border-white/10 bg-white/5 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : summary ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Card className="border-0 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-emerald-200">รายได้รวม (ก่อน VAT)</p>
+                  <p className="text-2xl font-semibold text-white">
+                    {formatCurrency(summary.totals.netRevenue)}
+                  </p>
+                  <p className="text-xs text-emerald-200/80">
+                    ส่วนลดโปรโมชั่น {formatCurrency(summary.totals.discountTotal)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-transparent">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-sky-200">รายได้หลังหัก VAT</p>
+                  <p className="text-2xl font-semibold text-white">
+                    {formatCurrency(summary.totals.revenueAfterVat)}
+                  </p>
+                  <p className="text-xs text-sky-200/80">
+                    VAT ที่ต้องชำระ {formatCurrency(summary.totals.vatAmount)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-purple-200">กำไรขั้นต้น (หลังส่วนลด)</p>
+                  <p className="text-2xl font-semibold text-white">
+                    {formatCurrency(summary.totals.grossProfit)}
+                  </p>
+                  <p className="text-xs text-purple-200/80">
+                    ต้นทุนสินค้า {formatCurrency(summary.totals.productCosts)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-amber-200">กำไรหลัง VAT</p>
+                  <p className="text-2xl font-semibold text-white">
+                    {formatCurrency(summary.totals.grossProfitAfterVat)}
+                  </p>
+                  <p className="text-xs text-amber-200/80">
+                    ออเดอร์ทั้งหมด {summary.totals.orderCount.toLocaleString()} รายการ
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+              ยังไม่มีข้อมูลรายได้ในระบบ
+            </div>
+          )}
+
+          {summary && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="border border-white/10 bg-white/5 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-base">ต้นทุนและงบประมาณที่เกี่ยวข้อง</CardTitle>
+                  <CardDescription>รวมงบจากระบบ Capital Budget, Budget และคำขอเบิกงบ</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span>ค่าโฆษณา (จากสลิป)</span>
+                    <span className="font-semibold">
+                      {includeAdsCost ? formatCurrency(adsSpend) : "ไม่รวม"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>งบ Capital Budget ใช้ไป</span>
+                    <span className="font-semibold">{formatCurrency(budgetTotals.capitalUsed)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>งบประมาณอื่น ๆ ใช้ไป</span>
+                    <span className="font-semibold">{formatCurrency(budgetTotals.operationsUsed)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>คำขอเบิกงบที่อนุมัติแล้ว</span>
+                    <span className="font-semibold">{formatCurrency(budgetTotals.approvedRequests)}</span>
+                  </div>
+                  <div className="h-px bg-white/10" />
+                  <div className="flex items-center justify-between text-base font-semibold text-white">
+                    <span>ต้นทุนเพิ่มเติมรวม</span>
+                    <span>{formatCurrency(totalBudgetUsed + (includeAdsCost ? adsSpend : 0))}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 bg-gradient-to-br from-fuchsia-500/10 via-fuchsia-500/5 to-transparent">
+                <CardHeader>
+                  <CardTitle className="text-base">กำไรสุทธิหลังต้นทุน</CardTitle>
+                  <CardDescription>รวม VAT, ต้นทุนสินค้า และงบดำเนินงาน</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-semibold text-white">
+                    {formatCurrency(netProfitAfterCosts)}
+                  </p>
+                  <p className="text-xs text-fuchsia-200/80 mt-2">
+                    คำนวณจากกำไรหลัง VAT และหักค่าใช้จ่ายทั้งหมด
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-white/5">
+        <CardHeader>
+          <CardTitle className="text-lg">สรุปรายสินค้า</CardTitle>
+          <CardDescription>
+            แยกกำไรตามสินค้าเพื่อดูว่าโปรดักต์ไหนทำเงินได้ดีที่สุด
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {summaryLoading ? (
+            <div className="h-32 rounded-lg border border-white/10 bg-white/5 animate-pulse" />
+          ) : summary && summary.products.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-slate-200">
+                <thead className="text-xs uppercase text-slate-400">
+                  <tr className="border-b border-white/10">
+                    <th className="py-3 text-left">สินค้า</th>
+                    <th className="py-3 text-right">จำนวน</th>
+                    <th className="py-3 text-right">รายได้</th>
+                    <th className="py-3 text-right">ส่วนลด</th>
+                    <th className="py-3 text-right">รายได้สุทธิ</th>
+                    <th className="py-3 text-right">ต้นทุน</th>
+                    <th className="py-3 text-right">กำไร</th>
+                    <th className="py-3 text-right">Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.products.map((product) => (
+                    <tr key={product.id} className="border-b border-white/5">
+                      <td className="py-3 pr-4">
+                        <p className="font-semibold text-white">{product.name}</p>
+                      </td>
+                      <td className="py-3 text-right">{product.quantity.toLocaleString()}</td>
+                      <td className="py-3 text-right">{formatCurrency(product.revenue)}</td>
+                      <td className="py-3 text-right text-amber-200">
+                        {formatCurrency(product.discount)}
+                      </td>
+                      <td className="py-3 text-right">{formatCurrency(product.netRevenue)}</td>
+                      <td className="py-3 text-right">{formatCurrency(product.cost)}</td>
+                      <td className="py-3 text-right font-semibold text-emerald-300">
+                        {formatCurrency(product.profit)}
+                      </td>
+                      <td className="py-3 text-right text-slate-300">
+                        {product.margin.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+              ยังไม่มีข้อมูลสินค้าในช่วงเวลานี้
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Progress Bar */}
       <div className="space-y-2">

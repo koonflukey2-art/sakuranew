@@ -10,6 +10,13 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงงบประมาณ" },
+        { status: 403 }
+      );
+    }
+
     if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },
@@ -38,6 +45,13 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์จัดการงบประมาณ" },
+        { status: 403 }
+      );
     }
 
     if (!user.organizationId) {
@@ -78,6 +92,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์แก้ไขงบประมาณ" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const budget = await prisma.budget.update({
@@ -107,6 +128,13 @@ export async function DELETE(request: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์ลบงบประมาณ" },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

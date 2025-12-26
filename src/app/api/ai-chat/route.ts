@@ -14,6 +14,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(currentUserData.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์ใช้งาน AI Chat" },
+        { status: 403 }
+      );
+    }
+
     if (!currentUserData.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },

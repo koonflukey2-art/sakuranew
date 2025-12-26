@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
           gte: startOfDay,
           lte: endOfDay,
         },
+        status: { not: "CANCELLED" },
       },
     });
 

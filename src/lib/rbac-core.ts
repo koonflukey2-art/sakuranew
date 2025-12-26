@@ -45,30 +45,30 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     return {
       canAccessDashboard: true,
       canAccessStock: true,
-      canAccessBudget: true,
+      canAccessBudget: false,
       canAccessBudgetRequests: true,
-      canAccessAnalytics: true,
+      canAccessAnalytics: false,
       canAccessAI: true,
       canAccessSettings: false,
       canAccessAutomation: false,
       canAccessWorkflows: false,
-      canAccessAds: true,
-      canAccessReports: true,
-      canAccessProfit: true,
+      canAccessAds: false,
+      canAccessReports: false,
+      canAccessProfit: false,
       canAccessMetrics: false,
       canAccessUsers: false,
-      canAccessNotifications: true,
+      canAccessNotifications: false,
     };
   }
 
   // EMPLOYEE (default)
   return {
     canAccessDashboard: true,
-    canAccessStock: true,
+    canAccessStock: false,
     canAccessBudget: false,
-    canAccessBudgetRequests: true,
-    canAccessAnalytics: true,
-    canAccessAI: true,
+    canAccessBudgetRequests: false,
+    canAccessAnalytics: false,
+    canAccessAI: false,
     canAccessSettings: false,
     canAccessAutomation: false,
     canAccessWorkflows: false,
@@ -77,7 +77,7 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     canAccessProfit: false,
     canAccessMetrics: false,
     canAccessUsers: false,
-    canAccessNotifications: true,
+    canAccessNotifications: false,
   };
 }
 

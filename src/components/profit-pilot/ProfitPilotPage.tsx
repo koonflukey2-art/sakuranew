@@ -755,7 +755,7 @@ export function ProfitPilotPage() {
   return (
     <>
       <header className="text-center mb-8 relative">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Shearer (S1 ) Profit Pilot</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Sakura Profit Pilot</h1>
         <p className="text-base opacity-80">Profit & Metrics Planner v5.3</p>
       </header>
 

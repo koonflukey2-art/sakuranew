@@ -105,30 +105,30 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     return {
       canAccessDashboard: true,
       canAccessStock: true,
-      canAccessBudget: true,
+      canAccessBudget: false,
       canAccessBudgetRequests: true,
-      canAccessAnalytics: true,
+      canAccessAnalytics: false,
       canAccessAI: true,
       canAccessSettings: false, // No settings access
       canAccessAutomation: false, // No automation
       canAccessWorkflows: false, // No workflows
-      canAccessAds: true,
-      canAccessReports: true,
-      canAccessProfit: true,
+      canAccessAds: false,
+      canAccessReports: false,
+      canAccessProfit: false,
       canAccessMetrics: false,
       canAccessUsers: false, // No user management
-      canAccessNotifications: true,
+      canAccessNotifications: false,
     };
   }
 
   // Employee has limited access (default role)
   return {
     canAccessDashboard: true,
-    canAccessStock: true,
+    canAccessStock: false,
     canAccessBudget: false, // No budget access
-    canAccessBudgetRequests: true, // Can request budgets
-    canAccessAnalytics: true,
-    canAccessAI: true, // Can use AI features
+    canAccessBudgetRequests: false, // Can request budgets
+    canAccessAnalytics: false,
+    canAccessAI: false, // Can use AI features
     canAccessSettings: false, // No settings
     canAccessAutomation: false, // No automation
     canAccessWorkflows: false, // No workflows
@@ -137,7 +137,7 @@ export function getRolePermissions(role: UserRole): RolePermissions {
     canAccessProfit: false, // No profit calculator
     canAccessMetrics: false, // No metrics
     canAccessUsers: false, // No user management
-    canAccessNotifications: true, // Can see notifications
+    canAccessNotifications: false, // Can see notifications
   };
 }
 
@@ -153,13 +153,17 @@ export async function canAccessRoute(routePath: string): Promise<boolean> {
   // Map routes to permissions
   const routePermissionMap: Record<string, keyof RolePermissions> = {
     "/": "canAccessDashboard",
+    "/dashboard": "canAccessDashboard",
     "/stock": "canAccessStock",
-    "/budget": "canAccessBudget",
+    "/orders": "canAccessStock",
+    "/products": "canAccessStock",
+    "/promotions": "canAccessStock",
     "/budget-requests": "canAccessBudgetRequests",
-    "/analytics": "canAccessAnalytics",
     "/ai-chat": "canAccessAI",
     "/ai-assistant": "canAccessAI",
     "/ai-dashboard": "canAccessAI",
+    "/budget": "canAccessBudget",
+    "/analytics": "canAccessAnalytics",
     "/settings": "canAccessSettings",
     "/automation": "canAccessAutomation",
     "/workflows": "canAccessWorkflows",

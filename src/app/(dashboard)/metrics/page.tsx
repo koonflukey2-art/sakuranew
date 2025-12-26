@@ -86,8 +86,8 @@ const metricsTemplates = [
   },
   {
     id: "facebook-s1",
-    name: "Facebook (S1 Plan)",
-    description: "Facebook S1 Strategy",
+    name: "Facebook Plan",
+    description: "Facebook Strategy",
     icon: Facebook,
     color: "text-blue-700",
     metrics: [

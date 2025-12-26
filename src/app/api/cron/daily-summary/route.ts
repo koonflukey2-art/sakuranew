@@ -177,6 +177,7 @@ export async function GET(req: Request) {
           where: {
             organizationId: s.organizationId,
             orderDate: { gte: startUtc, lte: endUtc },
+            status: { not: "CANCELLED" },
           },
           select: {
             productType: true,

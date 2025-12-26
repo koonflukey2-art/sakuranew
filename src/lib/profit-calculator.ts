@@ -13,6 +13,16 @@ interface ProfitCalculation {
   margin: number;
 }
 
+interface PromotionDiscount {
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+}
+
+export interface OrderProfitWithDiscounts extends ProfitCalculation {
+  discountedRevenue: number;
+  discountAmount: number;
+}
+
 /**
  * คิดต้นทุนตามโปรโมชั่นแบบ bundle:
  * - โปรซื้อ X แถม Y -> 1 ชุดมี (X+Y) ชิ้น
@@ -48,6 +58,96 @@ function calcCostWithPromotionBundle(params: {
   return {
     totalCost,
     effectiveUnitCost: totalCost / quantity,
+  };
+}
+
+function calculateDiscountedRevenue(
+  revenue: number,
+  promotion?: PromotionDiscount | null
+) {
+  if (!promotion) {
+    return { discountedRevenue: revenue, discountAmount: 0 };
+  }
+
+  const percent = Math.min(Math.max(Number(promotion.discountPercent ?? 0), 0), 100);
+  const flat = Math.max(Number(promotion.discountAmount ?? 0), 0);
+  const percentDiscount = revenue * (percent / 100);
+  const discountAmount = Math.min(revenue, percentDiscount + flat);
+
+  return {
+    discountedRevenue: Math.max(revenue - discountAmount, 0),
+    discountAmount,
+  };
+}
+
+export function calculateOrderProfitWithPromotionData(params: {
+  order: OrderItem;
+  product?: { costPrice: number } | null;
+  promotion?: {
+    buyQuantity: number;
+    freeQuantity: number;
+    discountPercent?: number | null;
+    discountAmount?: number | null;
+  } | null;
+}): OrderProfitWithDiscounts {
+  const revenue = Number(params.order.amount) || 0;
+  const { discountedRevenue, discountAmount } = calculateDiscountedRevenue(
+    revenue,
+    params.promotion
+  );
+
+  if (!params.product) {
+    const profit = discountedRevenue;
+    return {
+      revenue,
+      discountedRevenue,
+      discountAmount,
+      cost: 0,
+      profit,
+      margin: discountedRevenue === 0 ? 0 : (profit / discountedRevenue) * 100,
+    };
+  }
+
+  const costPrice = Number(params.product.costPrice) || 0;
+  const qty = Number(params.order.quantity) || 0;
+
+  if (qty <= 0) {
+    const profit = discountedRevenue;
+    return {
+      revenue,
+      discountedRevenue,
+      discountAmount,
+      cost: 0,
+      profit,
+      margin: discountedRevenue === 0 ? 0 : (profit / discountedRevenue) * 100,
+    };
+  }
+
+  let totalCost = 0;
+
+  if (params.promotion) {
+    const r = calcCostWithPromotionBundle({
+      costPrice,
+      quantity: qty,
+      buyQuantity: Number(params.promotion.buyQuantity) || 0,
+      freeQuantity: Number(params.promotion.freeQuantity) || 0,
+    });
+    totalCost = r.totalCost;
+  } else {
+    totalCost = costPrice * qty;
+  }
+
+  const profit = discountedRevenue - totalCost;
+  const margin =
+    discountedRevenue === 0 ? 0 : (profit / discountedRevenue) * 100;
+
+  return {
+    revenue,
+    discountedRevenue,
+    discountAmount,
+    cost: totalCost,
+    profit,
+    margin,
   };
 }
 

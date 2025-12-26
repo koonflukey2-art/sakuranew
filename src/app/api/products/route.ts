@@ -11,6 +11,13 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลสินค้า" },
+        { status: 403 }
+      );
+    }
+
     if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },
