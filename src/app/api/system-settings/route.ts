@@ -1,8 +1,8 @@
 // src/app/api/system-settings/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
+import { requireRole } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
 
@@ -32,8 +32,10 @@ function pickString(v: unknown): string | null {
 
 export async function GET() {
   try {
-    const u = await currentUser();
-    if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { response } = await requireRole("ADMIN");
+    if (response) {
+      return response;
+    }
 
     const orgId = await getOrganizationId();
     if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });
@@ -77,8 +79,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const u = await currentUser();
-    if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { response } = await requireRole("ADMIN");
+    if (response) {
+      return response;
+    }
 
     const orgId = await getOrganizationId();
     if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });

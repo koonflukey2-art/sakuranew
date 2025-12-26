@@ -1,30 +1,30 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db"; // ใช้ lib/db ตามโปรเจกต์คุณ
 
 export async function POST() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
     });
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user.organizationId) {
+    if (!dbUser.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },
         { status: 403 }
       );
     }
 
-    const orgId = user.organizationId;
+    const orgId = dbUser.organizationId;
 
     // ==============================
     // ✅ 1) แจ้งเตือนสต็อกต่ำ
@@ -42,7 +42,7 @@ export async function POST() {
     for (const product of lowStockProducts) {
       const existingNotif = await prisma.notification.findFirst({
         where: {
-          userId: user.id,
+          userId: dbUser.id,
           type: "LOW_STOCK",
           message: { contains: product.name },
           createdAt: {
@@ -54,7 +54,7 @@ export async function POST() {
       if (!existingNotif) {
         await prisma.notification.create({
           data: {
-            userId: user.id,
+            userId: dbUser.id,
             type: "LOW_STOCK",
             title: "สต็อกต่ำ!",
             message: `${product.name} เหลือเพียง ${product.quantity} ชิ้น (ควรมี ${product.minStockLevel})`,
@@ -84,7 +84,7 @@ export async function POST() {
       if (usedRatio >= 0.9) {
         const existingBudgetNotif = await prisma.notification.findFirst({
           where: {
-            userId: user.id,
+            userId: dbUser.id,
             type: "BUDGET_ALERT",
             createdAt: {
               gte: twentyFourHoursAgo, // ไม่ให้เด้งถี่เกิน (แค่วันละครั้ง)
@@ -95,7 +95,7 @@ export async function POST() {
         if (!existingBudgetNotif) {
           await prisma.notification.create({
             data: {
-              userId: user.id,
+              userId: dbUser.id,
               type: "BUDGET_ALERT",
               title: "งบประมาณใกล้หมด!",
               message: `งบลงทุนใช้ไปแล้ว ${Math.round(

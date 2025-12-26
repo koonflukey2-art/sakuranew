@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
 export async function GET(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
     });
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     const adAccount = await prisma.adAccount.findUnique({
-      where: { id: adAccountId, userId: user.id },
+      where: { id: adAccountId, userId: dbUser.id },
     });
 
     if (!adAccount) {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       const platformCred = await prisma.platformCredential.findUnique({
         where: {
           userId_platform: {
-            userId: user.id,
+            userId: dbUser.id,
             platform: "FACEBOOK_ADS",
           },
         },
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
           roas: 0,
         },
         create: {
-          userId: user.id,
+          userId: dbUser.id,
           adAccountId,
           campaignId,
           campaignName: searchParams.get("campaignName") || "Unknown",

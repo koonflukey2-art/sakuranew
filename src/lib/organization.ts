@@ -1,7 +1,7 @@
 // src/lib/organization.ts
 // ฟังก์ชันช่วยเหลือสำหรับจัดการ Organization
 
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -10,19 +10,19 @@ import { prisma } from "@/lib/prisma";
  */
 export async function getOrganizationId(): Promise<string | null> {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const session = await auth();
+    if (!session?.user?.id) {
       console.warn("No authenticated user found");
       return null;
     }
 
     const dbUser = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+      where: { id: session.user.id },
       select: { organizationId: true },
     });
 
     if (!dbUser || !dbUser.organizationId) {
-      console.warn(`User ${clerkUser.id} has no organization`);
+      console.warn(`User ${session.user.id} has no organization`);
       return null;
     }
 
@@ -38,11 +38,11 @@ export async function getOrganizationId(): Promise<string | null> {
  */
 export async function getOrganization() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) return null;
+    const session = await auth();
+    if (!session?.user?.id) return null;
 
     const dbUser = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+      where: { id: session.user.id },
       include: { organization: true },
     });
 

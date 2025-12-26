@@ -1,12 +1,10 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { NextResponse } from "next/server";
 
 export type UserRole = "ADMIN" | "STOCK" | "EMPLOYEE";
 
 export interface AuthUser {
   id: string;
-  clerkId: string | null;
   email: string;
   name: string | null;
   role: UserRole;
@@ -17,16 +15,15 @@ export interface AuthUser {
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const session = await auth();
+    if (!session?.user?.id) {
       return null;
     }
 
     const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+      where: { id: session.user.id },
       select: {
         id: true,
-        clerkId: true,
         email: true,
         name: true,
         role: true,

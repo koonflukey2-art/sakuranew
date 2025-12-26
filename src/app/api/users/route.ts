@@ -1,8 +1,7 @@
 // src/app/api/users/route.ts
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getUserRole } from "@/lib/rbac";
+import { requireRole } from "@/lib/auth-guard";
 
 /**
  * GET /api/users
@@ -10,28 +9,15 @@ import { getUserRole } from "@/lib/rbac";
  */
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: "Unauthorized - No user found" },
-        { status: 401 }
-      );
-    }
-
-    // Check if current user is admin
-    const currentRole = await getUserRole();
-    if (currentRole !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden - Only admins can view users" },
-        { status: 403 }
-      );
+    const { response } = await requireRole("ADMIN");
+    if (response) {
+      return response;
     }
 
     // Fetch all users
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        clerkId: true,
         email: true,
         name: true,
         role: true,

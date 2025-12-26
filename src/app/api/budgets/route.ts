@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db"; // ถ้าโปรเจกต์คุณใช้ "@/lib/prisma" ก็เปลี่ยนเป็นอันนั้นได้
 
 // GET /api/budgets
 export async function GET() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user || !user.organizationId) {
+    if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },
         { status: 403 }
@@ -39,20 +35,9 @@ export async function GET() {
 // POST /api/budgets
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
+    const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found in database. Please sync your account first." },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!user.organizationId) {
@@ -88,8 +73,8 @@ export async function POST(request: Request) {
 // PUT /api/budgets
 export async function PUT(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -119,8 +104,8 @@ export async function PUT(request: Request) {
 // DELETE /api/budgets?id=...
 export async function DELETE(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

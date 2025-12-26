@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
     });
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     // Get AI Provider
     const aiProvider = await prisma.aIProvider.findFirst({
-      where: { userId: user.id, isDefault: true, isValid: true },
+      where: { userId: dbUser.id, isDefault: true, isValid: true },
     });
 
     if (!aiProvider) {
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       await prisma.facebookAdInsight.updateMany({
         where: {
           campaignId,
-          userId: user.id,
+          userId: dbUser.id,
         },
         data: {
           aiRecommendation: JSON.stringify(analysis.recommendations),

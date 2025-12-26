@@ -3,11 +3,9 @@
 import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { UserSync } from "@/components/user-sync";
 import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
 import { AccountMenu } from "@/components/account-menu";
-import { WelcomeMessage } from "@/components/welcome-message";
 import { ThemeProvider } from "@/contexts/theme-context";
 
 export default function DashboardLayout({
@@ -29,9 +27,6 @@ export default function DashboardLayout({
   return (
     <ThemeProvider>
       <div className="flex min-h-screen bg-gradient-dark text-white light:bg-white light:text-black overflow-hidden">
-        <UserSync />
-        <WelcomeMessage />
-
         {/* Sidebar */}
         <Sidebar />
 
