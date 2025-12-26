@@ -60,6 +60,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงรายการออเดอร์" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) return NextResponse.json([]);
 
@@ -124,6 +131,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์สร้างออเดอร์" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
@@ -166,6 +180,11 @@ export async function POST(request: Request) {
     const status: OrderStatus = parseOrderStatus(body.status, "COMPLETED");
     const notes = safeString(body.notes, "").trim() || null;
     const rawMessage = safeString(body.rawMessage, "").trim() || null;
+    const cancelReason = safeString(body.cancelReason, "").trim();
+    const cancelNote =
+      status === "CANCELLED" && cancelReason
+        ? `ยกเลิก: ${cancelReason}`
+        : null;
 
     // ✅ เปิด/ปิดตัดสต็อก (default: true)
     const decrementStock =
@@ -216,8 +235,10 @@ export async function POST(request: Request) {
 
         rawMessage,
         status,
-        notes,
+        notes: cancelNote ? [notes, cancelNote].filter(Boolean).join(" | ") : notes,
         orderDate: new Date(),
+        cancelledAt: status === "CANCELLED" ? new Date() : null,
+        cancelledByUserId: status === "CANCELLED" ? user.id : null,
       },
       include: { customer: true },
     });
@@ -312,6 +333,14 @@ export async function PUT(request: Request) {
       statusRaw ? parseOrderStatus(statusRaw, existing.status as OrderStatus) : undefined;
 
     const notes = body.notes !== undefined ? safeString(body.notes, "").trim() : undefined;
+    const cancelReason = safeString(body.cancelReason, "").trim();
+    const shouldCancel = nextStatus === "CANCELLED";
+    const cancelNote =
+      shouldCancel && cancelReason ? `ยกเลิก: ${cancelReason}` : null;
+    const nextNotes =
+      cancelNote !== null
+        ? [notes ?? existing.notes, cancelNote].filter(Boolean).join(" | ")
+        : notes;
 
     const order = await prisma.order.update({
       where: { id },
@@ -319,6 +348,15 @@ export async function PUT(request: Request) {
         ...(amount !== undefined && { amount }),
         ...(nextStatus && { status: nextStatus }),
         ...(notes !== undefined && { notes: notes || null }),
+        ...(cancelNote !== null && { notes: nextNotes || null }),
+        ...(nextStatus === "CANCELLED" && {
+          cancelledAt: new Date(),
+          cancelledByUserId: user.id,
+        }),
+        ...(nextStatus && nextStatus !== "CANCELLED" && {
+          cancelledAt: null,
+          cancelledByUserId: null,
+        }),
       },
       include: { customer: true },
     });

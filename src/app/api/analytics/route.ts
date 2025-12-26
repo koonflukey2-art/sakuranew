@@ -10,6 +10,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลวิเคราะห์" },
+        { status: 403 }
+      );
+    }
+
     if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found" },

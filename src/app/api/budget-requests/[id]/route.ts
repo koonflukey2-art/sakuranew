@@ -21,6 +21,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์จัดการคำขอเบิกงบ" },
+        { status: 403 }
+      );
+    }
+
     if (!user.organizationId) {
       return NextResponse.json(
         { error: "No organization found for this user" },

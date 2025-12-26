@@ -247,7 +247,7 @@ export default function WorkflowsPage() {
             n8n Workflow Generator
           </h1>
           <p className="text-gray-600 mt-2">
-            สร้าง Workflow JSON สำหรับ n8n โดยอัตโนมัติ 🔄
+            สร้าง Workflow JSON สำหรับ n8n โดยอัตโนมัติ 🔄 (จำกัดสิทธิ์เฉพาะผู้ดูแล)
           </p>
         </div>
 

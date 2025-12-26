@@ -10,6 +10,13 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลโปรโมชั่น" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json([], { status: 200 });
@@ -40,6 +47,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์สร้างโปรโมชั่น" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({ error: "No organization" }, { status: 400 });
@@ -55,6 +69,14 @@ export async function POST(request: NextRequest) {
         description: body.description,
         buyQuantity: parseInt(body.buyQuantity, 10),
         freeQuantity: parseInt(body.freeQuantity, 10),
+        discountPercent:
+          body.discountPercent !== undefined && body.discountPercent !== ""
+            ? Number(body.discountPercent)
+            : null,
+        discountAmount:
+          body.discountAmount !== undefined && body.discountAmount !== ""
+            ? Number(body.discountAmount)
+            : null,
         isActive: body.isActive ?? true,
       },
     });
@@ -76,6 +98,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์แก้ไขโปรโมชั่น" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const promotion = await prisma.promotion.update({
@@ -85,6 +114,14 @@ export async function PUT(request: NextRequest) {
         description: body.description,
         buyQuantity: parseInt(body.buyQuantity, 10),
         freeQuantity: parseInt(body.freeQuantity, 10),
+        discountPercent:
+          body.discountPercent !== undefined && body.discountPercent !== ""
+            ? Number(body.discountPercent)
+            : null,
+        discountAmount:
+          body.discountAmount !== undefined && body.discountAmount !== ""
+            ? Number(body.discountAmount)
+            : null,
         isActive: body.isActive,
       },
     });
@@ -104,6 +141,13 @@ export async function DELETE(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์ลบโปรโมชั่น" },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

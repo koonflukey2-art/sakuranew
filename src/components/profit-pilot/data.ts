@@ -76,7 +76,7 @@ export const metricsPlans = {
       ]
   },
   fb_s1_plan: {
-    name: "Facebook (S1 Plan)",
+    name: "Facebook Plan",
     summary: "แผนการตลาดบน Facebook โฟกัสการสร้างข้อความส่วนตัวและการปิดการขาย",
     kpis: [
       { stage: 'TOFU', metric: 'การเข้าถึง', benchmark: '50K+/เดือน', importance: 'กลาง', notes: 'จํานวนคนที่เห็นโฆษณา' },

@@ -28,6 +28,13 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงสถิติออเดอร์" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json({

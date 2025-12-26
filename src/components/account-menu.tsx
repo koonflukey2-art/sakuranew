@@ -71,9 +71,21 @@ export function AccountMenu() {
 
   // Role display mapping
   const roleDisplay: Record<string, { label: string; color: string }> = {
-    ADMIN: { label: "ผู้ดูแลระบบ", color: "bg-red-500/80 text-white" },
-    STOCK: { label: "เจ้าหน้าที่สต๊อก", color: "bg-blue-500/80 text-white" },
-    EMPLOYEE: { label: "พนักงาน", color: "bg-green-500/80 text-white" },
+    ADMIN: {
+      label: "แอดมิน",
+      color:
+        "bg-gradient-to-r from-rose-500/20 to-red-500/20 text-rose-100 border border-rose-500/30",
+    },
+    STOCK: {
+      label: "พนักงานสต๊อก",
+      color:
+        "bg-gradient-to-r from-sky-500/20 to-blue-500/20 text-sky-100 border border-sky-500/30",
+    },
+    EMPLOYEE: {
+      label: "พนักงาน",
+      color:
+        "bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-100 border border-emerald-500/30",
+    },
   };
 
   const roleInfo = user.role ? roleDisplay[user.role] : null;
@@ -125,7 +137,9 @@ export function AccountMenu() {
                   {user?.email}
                 </p>
                 {roleInfo && (
-                  <Badge className={`text-xs mt-1 ${roleInfo.color}`}>
+                  <Badge
+                    className={`mt-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleInfo.color}`}
+                  >
                     {roleInfo.label}
                   </Badge>
                 )}
@@ -155,7 +169,9 @@ export function AccountMenu() {
                         {user.email}
                       </p>
                       {roleInfo && (
-                        <Badge className={`text-xs ${roleInfo.color} w-fit`}>
+                        <Badge
+                          className={`w-fit rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${roleInfo.color}`}
+                        >
                           {roleInfo.label}
                         </Badge>
                       )}

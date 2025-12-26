@@ -12,6 +12,13 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK", "EMPLOYEE"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลงบประมาณ" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
     if (!orgId) {
       return NextResponse.json(
@@ -61,6 +68,13 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์สร้างงบประมาณ" },
+        { status: 403 }
+      );
     }
 
     const orgId = await getOrganizationId();

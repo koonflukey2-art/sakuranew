@@ -198,6 +198,8 @@ model Promotion {
 
   buyQuantity  Int
   freeQuantity Int
+  discountPercent Float?
+  discountAmount  Float?
 
   startDate DateTime?
   endDate   DateTime?
@@ -840,6 +842,9 @@ model Order {
   status     OrderStatus @default(PENDING)
   notes      String?
   rawMessage String?
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  cancelledByUser   User? @relation(fields: [cancelledByUserId], references: [id], onDelete: SetNull)
 
   orderDate DateTime @default(now())
   createdAt DateTime @default(now())
@@ -853,6 +858,7 @@ model Order {
   @@index([productType])
   @@index([status])
   @@index([dailySequence])
+  @@index([cancelledByUserId])
 }
 
 // ============================

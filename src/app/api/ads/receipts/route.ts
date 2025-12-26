@@ -11,6 +11,13 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงค่าโฆษณา" },
+        { status: 403 }
+      );
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { organizationId: true },
@@ -62,6 +69,13 @@ export async function DELETE(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์ลบข้อมูลค่าโฆษณา" },
+        { status: 403 }
+      );
     }
 
     const dbUser = await prisma.user.findUnique({

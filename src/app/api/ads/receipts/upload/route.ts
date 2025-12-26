@@ -211,6 +211,13 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์อัปโหลดสลิปโฆษณา" },
+        { status: 403 }
+      );
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { organizationId: true },

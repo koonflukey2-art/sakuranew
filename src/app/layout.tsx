@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { AppSessionProvider } from "@/components/session-provider";
 
 export const metadata: Metadata = {
-  title: "Shearer (S1) Profit Pilot",
+  title: "Sakura Profit Pilot",
   description: "Profit & Metrics Planner",
 };
 

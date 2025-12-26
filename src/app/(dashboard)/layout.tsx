@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { NotificationBell } from "@/components/notification-bell";
@@ -13,6 +14,8 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { data: session } = useSession();
+  const accountMenuKey = session?.user?.role ?? "EMPLOYEE";
   // Check alerts every 5 minutes
   useEffect(() => {
     const checkAlerts = async () => {
@@ -49,7 +52,7 @@ export default function DashboardLayout({
               </div>
               <div className="flex items-center gap-2">
                 <NotificationBell />
-                <AccountMenu />
+                <AccountMenu key={accountMenuKey} />
               </div>
             </div>
           </header>

@@ -14,6 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!["ADMIN", "STOCK"].includes(user.role)) {
+      return NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์เข้าถึงงบประมาณคงเหลือ" },
+        { status: 403 }
+      );
+    }
+
     const orgId = await getOrganizationId();
 
     // Get all capital budgets for the organization

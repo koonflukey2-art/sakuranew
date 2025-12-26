@@ -30,6 +30,8 @@ interface Promotion {
   description?: string | null;
   buyQuantity: number;
   freeQuantity: number;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
   isActive: boolean;
 }
 
@@ -49,6 +51,8 @@ export default function PromotionsPage() {
     description: "",
     buyQuantity: 5,
     freeQuantity: 1,
+    discountPercent: "",
+    discountAmount: "",
     isActive: true,
   });
 
@@ -83,6 +87,8 @@ export default function PromotionsPage() {
       description: "",
       buyQuantity: 5,
       freeQuantity: 1,
+      discountPercent: "",
+      discountAmount: "",
       isActive: true,
     });
   };
@@ -115,6 +121,8 @@ export default function PromotionsPage() {
       description: promotion.description || "",
       buyQuantity: promotion.buyQuantity,
       freeQuantity: promotion.freeQuantity,
+      discountPercent: promotion.discountPercent?.toString() ?? "",
+      discountAmount: promotion.discountAmount?.toString() ?? "",
       isActive: promotion.isActive,
     });
     setOpenEdit(true);
@@ -228,6 +236,8 @@ export default function PromotionsPage() {
                 const savings = product
                   ? Math.max(product.costPrice - effectiveCost, 0)
                   : 0;
+                const discountPercent = Number(promotion.discountPercent ?? 0);
+                const discountAmount = Number(promotion.discountAmount ?? 0);
 
                 return (
                   <Card
@@ -279,6 +289,17 @@ export default function PromotionsPage() {
                             ฿{savings.toFixed(2)}
                           </span>
                         </div>
+                        {(discountPercent > 0 || discountAmount > 0) && (
+                          <div className="flex items-center justify-between col-span-2">
+                            <span>ส่วนลดหน้าร้าน</span>
+                            <span className="text-amber-300">
+                              {discountPercent > 0 ? `${discountPercent}%` : "-"}{" "}
+                              {discountAmount > 0
+                                ? `+ ฿${discountAmount.toFixed(2)}`
+                                : ""}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -432,6 +453,32 @@ export default function PromotionsPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>ส่วนลด (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.discountPercent}
+                  onChange={(e) =>
+                    setForm({ ...form, discountPercent: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>ส่วนลดคงที่ (฿/ออเดอร์)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.discountAmount}
+                  onChange={(e) =>
+                    setForm({ ...form, discountAmount: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
             <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
               <Label>เปิดใช้งานทันที</Label>
               <Switch
@@ -456,6 +503,8 @@ export default function PromotionsPage() {
                     const effectiveCost =
                       totalUnits > 0 ? totalCost / totalUnits : product.costPrice;
                     const savings = product.costPrice - effectiveCost;
+                    const discountPercent = Number(form.discountPercent || 0);
+                    const discountAmount = Number(form.discountAmount || 0);
 
                     return (
                       <div className="text-sm space-y-1">
@@ -474,6 +523,15 @@ export default function PromotionsPage() {
                         <p className="text-green-300">
                           <strong>ประหยัด:</strong> ฿{savings.toFixed(2)} / ชิ้น
                         </p>
+                        {(discountPercent > 0 || discountAmount > 0) && (
+                          <p className="text-amber-300">
+                            <strong>ส่วนลดหน้าร้าน:</strong>{" "}
+                            {discountPercent > 0 ? `${discountPercent}%` : "-"}
+                            {discountAmount > 0
+                              ? ` + ฿${discountAmount.toFixed(2)}`
+                              : ""}
+                          </p>
+                        )}
                       </div>
                     );
                   })()}
@@ -547,6 +605,32 @@ export default function PromotionsPage() {
                       ...form,
                       freeQuantity: parseInt(e.target.value, 10),
                     })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>ส่วนลด (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.discountPercent}
+                  onChange={(e) =>
+                    setForm({ ...form, discountPercent: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>ส่วนลดคงที่ (฿/ออเดอร์)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.discountAmount}
+                  onChange={(e) =>
+                    setForm({ ...form, discountAmount: e.target.value })
                   }
                 />
               </div>
