@@ -1,43 +1,44 @@
 // src/middleware.ts
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-// เส้นทางที่ไม่ต้อง login
-const isPublicRoute = createRouteMatcher([
+const publicRoutes = new Set([
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-
-  // webhooks
-  "/api/webhooks(.*)",
-  "/api/line/webhook(.*)",
-
-  // legacy / public api
-  "/api/daily-cutoff/auto(.*)",
-
-  // ✅ cron endpoint (ปล่อย public แล้วให้ route ตรวจ secret เอง)
-  "/api/cron/daily-summary(.*)",
+  "/auth/sign-in",
+  "/auth/sign-up",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  const { userId } = await auth();
+const publicApiPrefixes = [
+  "/api/webhooks",
+  "/api/cron",
+  "/api/daily-cutoff",
+  "/api/auth",
+];
+
+function isPublicPath(pathname: string) {
+  if (publicRoutes.has(pathname)) {
+    return true;
+  }
+
+  return publicApiPrefixes.some((prefix) => pathname.startsWith(prefix));
+}
+
+export default auth((request) => {
   const pathname = request.nextUrl.pathname;
-
-  const publicRoute = isPublicRoute(request);
   const isApiPath = pathname.startsWith("/api");
+  const isPublic = isPublicPath(pathname);
+  const isAuthenticated = Boolean(request.auth?.user);
 
-  // ถ้าล็อกอินแล้วและเข้า "/" ให้ไป dashboard
-  if (userId && pathname === "/") {
+  if (isAuthenticated && pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // ไม่ล็อกอิน และไม่ใช่ public
-  if (!userId && !publicRoute) {
+  if (!isAuthenticated && !isPublic) {
     if (isApiPath) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    // ✅ เปลี่ยนจาก "/" -> "/sign-in" ลดโอกาส loop/กระพิบ
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+
+    return NextResponse.redirect(new URL("/auth/sign-in", request.url));
   }
 
   return NextResponse.next();

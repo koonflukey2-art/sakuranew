@@ -1,9 +1,8 @@
 // src/app/api/users/role/route.ts
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getUserRole } from "@/lib/rbac";
 import type { UserRole } from "@/lib/rbac";
+import { requireRole } from "@/lib/auth-guard";
 
 /**
  * PUT /api/users/role
@@ -11,21 +10,9 @@ import type { UserRole } from "@/lib/rbac";
  */
 export async function PUT(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: "Unauthorized - No user found" },
-        { status: 401 }
-      );
-    }
-
-    // Check if current user is admin
-    const currentRole = await getUserRole();
-    if (currentRole !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden - Only admins can change roles" },
-        { status: 403 }
-      );
+    const { response } = await requireRole("ADMIN");
+    if (response) {
+      return response;
     }
 
     const body = await request.json();

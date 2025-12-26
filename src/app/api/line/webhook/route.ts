@@ -1,6 +1,6 @@
 // src/app/api/facebook-ads/statements/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { writeFile, mkdir, unlink } from "fs/promises";
@@ -124,13 +124,13 @@ function getUploadDir() {
 // ---------- GET ----------
 export async function GET(_request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const dbUser = await prisma.user.findUnique({
-      where: { clerkId: user.id },
+      where: { id: user.id },
       select: { organizationId: true },
     });
 
@@ -201,13 +201,13 @@ export async function GET(_request: NextRequest) {
 // ---------- POST ----------
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const dbUser = await prisma.user.findUnique({
-      where: { clerkId: user.id },
+      where: { id: user.id },
       select: { organizationId: true },
     });
 
@@ -324,13 +324,13 @@ export async function POST(request: NextRequest) {
 // ---------- DELETE ----------
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const dbUser = await prisma.user.findUnique({
-      where: { clerkId: user.id },
+      where: { id: user.id },
       select: { organizationId: true },
     });
 

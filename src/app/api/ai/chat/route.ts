@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
 export async function POST(request: Request) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
     });
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     // ดึง config ของ provider
     const config = await prisma.aiConfig.findFirst({
       where: {
-        userId: user.id,
+        userId: dbUser.id,
         provider,
         isValid: true,
       },
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     } else {
       session = await prisma.chatSession.create({
         data: {
-          userId: user.id,
+          userId: dbUser.id,
           provider,
           title: message.substring(0, 50),
         },
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!session || session.userId !== user.id) {
+    if (!session || session.userId !== dbUser.id) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     });
 
     // ดึงข้อมูลระบบสำหรับ context
-    const systemContext = await getSystemContext(user.id);
+    const systemContext = await getSystemContext(dbUser.id);
 
     // ส่งไปยัง AI
     const apiKey = decrypt(config.apiKey);

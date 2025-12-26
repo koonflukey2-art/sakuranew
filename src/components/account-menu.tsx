@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser, useClerk } from "@clerk/nextjs";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,40 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut, User, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface UserData {
-  role: string;
-  name?: string;
-  email?: string;
-}
-
 export function AccountMenu() {
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
-
-  // Fetch user role from database
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const res = await fetch("/api/me");
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-      }
-    };
-
-    if (user) {
-      fetchUserData();
-    }
-  }, [user]);
 
   // Load persisted expanded state
   useEffect(() => {
@@ -64,7 +37,7 @@ export function AccountMenu() {
     setIsLoggingOut(true);
 
     try {
-      await signOut();
+      await signOut({ redirect: false });
 
       // Show beautiful logout notification
       toast({
@@ -85,9 +58,16 @@ export function AccountMenu() {
     }
   };
 
+  const user = session?.user;
   if (!user) return null;
 
-  const userInitials = user.firstName?.[0] + (user.lastName?.[0] || "") || "U";
+  const nameInitials =
+    user.name
+      ?.split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("") || user.email?.[0] || "U";
 
   // Role display mapping
   const roleDisplay: Record<string, { label: string; color: string }> = {
@@ -96,7 +76,7 @@ export function AccountMenu() {
     EMPLOYEE: { label: "พนักงาน", color: "bg-green-500/80 text-white" },
   };
 
-  const roleInfo = userData?.role ? roleDisplay[userData.role] : null;
+  const roleInfo = user.role ? roleDisplay[user.role] : null;
 
   const toggleExpanded = () => {
     const newState = !isExpanded;
@@ -139,10 +119,10 @@ export function AccountMenu() {
             <>
               <div className="text-right">
                 <p className="text-sm font-medium text-white">
-                  {user?.fullName || user?.firstName || "User"}
+                  {user?.name || "User"}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {user?.primaryEmailAddress?.emailAddress}
+                  {user?.email}
                 </p>
                 {roleInfo && (
                   <Badge className={`text-xs mt-1 ${roleInfo.color}`}>
@@ -155,9 +135,9 @@ export function AccountMenu() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     <Avatar className="w-11 h-11 border-2 border-purple-500 shadow-lg shadow-purple-500/20">
-                      <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
+                      <AvatarImage src={user.image || ""} alt={user.name || "User"} />
                       <AvatarFallback className="bg-gradient-to-br from-purple-600 to-pink-600 text-white font-bold">
-                        {userInitials}
+                        {nameInitials}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -169,10 +149,10 @@ export function AccountMenu() {
                   <DropdownMenuLabel className="text-gray-300">
                     <div className="flex flex-col space-y-2">
                       <p className="text-base font-semibold text-white">
-                        {user.fullName || user.firstName || "User"}
+                        {user.name || "User"}
                       </p>
                       <p className="text-xs text-gray-400 font-normal">
-                        {user.primaryEmailAddress?.emailAddress}
+                        {user.email}
                       </p>
                       {roleInfo && (
                         <Badge className={`text-xs ${roleInfo.color} w-fit`}>

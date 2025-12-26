@@ -4,6 +4,6 @@ export default function RootPage() {
   // Simple redirect to sign-in
   // Middleware will handle the rest:
   // - If user is logged in, middleware redirects to /dashboard
-  // - If user is not logged in, they see /sign-in
-  redirect("/sign-in");
+  // - If user is not logged in, they see /auth/sign-in
+  redirect("/auth/sign-in");
 }
