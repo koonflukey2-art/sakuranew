@@ -23,41 +23,60 @@ interface DailySummaryLike {
   cutOffTime: Date;
 }
 
+type DailySummaryOptions = {
+  date?: Date;
+  cutOffTime?: Date;
+  sendLine?: boolean;
+};
+
+const BKK_OFFSET_HOURS = 7;
+const MS_HOUR = 3600 * 1000;
+
+function toBangkok(date: Date) {
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utcMs + BKK_OFFSET_HOURS * MS_HOUR);
+}
+
+function getBangkokDayWindow(base = new Date()) {
+  const bkkNow = toBangkok(base);
+
+  const startLocalBkk = new Date(bkkNow);
+  startLocalBkk.setHours(0, 0, 0, 0);
+
+  const endLocalBkk = new Date(bkkNow);
+  endLocalBkk.setHours(23, 59, 59, 999);
+
+  const startUtc = new Date(startLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+  const endUtc = new Date(endLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+
+  return { startUtc, endUtc };
+}
+
 // สร้าง summary ให้ org เดียว ในวันที่กำหนด (default = วันนี้)
 export async function createDailySummaryForOrg(
   organizationId: string,
-  targetDate?: Date
+  targetDateOrOptions?: Date | DailySummaryOptions
 ): Promise<{ summary: DailySummaryLike; created: boolean }> {
   const now = new Date();
-  const base = targetDate ? new Date(targetDate) : now;
+  const options =
+    targetDateOrOptions instanceof Date
+      ? { date: targetDateOrOptions }
+      : targetDateOrOptions ?? {};
+  const baseDate = options.date ? new Date(options.date) : now;
+  const { startUtc, endUtc } = getBangkokDayWindow(baseDate);
 
-  const startOfDay = new Date(
-    base.getFullYear(),
-    base.getMonth(),
-    base.getDate()
-  );
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
-
-  // กันซ้ำ – ถ้ามี summary วันนี้แล้วให้คืนอันเดิมกลับไป
-  const existingSummary = await prisma.dailySummary.findFirst({
-    where: {
-      organizationId,
-      date: startOfDay,
-    },
+  const existingSummary = await prisma.dailySummary.findUnique({
+    where: { organizationId_date: { organizationId, date: startUtc } },
+    select: { id: true },
   });
-
-  if (existingSummary) {
-    return { summary: existingSummary as any, created: false };
-  }
 
   // ดึง orders วันนี้
   const orders = await prisma.order.findMany({
     where: {
       organizationId,
       orderDate: {
-        gte: startOfDay,
-        lt: endOfDay,
+        gte: startUtc,
+        lte: endUtc,
       },
     },
   });
@@ -110,23 +129,35 @@ export async function createDailySummaryForOrg(
     })
   ) as Prisma.JsonArray;
 
-  const summary = await prisma.dailySummary.create({
-    data: {
-      date: startOfDay,
+  const cutOffTime = options.cutOffTime ?? now;
+
+  const summary = await prisma.dailySummary.upsert({
+    where: { organizationId_date: { organizationId, date: startUtc } },
+    create: {
+      date: startUtc,
       organizationId,
       totalRevenue,
       totalCost,
       totalProfit,
       totalOrders: orders.length,
       productsSold: breakdownArray, // ✅ ตอนนี้ type ตรงกับ JSON แล้ว
-      cutOffTime: now,
+      cutOffTime,
+    },
+    update: {
+      totalRevenue,
+      totalCost,
+      totalProfit,
+      totalOrders: orders.length,
+      productsSold: breakdownArray,
+      cutOffTime,
     },
   });
 
-  // หลังจากสร้าง summary แล้ว → ลองส่ง LINE ถ้าตั้งค่าไว้
-  await sendDailySummaryToLine(organizationId, summary as any);
+  if (options.sendLine) {
+    await sendDailySummaryToLine(organizationId, summary as any);
+  }
 
-  return { summary: summary as any, created: true };
+  return { summary: summary as any, created: !existingSummary };
 }
 
 // ------- LINE Notify helper -------

@@ -158,6 +158,40 @@ npm run lint        # Run ESLint
 npm run typecheck   # TypeScript type checking
 ```
 
+## ⏰ Daily Cutoff & Summary (VPS cron)
+
+ระบบรองรับการยิง cron จาก VPS เพื่อให้ตัดยอด/ส่งสรุปเองโดยไม่ต้องใช้ cron-job.org
+
+### Environment overrides
+
+ตัวแปรเหล่านี้จะ override ค่าจาก `SystemSettings`:
+
+```env
+DAILY_CUTOFF_HOUR=23      # 0-23 (เวลาไทย)
+DAILY_CUTOFF_MINUTE=59    # 0-59 (เวลาไทย)
+ENABLE_DAILY_SUMMARY=true # optional: true/false
+```
+
+> ถ้าตั้งค่าไม่ถูกต้อง ระบบจะ log warning และ fallback ไปใช้ค่าใน `SystemSettings`.
+
+### Cron examples (ยิงเฉพาะ localhost)
+
+**ตัวอย่าง: ยิงทุก 1 นาที** (ให้ระบบเช็คเวลาเอง)
+
+```bash
+* * * * * curl -fsS -H "x-cron-secret: <CRON_SECRET>" http://127.0.0.1:3000/api/daily-cutoff/auto >/dev/null
+* * * * * curl -fsS -H "Authorization: Bearer <CRON_SECRET>" http://127.0.0.1:3000/api/cron/daily-summary >/dev/null
+```
+
+**ตัวอย่าง: ยิงตรงเวลาจริง (23:59 ทุกวัน)**  
+
+```bash
+59 23 * * * curl -fsS -H "x-cron-secret: <CRON_SECRET>" http://127.0.0.1:3000/api/daily-cutoff/auto >/dev/null
+59 23 * * * curl -fsS -H "Authorization: Bearer <CRON_SECRET>" http://127.0.0.1:3000/api/cron/daily-summary >/dev/null
+```
+
+> แนะนำให้ยิงไปที่ `http://127.0.0.1:3000` เพื่อไม่ต้องเปิด public และต้องส่ง header ตามที่ route ใช้ (`x-cron-secret` หรือ `Authorization: Bearer`).
+
 ## 📝 License
 
 MIT License

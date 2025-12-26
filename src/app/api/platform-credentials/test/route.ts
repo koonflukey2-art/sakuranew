@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { getOrganizationId } from "@/lib/organization";
 
 // NOTE: ทำให้เรียบง่าย ใช้การ ping endpoint เบื้องต้นพอ
 async function testFacebook(apiKey: string | null, accessToken: string | null) {
@@ -90,12 +91,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
-
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -108,8 +106,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const credential = await prisma.platformCredential.findUnique({
-      where: { id, userId: dbUser.id },
+    const credential = await prisma.platformCredential.findFirst({
+      where: { id, organizationId: orgId },
     });
 
     if (!credential) {

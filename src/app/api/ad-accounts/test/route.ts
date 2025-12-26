@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
-const allowedPlatforms = ["FACEBOOK", "TIKTOK", "SHOPEE", "LAZADA"] as const;
+const allowedPlatforms = ["FACEBOOK", "GOOGLE", "TIKTOK", "LINE"] as const;
 type AllowedPlatform = (typeof allowedPlatforms)[number];
 
 interface TestPayload {
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
     const body: TestPayload = await request.json();
     const platform = normalizePlatform(body.platform);
 
@@ -46,23 +52,34 @@ export async function POST(request: Request) {
       ? "เชื่อมต่อสำเร็จ"
       : "API Key หรือ Access Token ว่าง";
 
-    if (body.id) {
-      const existing = await prisma.adAccount.findFirst({
-        where: { id: body.id, userId: user.id },
-      });
-
-      if (existing) {
-        await prisma.adAccount.update({
-          where: { id: existing.id },
-          data: {
-            lastTestedAt: new Date(),
-            lastTestStatus: success ? "SUCCESS" : "FAILED",
-          },
-        });
-      }
+    if (!body.id) {
+      return NextResponse.json(
+        { success: false, message: "id จำเป็นต้องระบุ" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ success, message, status: success ? "SUCCESS" : "FAILED" });
+    const existing = await prisma.adAccount.findFirst({
+      where: { id: body.id, organizationId: orgId },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, message: "ไม่พบบัญชีโฆษณา" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.adAccount.update({
+      where: { id: existing.id },
+      data: {
+        lastTested: new Date(),
+        isValid: success,
+        testMessage: message,
+      },
+    });
+
+    return NextResponse.json({ success, message });
   } catch (error) {
     console.error("Error testing ad account", error);
     return NextResponse.json(

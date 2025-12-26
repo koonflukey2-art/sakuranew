@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-guard";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * GET /api/users
@@ -14,8 +15,14 @@ export async function GET() {
       return response;
     }
 
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
     // Fetch all users
     const users = await prisma.user.findMany({
+      where: { organizationId: orgId },
       select: {
         id: true,
         email: true,

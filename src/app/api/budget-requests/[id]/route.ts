@@ -45,6 +45,10 @@ export async function PATCH(
       return NextResponse.json({ error: "ไม่พบคำขอ" }, { status: 404 });
     }
 
+    if (existing.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // เฉพาะ ADMIN หรือเจ้าของคำขอเท่านั้นที่แก้ได้
     if (existing.requesterId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -78,12 +82,12 @@ export async function PATCH(
 
       createdBudget = await prisma.budget.create({
         data: {
-          amount: updated.amount,
-          purpose: updated.purpose,
-          spent: 0,
-          startDate: now,
-          endDate: nextMonth,
-          // Budget model ใช้ organizationId
+          name: updated.purpose
+            ? `Budget Request: ${updated.purpose}`
+            : "Budget Request",
+          totalAmount: updated.amount,
+          remaining: updated.amount,
+          description: updated.description ?? undefined,
           organizationId: existing.organizationId,
         },
       });

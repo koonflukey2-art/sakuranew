@@ -5,6 +5,43 @@ import { createDailySummaryForOrg } from "@/lib/dailyCutoff";
 
 export const runtime = "nodejs";
 
+function parseEnvInt(name: string, min: number, max: number): number | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    console.warn(
+      `Invalid ${name}="${raw}" (expected integer ${min}-${max}); falling back to SystemSettings.`
+    );
+    return null;
+  }
+  return value;
+}
+
+const BKK_OFFSET_HOURS = 7;
+const MS_HOUR = 3600 * 1000;
+const MS_MIN = 60 * 1000;
+
+function toBangkok(date = new Date()) {
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utcMs + BKK_OFFSET_HOURS * MS_HOUR);
+}
+
+function todayWindowBangkok() {
+  const bkkNow = toBangkok(new Date());
+
+  const startLocalBkk = new Date(bkkNow);
+  startLocalBkk.setHours(0, 0, 0, 0);
+
+  const endLocalBkk = new Date(bkkNow);
+  endLocalBkk.setHours(23, 59, 59, 999);
+
+  const startUtc = new Date(startLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+  const endUtc = new Date(endLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+
+  return { startUtc, endUtc };
+}
+
 // ใช้ร่วมกันทั้ง GET / POST
 async function handleAutoCutoff(req: NextRequest) {
   // 1) ตรวจสอบ CRON_SECRET จาก header
@@ -21,85 +58,84 @@ async function handleAutoCutoff(req: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // 2) หา organization จาก SystemSettings แถวแรก
-  const settings = await prisma.systemSettings.findFirst({
+  // 2) โหลด SystemSettings ทุกองค์กร
+  const settingsList = await prisma.systemSettings.findMany({
+    where: { organizationId: { not: null } },
     orderBy: { createdAt: "asc" },
   });
 
-  if (!settings?.organizationId) {
+  if (settingsList.length === 0) {
     console.error("❌ No systemSettings with organizationId, skip auto cutoff");
     return NextResponse.json(
-      { ok: false, skipped: true, reason: "no organizationId" },
+      { ok: true, skipped: true, reason: "no organizationId" },
       { status: 200 }
     );
   }
 
-  const orgId = settings.organizationId;
-
-  // 3) เอาเวลาตัดยอดจาก settings (ตีความเป็น "เวลาไทย")
-  const hour = settings.dailyCutOffHour ?? 23;
-  const minute = settings.dailyCutOffMinute ?? 59;
+  const envHour = parseEnvInt("DAILY_CUTOFF_HOUR", 0, 23);
+  const envMinute = parseEnvInt("DAILY_CUTOFF_MINUTE", 0, 59);
 
   const now = new Date();
+  const { startUtc } = todayWindowBangkok();
+  const results: Array<Record<string, any>> = [];
 
-  // 🇹🇭 แปลง "เวลาไทย (UTC+7)" → UTC ก่อนเอาไป set ใน Date
-  const TH_OFFSET = 7;
-  const cutoff = new Date(now);
+  for (const settings of settingsList) {
+    const orgId = settings.organizationId;
+    const hour = envHour ?? settings.dailyCutOffHour ?? 23;
+    const minute = envMinute ?? settings.dailyCutOffMinute ?? 59;
 
-  // hour ที่เก็บใน DB = ชั่วโมงตามเวลาไทย
-  // แปลงเป็นชั่วโมง UTC (ลบ 7 ชั่วโมง แล้ว modulo 24 กันติดลบ)
-  const cutoffUtcHour = (hour - TH_OFFSET + 24) % 24;
-  cutoff.setUTCHours(cutoffUtcHour, minute, 0, 0);
+    const cutoffUtc = new Date(
+      startUtc.getTime() + hour * MS_HOUR + minute * MS_MIN
+    );
 
-  // ถ้ายังไม่ถึงเวลาตัดยอด → ข้าม
-  if (now.getTime() < cutoff.getTime()) {
-    console.log("⏭️ Skip auto cutoff: before cutoff time", {
-      now: now.toISOString(),
-      cutoff: cutoff.toISOString(),
-      configuredHourTH: hour,
-      configuredMinuteTH: minute,
-    });
-
-    return NextResponse.json(
-      {
-        ok: true,
+    // ถ้ายังไม่ถึงเวลาตัดยอด → ข้าม
+    if (now.getTime() < cutoffUtc.getTime()) {
+      results.push({
+        organizationId: orgId,
         skipped: true,
         reason: "before cutoff time",
-        now: now.toISOString(),
-        cutoff: cutoff.toISOString(),
-      },
-      { status: 200 }
-    );
-  }
+        debug: {
+          now: now.toISOString(),
+          cutoff: cutoffUtc.toISOString(),
+          configuredHourTH: hour,
+          configuredMinuteTH: minute,
+        },
+      });
+      continue;
+    }
 
-  // 4) ถึงเวลาแล้ว → สร้าง summary (ฟังก์ชันนี้กันซ้ำให้แล้ว)
-  try {
-    const { summary, created } = await createDailySummaryForOrg(orgId);
+    try {
+      const { summary, created } = await createDailySummaryForOrg(orgId, {
+        date: startUtc,
+        cutOffTime: cutoffUtc,
+        sendLine: false,
+      });
 
-    console.log("✅ Auto daily cutoff done", {
-      orgId,
-      summaryId: summary.id,
-      created,
-      date: summary.date,
-    });
-
-    return NextResponse.json(
-      {
-        ok: true,
+      results.push({
+        organizationId: orgId,
         skipped: false,
         created,
         summaryId: summary.id,
         date: summary.date,
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("❌ Failed to run auto cutoff:", err);
-    return NextResponse.json(
-      { ok: false, skipped: false, error: "failed to create summary" },
-      { status: 500 }
-    );
+      });
+    } catch (err) {
+      console.error("❌ Failed to run auto cutoff:", err);
+      results.push({
+        organizationId: orgId,
+        skipped: false,
+        error: "failed to create summary",
+      });
+    }
   }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      processed: results.length,
+      results,
+    },
+    { status: 200 }
+  );
 }
 
 // รองรับทั้ง GET และ POST

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/lib/rbac";
 import { requireRole } from "@/lib/auth-guard";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * PUT /api/users/role
@@ -13,6 +14,11 @@ export async function PUT(request: Request) {
     const { response } = await requireRole("ADMIN");
     if (response) {
       return response;
+    }
+
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -34,9 +40,21 @@ export async function PUT(request: Request) {
       );
     }
 
+    const targetUser = await prisma.user.findFirst({
+      where: { id: userId, organizationId: orgId },
+      select: { id: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
     // Update user role
     const updated = await prisma.user.update({
-      where: { id: userId },
+      where: { id: targetUser.id },
       data: { role: newRole },
       select: {
         id: true,
