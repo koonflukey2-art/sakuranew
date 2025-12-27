@@ -1,64 +1,24 @@
 // src/middleware.ts
-import { auth } from "@/auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-const publicRoutes = new Set([
-  "/",
-  "/auth/sign-in",
-  "/auth/sign-up",
-]);
-
-const publicApiPrefixes = [
-  "/api/webhooks",
-  "/api/cron",
-  "/api/daily-cutoff",
-  "/api/auth",
-];
+const publicRoutes = new Set(["/", "/auth/sign-in", "/auth/sign-up"]);
+const publicApiPrefixes = ["/api/webhooks", "/api/cron", "/api/daily-cutoff", "/api/auth"];
 
 function isPublicPath(pathname: string) {
-  if (publicRoutes.has(pathname)) {
-    return true;
-  }
-
+  if (publicRoutes.has(pathname)) return true;
   return publicApiPrefixes.some((prefix) => pathname.startsWith(prefix));
 }
 
 const roleRoutes: Record<string, string[]> = {
   EMPLOYEE: ["/dashboard"],
-  STOCK: [
-    "/dashboard",
-    "/stock",
-    "/orders",
-    "/products",
-    "/promotions",
-    "/budget-requests",
-    "/ai-chat",
-  ],
+  STOCK: ["/dashboard", "/stock", "/orders", "/products", "/promotions", "/budget-requests", "/ai-chat"],
   ADMIN: ["*"],
 };
 
 const apiRoutes: Record<string, string[]> = {
-  EMPLOYEE: [
-    "/api/orders",
-    "/api/orders/stats",
-    "/api/products",
-    "/api/products/types",
-    "/api/capital-budget",
-    "/api/me",
-    "/api/notifications/check-alerts",
-  ],
-  STOCK: [
-    "/api/orders",
-    "/api/orders/stats",
-    "/api/products",
-    "/api/products/types",
-    "/api/promotions",
-    "/api/budget-requests",
-    "/api/ai-chat",
-    "/api/ai/chat",
-    "/api/me",
-    "/api/notifications/check-alerts",
-  ],
+  EMPLOYEE: ["/api/orders", "/api/orders/stats", "/api/products", "/api/products/types", "/api/capital-budget", "/api/me", "/api/notifications/check-alerts"],
+  STOCK: ["/api/orders", "/api/orders/stats", "/api/products", "/api/products/types", "/api/promotions", "/api/budget-requests", "/api/ai-chat", "/api/ai/chat", "/api/me", "/api/notifications/check-alerts"],
   ADMIN: ["*"],
 };
 
@@ -68,22 +28,23 @@ function hasAccess(role: string, pathname: string, mapping: Record<string, strin
   return allowed.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export default auth((request) => {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isApiPath = pathname.startsWith("/api");
   const isPublic = isPublicPath(pathname);
-  const isAuthenticated = Boolean(request.auth?.user);
-  const role = request.auth?.user?.role || "EMPLOYEE";
+
+  // ✅ อ่าน JWT โดยไม่พึ่ง Prisma/NextAuth callbacks
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+
+  const isAuthenticated = Boolean((token as any)?.id || token?.sub);
+  const role = String((token as any)?.role || "EMPLOYEE");
 
   if (isAuthenticated && pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   if (!isAuthenticated && !isPublic) {
-    if (isApiPath) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    if (isApiPath) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.redirect(new URL("/auth/sign-in", request.url));
   }
 
@@ -94,12 +55,8 @@ export default auth((request) => {
 
     if (!hasRoleAccess) {
       if (isApiPath) {
-        return NextResponse.json(
-          { error: "คุณไม่มีสิทธิ์เข้าถึงเส้นทางนี้" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "คุณไม่มีสิทธิ์เข้าถึงเส้นทางนี้" }, { status: 403 });
       }
-
       const url = new URL("/dashboard", request.url);
       url.searchParams.set("error", "คุณไม่มีสิทธิ์เข้าถึงเส้นทางนี้");
       return NextResponse.redirect(url);
@@ -107,11 +64,8 @@ export default auth((request) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
-  matcher: [
-    "/((?!_next|.*\\..*|favicon.ico).*)",
-    "/(api|trpc)(.*)",
-  ],
+  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)", "/(api|trpc)(.*)"],
 };
