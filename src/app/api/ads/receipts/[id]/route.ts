@@ -13,7 +13,7 @@ function getUploadDir() {
 
 export async function DELETE(
   _req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const user = await getCurrentUser();
@@ -34,7 +34,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
-    const { id } = await ctx.params;
+    const { id } = params;
     const orgId = dbUser.organizationId;
 
     const receipt = await prisma.adReceipt.findFirst({
