@@ -441,9 +441,7 @@ export default function MetricsPage() {
                                   endAngle={0}
                                 >
                                   <RadialBar
-                                    minAngle={15}
                                     background
-                                    clockWise
                                     dataKey="value"
                                     cornerRadius={10}
                                   />

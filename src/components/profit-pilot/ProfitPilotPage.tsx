@@ -34,10 +34,18 @@ import ProFunnel from './ProFunnel';
 
 
 const F = {
-  num: (val) => parseFloat(String(val)) || 0,
-  formatCurrency: (val) => `${F.num(val).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿`,
-  formatNumber: (val, digits = 2) => F.num(val).toLocaleString('th-TH', { minimumFractionDigits: digits, maximumFractionDigits: digits }),
-  formatInt: (val) => Math.ceil(F.num(val)).toLocaleString('th-TH'),
+  num: (val: unknown) => parseFloat(String(val)) || 0,
+  formatCurrency: (val: unknown) =>
+    `${F.num(val).toLocaleString('th-TH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} ฿`,
+  formatNumber: (val: unknown, digits = 2) =>
+    F.num(val).toLocaleString('th-TH', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }),
+  formatInt: (val: unknown) => Math.ceil(F.num(val)).toLocaleString('th-TH'),
 };
 
 const initialInputs = {
@@ -67,6 +75,62 @@ const initialInputs = {
   budgetingStrategy: 'cbo'
 };
 
+type ProfitPilotInputs = typeof initialInputs;
+
+type AutomationRule = {
+  id: number;
+  name: string;
+  level: string;
+  metric: string;
+  operator: string;
+  value: string;
+  action: string;
+  actionValue: string;
+  timeframe: string;
+};
+
+type HistoryEntry = {
+  id: number;
+  name: string;
+  inputs: ProfitPilotInputs;
+  automationRules: AutomationRule[];
+};
+
+type UiTitles = {
+  productInfoTitle: string;
+  costCalculationTitle: string;
+  goalsAndResultsTitle: string;
+  advancedPlanningTitle: string;
+};
+
+type ConfirmModalState = {
+  isOpen: boolean;
+  message: string;
+  onConfirm: () => void;
+};
+
+type N8nWorkflowState = {
+  json: string | null;
+  loading: boolean;
+};
+
+type AiAdviceState = {
+  recommendations: string;
+  insights: string;
+  loading: boolean;
+};
+
+type FunnelData = {
+  stage: string;
+  campaign: {
+    title: string;
+    budget: string;
+    accounts: string;
+  };
+  adGroups: Array<{ title: string; subtitle?: string }>;
+  ads: string[];
+};
+
 const iconMap = {
   Facebook,
   Bot,
@@ -75,7 +139,7 @@ const iconMap = {
 
 export function ProfitPilotPage() {
   const [isClient, setIsClient] = useState(false);
-  const [inputs, setInputs] = useState(initialInputs);
+  const [inputs, setInputs] = useState<ProfitPilotInputs>(initialInputs);
   const [calculated, setCalculated] = useState({
     grossProfitUnit: 0,
     breakevenRoas: 0,
@@ -101,20 +165,36 @@ export function ProfitPilotPage() {
     adCostPercent: 0,
     priceBeforeVat: 0,
   });
-  const [automationRules, setAutomationRules] = useState([]);
-  const [uiTitles, setUiTitles] = useState({ productInfoTitle: 'ข้อมูลสินค้า', costCalculationTitle: 'คำนวณต้นทุน', goalsAndResultsTitle: 'เป้าหมายและผลลัพธ์', advancedPlanningTitle: 'Advanced Planning' });
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
+  const [uiTitles, setUiTitles] = useState<UiTitles>({
+    productInfoTitle: 'ข้อมูลสินค้า',
+    costCalculationTitle: 'คำนวณต้นทุน',
+    goalsAndResultsTitle: 'เป้าหมายและผลลัพธ์',
+    advancedPlanningTitle: 'Advanced Planning',
+  });
   const [activeTab, setActiveTab] = useState('metrics');
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {} });
-  const [n8nWorkflow, setN8nWorkflow] = useState({ json: null, loading: false });
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+  const [n8nWorkflow, setN8nWorkflow] = useState<N8nWorkflowState>({
+    json: null,
+    loading: false,
+  });
   const [theme, setTheme] = useState('dark');
-  const [funnelStageFilter, setFunnelStageFilter] = useState('all');
-  const [aiAdvice, setAiAdvice] = useState({ recommendations: '', insights: '', loading: false });
+  const [funnelStageFilter, setFunnelStageFilter] = useState<string>('all');
+  const [aiAdvice, setAiAdvice] = useState<AiAdviceState>({
+    recommendations: '',
+    insights: '',
+    loading: false,
+  });
 
   const { toast } = useToast();
 
-  const computeMetrics = useCallback((inputData) => {
+  const computeMetrics = useCallback((inputData: ProfitPilotInputs) => {
     const newInputs = { ...inputData };
     const sellingPrice = F.num(newInputs.sellingPrice);
     const vatProduct = F.num(newInputs.vatProduct);
@@ -168,7 +248,9 @@ export function ProfitPilotPage() {
     const targetOrdersDaily = targetOrders / 30;
     const adBudgetWithVat = adBudget * (1 + (vatProduct / 100));
 
-    const funnelPlan = funnelPlans[newInputs.funnelPlan] || funnelPlans.launch;
+    const funnelPlan =
+      funnelPlans[newInputs.funnelPlan as keyof typeof funnelPlans] ||
+      funnelPlans.launch;
     const tofuBudget = adBudget * (funnelPlan.tofu / 100);
     const mofuBudget = adBudget * (funnelPlan.mofu / 100);
     const bofuBudget = adBudget * (funnelPlan.bofu / 100);
@@ -234,7 +316,8 @@ export function ProfitPilotPage() {
     };
   }, []);
 
-  const handleInputChange = useCallback((key, value) => {
+  const handleInputChange = useCallback(
+    (key: keyof ProfitPilotInputs, value: ProfitPilotInputs[keyof ProfitPilotInputs]) => {
     setInputs(prev => ({ ...prev, [key]: value }));
   }, []);
 
@@ -252,7 +335,7 @@ export function ProfitPilotPage() {
 
       return {
         key,
-        name: platformFeeLabels[key] || key,
+        name: platformFeeLabels[key as keyof typeof platformFeeLabels] || key,
         fees: {
           platform: key === 'other' ? F.num(platformInputs.platformFee) : fees.platform,
           payment: key === 'other' ? F.num(platformInputs.paymentFee) : fees.payment,
@@ -372,8 +455,8 @@ export function ProfitPilotPage() {
     return () => clearTimeout(timer);
   }, [inputs.productName, inputs.productKeywords, autoDetectBusinessType, isClient]);
 
-  const handlePlatformChange = (value) => {
-    const fees = platformFees[value];
+  const handlePlatformChange = (value: string) => {
+    const fees = platformFees[value as keyof typeof platformFees];
     if (fees) {
       setInputs(prev => ({
         ...prev,
@@ -398,7 +481,7 @@ export function ProfitPilotPage() {
     toast({ title: 'Success', description: `บันทึกแผน "${planName}" สำเร็จ!` });
   };
 
-  const loadHistory = (id) => {
+  const loadHistory = (id: number) => {
     const entry = history.find(item => item.id === id);
     if (entry) {
       setInputs(entry.inputs);
@@ -408,7 +491,7 @@ export function ProfitPilotPage() {
     }
   };
 
-  const deleteHistoryItem = (id) => {
+  const deleteHistoryItem = (id: number) => {
     if (typeof window === 'undefined') return;
     const newHistory = history.filter(item => item.id !== id);
     setHistory(newHistory);
@@ -442,7 +525,10 @@ export function ProfitPilotPage() {
   };
 
   const addRule = () => {
-    const toolConfig = automationToolsConfig[inputs.automationTool];
+    const toolConfig =
+      automationToolsConfig[
+        inputs.automationTool as keyof typeof automationToolsConfig
+      ];
     const newRule = {
       id: Date.now(),
       name: '',
@@ -457,11 +543,13 @@ export function ProfitPilotPage() {
     setAutomationRules(prev => [...prev, newRule]);
   };
   
-  const updateRule = (id, field, value) => {
-    setAutomationRules(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  const updateRule = (id: number, field: keyof AutomationRule, value: string) => {
+    setAutomationRules(prev =>
+      prev.map(r => (r.id === id ? { ...r, [field]: value } : r))
+    );
   };
   
-  const deleteRule = (id) => {
+  const deleteRule = (id: number) => {
     setAutomationRules(prev => prev.filter(r => r.id !== id));
   };
 
@@ -497,15 +585,22 @@ export function ProfitPilotPage() {
     try {
       const { getMetricsAdvice } = await import('./actions');
       const advice = await getMetricsAdvice({
-        businessType: funnelObjectivesData[inputs.businessType]?.name || inputs.businessType,
+        businessType:
+          funnelObjectivesData[
+            inputs.businessType as keyof typeof funnelObjectivesData
+          ]?.name || inputs.businessType,
         profitGoal: F.num(inputs.profitGoal),
         fixedCosts: F.num(inputs.fixedCosts),
         sellingPrice: F.num(inputs.sellingPrice),
         cogs: F.num(inputs.cogs),
         targetRoas: calculated.targetRoas,
         targetCpa: calculated.targetCpa,
-        funnelPlan: funnelPlans[inputs.funnelPlan]?.name || inputs.funnelPlan,
-        metricsPlan: metricsPlans[inputs.metricsPlan]?.name || inputs.metricsPlan,
+        funnelPlan:
+          funnelPlans[inputs.funnelPlan as keyof typeof funnelPlans]?.name ||
+          inputs.funnelPlan,
+        metricsPlan:
+          metricsPlans[inputs.metricsPlan as keyof typeof metricsPlans]?.name ||
+          inputs.metricsPlan,
       });
       setAiAdvice({ ...advice, loading: false });
     } catch (error) {
@@ -514,16 +609,21 @@ export function ProfitPilotPage() {
     }
   }, [inputs, calculated, toast]);
 
-  const selectedMetricsPlan = metricsPlans[inputs.metricsPlan] || metricsPlans.fb_s1_plan;
+  const selectedMetricsPlan =
+    metricsPlans[inputs.metricsPlan as keyof typeof metricsPlans] ||
+    metricsPlans.fb_s1_plan;
   const filteredKpis = useMemo(() => {
     if (funnelStageFilter === 'all') {
       return selectedMetricsPlan.kpis;
     }
     return selectedMetricsPlan.kpis.filter(kpi => kpi.stage === funnelStageFilter);
   }, [selectedMetricsPlan, funnelStageFilter]);
-  const funnelObjectives = funnelObjectivesData[inputs.businessType]?.objectives || funnelObjectivesData.ecommerce_website_campaign.objectives;
+  const funnelObjectives =
+    funnelObjectivesData[
+      inputs.businessType as keyof typeof funnelObjectivesData
+    ]?.objectives || funnelObjectivesData.ecommerce_website_campaign.objectives;
 
-  const getImportanceBadge = (importance) => {
+  const getImportanceBadge = (importance: string) => {
     switch (importance) {
       case 'สูงมาก': return 'bg-red-500 hover:bg-red-600';
       case 'สูง': return 'bg-orange-500 hover:bg-orange-600';
@@ -532,11 +632,21 @@ export function ProfitPilotPage() {
     }
   };
 
-  const currentFunnelPlan = funnelPlans[inputs.funnelPlan] || { tofu: 0, mofu: 0, bofu: 0 };
+  const currentFunnelPlan =
+    funnelPlans[inputs.funnelPlan as keyof typeof funnelPlans] || {
+      tofu: 0,
+      mofu: 0,
+      bofu: 0,
+    };
   const numAccounts = F.num(inputs.numberOfAccounts) || 1;
   
   const funnelLabels = useMemo(() => {
-    const plan = funnelPlans[inputs.funnelPlan] || { tofu: 0, mofu: 0, bofu: 0 };
+    const plan =
+      funnelPlans[inputs.funnelPlan as keyof typeof funnelPlans] || {
+        tofu: 0,
+        mofu: 0,
+        bofu: 0,
+      };
     return {
       TOFU: { title: `TOFU ${plan.tofu}%`, lines: [`งบ/วัน: ${F.formatCurrency(calculated.tofuBudgetPerAccountDaily)}`] },
       MOFU: { title: `MOFU ${plan.mofu}%`, lines: [`งบ/วัน: ${F.formatCurrency(calculated.mofuBudgetPerAccountDaily)}`] },
@@ -552,7 +662,17 @@ export function ProfitPilotPage() {
     };
   }, []);
 
-  const FloatingIcon = ({ icon, className = '', size = 'md', style = {} }) => {
+  const FloatingIcon = ({
+    icon,
+    className = '',
+    size = 'md',
+    style = {},
+  }: {
+    icon: React.ComponentType<{ className?: string }>;
+    className?: string;
+    size?: 'sm' | 'md' | 'lg';
+    style?: React.CSSProperties;
+  }) => {
     const IconComponent = icon;
     const sizeClasses = {
       sm: 'w-6 h-6',
@@ -566,7 +686,7 @@ export function ProfitPilotPage() {
     );
   };
   
-  const FunnelStructure = ({ data }) => {
+  const FunnelStructure = ({ data }: { data: FunnelData[] }) => {
     if (!data || data.length === 0) return null;
 
     const stageBoxWidth = 100;
@@ -723,7 +843,15 @@ export function ProfitPilotPage() {
   ]), [calculated, numAccounts]);
 
 
-  const ReportMetric = ({ label, value, helper }) => (
+  const ReportMetric = ({
+    label,
+    value,
+    helper,
+  }: {
+    label: string;
+    value: string;
+    helper?: string;
+  }) => (
     <div className="p-4 rounded-lg bg-background/60 border border-primary/20 shadow-inner">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-lg font-bold mt-1">{value}</p>
@@ -731,7 +859,17 @@ export function ProfitPilotPage() {
     </div>
   );
 
-  const SummaryInfoCard = ({ title, value, subValue, icon: Icon }) => (
+  const SummaryInfoCard = ({
+    title,
+    value,
+    subValue,
+    icon: Icon,
+  }: {
+    title: string;
+    value: string;
+    subValue?: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }) => (
     <Card className="neumorphic-card">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -1331,10 +1469,18 @@ export function ProfitPilotPage() {
                     <div className="mt-6 relative">
                       <h4 className="font-bold mb-2">Generated Workflow JSON</h4>
                        <div className="p-4 bg-background rounded-lg max-h-96 overflow-auto relative">
-                        <Button size="sm" onClick={() => {
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!n8nWorkflow.json) return;
                             navigator.clipboard.writeText(n8nWorkflow.json);
                             toast({ title: "Copied!", description: "คัดลอก Workflow JSON แล้ว" });
-                        }} className="absolute top-2 right-2 z-10 neon-button secondary"><ClipboardCopy className="w-4 h-4"/>คัดลอก</Button>
+                          }}
+                          className="absolute top-2 right-2 z-10 neon-button secondary"
+                        >
+                          <ClipboardCopy className="w-4 h-4" />
+                          คัดลอก
+                        </Button>
                         <pre className="text-xs whitespace-pre-wrap">{n8nWorkflow.json}</pre>
                       </div>
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
 import { Download, FileSpreadsheet, FileText, File } from "lucide-react";
 import { exportToExcel, exportToPDF, exportToCSV } from "@/lib/export";
 
-interface ExportButtonProps {
+interface ExportButtonProps extends Omit<ButtonProps, "onClick"> {
   data: any[];
   filename: string;
   columns?: { header: string; dataKey: string }[];
@@ -23,6 +23,10 @@ export function ExportButton({
   filename,
   columns,
   title,
+  className,
+  variant = "outline",
+  disabled,
+  ...buttonProps
 }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -53,7 +57,12 @@ export function ExportButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" disabled={isExporting || data.length === 0}>
+        <Button
+          variant={variant}
+          className={className}
+          disabled={disabled || isExporting || data.length === 0}
+          {...buttonProps}
+        >
           <Download className="w-4 h-4 mr-2" />
           {isExporting ? "กำลังส่งออก..." : "ส่งออกข้อมูล"}
         </Button>

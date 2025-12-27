@@ -23,7 +23,7 @@ export function exportToPDF(
   data: any[],
   columns: { header: string; dataKey: string }[],
   filename: string,
-  title: string
+  title?: string
 ) {
   if (!data || data.length === 0) {
     console.warn("No data to export");
@@ -34,7 +34,8 @@ export function exportToPDF(
 
   // Add title
   doc.setFontSize(18);
-  doc.text(title, 14, 20);
+  const safeTitle = title?.trim() || "Export";
+  doc.text(safeTitle, 14, 20);
   
   // Add date
   doc.setFontSize(10);
@@ -83,7 +84,7 @@ export function exportToCSV(data: any[], filename: string) {
 // Helper function for analytics page
 export function formatDataForExport<T>(
   data: T[] | undefined,
-  columnMapping: Record<keyof T, string>
+  columnMapping: Partial<Record<keyof T, string>>
 ): any[] {
   if (!data || !Array.isArray(data) || data.length === 0) {
     return [];
@@ -92,6 +93,7 @@ export function formatDataForExport<T>(
   return data.map((item) => {
     const formatted: Record<string, any> = {};
     Object.entries(columnMapping).forEach(([key, header]) => {
+      if (!header) return;
       const value = item[key as keyof T];
       formatted[header] = value !== undefined && value !== null ? value : "";
     });
