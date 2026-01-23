@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -219,6 +219,10 @@ export function Sidebar() {
   const role = (session?.user?.role as UserRole) || "EMPLOYEE";
   const permissions = useMemo(() => getRolePermissions(role), [role]);
   const isDrawerExpanded = isMobileMenuOpen ? true : isExpanded;
+  const isItemActive = useCallback(
+    (href: string) => pathname === href || pathname.startsWith(`${href}/`),
+    [pathname]
+  );
 
   // Load saved state
   useEffect(() => {
@@ -241,6 +245,20 @@ export function Sidebar() {
       document.body.style.overflow = original;
     };
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      menuStructure.forEach((section) => {
+        if (!section.collapsible) return;
+        const hasActive = section.items.some((item) => isItemActive(item.href));
+        if (hasActive) {
+          next.delete(section.section);
+        }
+      });
+      return next;
+    });
+  }, [isItemActive]);
 
   const toggleExpanded = () => {
     const newState = !isExpanded;
@@ -285,7 +303,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-screen bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 transition-all duration-300 ease-in-out overflow-y-auto light:bg-white light:border-black/10",
+          "fixed top-0 left-0 h-screen bg-slate-950/90 backdrop-blur-2xl border-r border-white/10 z-40 transition-all duration-300 ease-in-out overflow-y-auto light:bg-white light:border-black/10",
           // Width
           isDrawerExpanded ? "w-64" : "w-20",
           // Mobile behavior
@@ -372,27 +390,42 @@ export function Sidebar() {
               return (
                 <div key={section.section}>
                   {isDrawerExpanded && (
-                    <div className="flex items-center justify-between mb-2 px-3">
-                      <h3 className="text-xs font-semibold text-gray-400 uppercase light:text-gray-600">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        section.collapsible ? toggleSection(section.section) : undefined
+                      }
+                      className={cn(
+                        "flex items-center justify-between mb-2 px-3 w-full text-left rounded-md transition-colors",
+                        section.collapsible
+                          ? "hover:bg-white/5"
+                          : "cursor-default",
+                        section.items.some((item) => isItemActive(item.href)) &&
+                          "bg-white/5"
+                      )}
+                    >
+                      <h3 className="text-xs font-semibold text-gray-300 uppercase light:text-gray-600">
                         {section.section}
                       </h3>
                       {section.collapsible && (
-                        <button
-                          onClick={() => toggleSection(section.section)}
-                          className="p-1 hover:bg-white/10 rounded light:hover:bg-black/10"
-                        >
+                        <span className="p-1 rounded light:hover:bg-black/10">
                           {isCollapsed ? (
                             <ChevronDown className="w-4 h-4 text-gray-400" />
                           ) : (
                             <ChevronUp className="w-4 h-4 text-gray-400" />
                           )}
-                        </button>
+                        </span>
                       )}
-                    </div>
+                    </button>
                   )}
 
                   {(!section.collapsible || !isCollapsed || !isDrawerExpanded) && (
-                    <div className="space-y-1">
+                    <div
+                      className={cn(
+                        "space-y-1",
+                        section.collapsible && isDrawerExpanded && "pl-3"
+                      )}
+                    >
                       {visibleItems.map((item) => (
                         <Link
                           key={item.href}
@@ -400,7 +433,7 @@ export function Sidebar() {
                           className={cn(
                             "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
                             !isDrawerExpanded && "justify-center",
-                            pathname === item.href
+                            isItemActive(item.href)
                               ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30 light:from-purple-100 light:to-pink-100 light:text-black light:border-purple-300"
                               : "text-gray-400 hover:text-white hover:bg-white/5 light:text-gray-600 light:hover:text-black light:hover:bg-black/5"
                           )}
