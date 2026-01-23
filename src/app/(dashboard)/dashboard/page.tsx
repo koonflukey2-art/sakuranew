@@ -279,9 +279,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* แถวบนสุด */}
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm text-purple-200/80">สรุปภาพรวมวันนี้</p>
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            Dashboard Overview
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -358,7 +364,7 @@ export default function DashboardPage() {
       )}
 
       {/* การ์ด metric */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <MetricCard
           title="กำไรสุทธิ (หลังหักงบ)"
           value={formatCurrency(netProfitToday)}
