@@ -1,0 +1,196 @@
+export type ParsedLineMessage = {
+  productType: number;
+  quantity: number;
+  amount: number;
+  productName?: string;
+  phone?: string;        // digits only
+  customerName?: string;
+  address?: string;
+};
+
+function normalizeLines(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+}
+
+function isIntLine(s: string) {
+  return /^[0-9]{1,4}$/.test(s.trim());
+}
+
+function extractAmount(lines: string[]) {
+  const re =
+    /(เก็บยอด|ยอดเก็บ)\s*[:：]?\s*(?:฿\s*)?([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:บาท)?/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) {
+      const amt = Number(String(m[2]).replace(/,/g, ""));
+      if (Number.isFinite(amt) && amt > 0) return { amount: amt, index: i };
+    }
+  }
+  return { amount: null as number | null, index: -1 };
+}
+
+function extractPhone(lines: string[]) {
+  // จับ: 0912345678, 098 123 4568, 095-503-0658
+  const phoneRe = /0\d[\d\s-]{7,14}\d/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(phoneRe);
+    if (m) {
+      const digits = m[0].replace(/\D/g, "");
+      if (digits.startsWith("0") && (digits.length === 9 || digits.length === 10)) {
+        return { phone: digits, index: i };
+      }
+    }
+  }
+  return { phone: null as string | null, index: -1 };
+}
+
+
+
+export function parseLineMessage(raw: string): ParsedLineMessage | null {
+  const lines = raw
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) return null;
+
+  const PHONE_RE = /0\d[\d -]{7,14}\d/g;
+
+  const normalizePhone = (t: string) => {
+    const m = t.match(PHONE_RE);
+    if (!m) return "";
+    for (const hit of m) {
+      const digits = hit.replace(/\D/g, "");
+      if ((digits.length === 9 || digits.length === 10) && digits.startsWith("0")) return digits;
+    }
+    return "";
+  };
+
+  const stripPhone = (t: string) => t.replace(PHONE_RE, "").trim();
+
+  const isDigitsOnly = (t: string) => /^\d+$/.test(t.trim());
+
+  const extractAmount = () => {
+    const joined = lines.join(" ").replace(/,/g, "");
+    // เน้นจับจากบรรทัดที่มี "ยอด/เก็บยอด"
+    const preferred = lines.find((l) => /ยอด|เก็บ/i.test(l)) ?? joined;
+    const m =
+      preferred.replace(/,/g, "").match(/(?:ยอด\s*เก็บ|เก็บ\s*ยอด|ยอดเก็บ|เก็บเงิน|ยอด)\s*[:：]?\s*(\d+(?:\.\d+)?)/i) ||
+      preferred.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+
+    if (!m) return 0;
+    const num = parseFloat(m[1] ?? m[0]);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const isAddressLine = (l: string) => {
+    // keyword ที่อยู่ / รหัสไปรษณีย์ / มีตัวเลขบ้าน
+    if (/(ซอย|ถนน|หมู่|ม\.|ต\.|อ\.|จ\.|เขต|แขวง|ตำบล|อำเภอ|จังหวัด)/.test(l)) return true;
+    if (/\b\d{5}\b/.test(l)) return true;
+    if (/\d/.test(l)) return true;
+    return false;
+  };
+
+  // 1) productType = บรรทัดแรกที่เป็นเลขล้วน
+  const firstNumLineIndex = lines.findIndex((l) => isDigitsOnly(l));
+  const productType = firstNumLineIndex >= 0 ? parseInt(lines[firstNumLineIndex], 10) : NaN;
+  if (!Number.isFinite(productType) || productType <= 0) return null;
+
+  // 2) quantity = บรรทัดท้ายที่เป็นเลขล้วน (มักจะเป็นจำนวน)
+  let quantity = 1;
+  const lastNumLineIndexFromEnd = [...lines].reverse().findIndex((l) => isDigitsOnly(l));
+  const lastNumLineIndex =
+    lastNumLineIndexFromEnd >= 0 ? lines.length - 1 - lastNumLineIndexFromEnd : -1;
+
+  if (lastNumLineIndex >= 0 && lastNumLineIndex !== firstNumLineIndex) {
+    const q = parseInt(lines[lastNumLineIndex], 10);
+    if (Number.isFinite(q) && q > 0 && q < 9999) quantity = q;
+  }
+
+  // 3) phone = จากทั้งข้อความ
+  const phone = normalizePhone(raw);
+
+  // 4) amount = จากบรรทัดยอด/เก็บยอด
+  const amount = extractAmount();
+  if (!amount || amount <= 0) return null;
+
+  // 5) เอาบรรทัดที่ไม่ใช่ productType/quantity และตัดคำรก ๆ
+  const omitIdx = new Set<number>([firstNumLineIndex, lastNumLineIndex]);
+  const cleaned = lines
+    .map((l, idx) => ({ l, idx }))
+    .filter(({ idx }) => !omitIdx.has(idx))
+    .map(({ l }) =>
+      l
+        .replace(/^(สั่ง.*?ส่ง)\s*/i, "") // เช่น "สั่ง2แถม1 ส่ง ..."
+        .replace(/^(เก็บปลายทาง|เก็บเงินปลายทาง|COD)\s*/i, "")
+        .trim()
+    )
+    .filter(Boolean);
+
+  // 6) แยกเป็น addressCandidates vs nameCandidates
+  const addressCandidates: string[] = [];
+  const nameCandidates: string[] = [];
+
+  for (const l0 of cleaned) {
+    let l = stripPhone(l0)
+      .replace(/^(โทร|tel|phone|t)\s*[:：]?\s*/i, "")
+      .trim();
+
+    if (!l) continue;
+
+    // ถ้าบรรทัดมีคำว่า "ส่ง ชื่อ..." ให้ดึงเป็นชื่อก่อน
+    const sendMatch = l.match(/ส่ง\s+(.+)/);
+    if (sendMatch && sendMatch[1]) {
+      const name = sendMatch[1].trim();
+      if (name) nameCandidates.push(name);
+      continue;
+    }
+
+    if (isAddressLine(l)) addressCandidates.push(l);
+    else nameCandidates.push(l);
+  }
+
+  // 7) ถ้ายังไม่มีชื่อ: ใช้ "บรรทัดท้ายสุดที่ไม่เหมือนที่อยู่" เป็นชื่อ
+  let customerName = "";
+  if (nameCandidates.length > 0) {
+    customerName = nameCandidates[nameCandidates.length - 1].trim();
+  } else {
+    // fallback: ถ้าทุกบรรทัดเป็น address ให้ไม่เดา (กันจังหวัดกลายเป็นชื่อ)
+    customerName = "ลูกค้า LINE";
+  }
+
+  // 8) address = รวม addressCandidates แต่ถ้าสุดท้ายของมันคือชื่อซ้ำ ให้ตัดทิ้ง
+  let address = addressCandidates.join(" ").replace(/\s+/g, " ").trim();
+
+  // กันเคสชื่อถูกลากไปอยู่ใน address
+  if (customerName && address.endsWith(customerName)) {
+    address = address.slice(0, Math.max(0, address.length - customerName.length)).trim();
+  }
+
+  // ถ้า address ว่างจริง ๆ ให้ลองเอาบรรทัดที่เหลือ (ที่ไม่ใช่ชื่อ) มาเป็น address
+  if (!address) {
+    const leftovers = cleaned
+      .map((x) => stripPhone(x))
+      .filter((x) => x && x !== customerName);
+    address = leftovers.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  const productName = `สินค้าประเภท ${productType}`;
+
+  return {
+    productType,
+    productName,
+    amount,
+    quantity,
+    customerName,
+    phone: phone || `UNKNOWN-${Date.now()}`,
+    address: address || "จาก LINE",
+  };
+}
+
+

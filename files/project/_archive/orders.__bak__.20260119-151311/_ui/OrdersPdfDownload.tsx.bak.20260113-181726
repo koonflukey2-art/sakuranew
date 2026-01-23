@@ -1,0 +1,48 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+
+export default function OrdersPdfDownload() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [downloading, setDownloading] = useState(false);
+
+  const onDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/orders/report/pdf?date=${date}`);
+      if (!res.ok) throw new Error("download failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `orders-${date}.pdf`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-end gap-2">
+      <div className="grid gap-1">
+        <label className="text-xs text-muted-foreground">Report date</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="h-9 rounded-md border px-2 text-sm bg-background"
+        />
+      </div>
+
+      <Button onClick={onDownload} disabled={downloading}>
+        {downloading ? "Generating…" : "Download PDF"}
+      </Button>
+    </div>
+  );
+}

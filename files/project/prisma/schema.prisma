@@ -1,0 +1,937 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================
+// ENUMS
+// ============================
+
+enum Role {
+  ADMIN
+  STOCK
+  EMPLOYEE
+}
+
+enum StockType {
+  ADD
+  REMOVE
+  ADJUST
+}
+
+enum BudgetRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+// เดิมใช้กับ AdCampaign แต่ตอนนี้ใช้ AdPlatform แทน
+enum Platform {
+  FACEBOOK
+  TIKTOK
+  LAZADA
+  SHOPEE
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+  BUDGET_APPROVED
+  BUDGET_ALERT
+  BUDGET_REQUEST
+  LOW_STOCK
+  CAMPAIGN_COMPLETE
+  AI_ALERT
+}
+
+enum ProviderType {
+  GEMINI
+  OPENAI
+  N8N
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AdPlatform {
+  FACEBOOK
+  GOOGLE
+  TIKTOK
+  LINE
+}
+
+enum ExternalPlatform {
+  FACEBOOK_ADS
+  TIKTOK_ADS
+  LAZADA
+  SHOPEE
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ============================
+// ORGANIZATION
+// ============================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users               User[]
+  products            Product[]
+  budgets             Budget[]
+  capitalBudgets      CapitalBudget[]
+  budgetRequests      BudgetRequest[]
+  adCampaigns         AdCampaign[]
+  adAccounts          AdAccount[]
+  aiProviders         AIProvider[]
+  platformCredentials PlatformCredential[]
+  customers           Customer[]
+  orders              Order[]
+  productTypes        ProductType[]
+  lineSettings        LINESettings?
+  promotions          Promotion[]
+  systemSettings      SystemSettings?
+
+  // ✅ เพิ่ม relation ฝั่งตรงข้ามให้ FacebookAdsStatement
+  facebookAdsStatements FacebookAdsStatement[]
+}
+
+// ============================
+// USER
+// ============================
+
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  password String?
+  name     String?
+  role     Role    @default(EMPLOYEE)
+
+  // ✅ ผูกกับ Organization (optional เผื่อ user เก่า)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  notifications        Notification[]
+  stockHistory         StockHistory[]
+  chatSessions         ChatSession[]
+  aiConversations      AIConversation[]
+  facebookAdInsights   FacebookAdInsight[]
+  aiProductSuggestions AIProductSuggestion[]
+
+  // BudgetRequest เป็นฝั่ง requester
+  budgetRequests BudgetRequest[] @relation("BudgetRequestRequester")
+
+  AutomationRule AutomationRule[]
+  MetricsPlan    MetricsPlan[]
+
+  // ✅ FIX: ฝั่งตรงข้ามของ Order.cancelledByUser (แก้ error P1012)
+  cancelledOrders Order[] @relation("OrderCancelledByUser")
+
+  @@index([organizationId])
+  lastSeenAt DateTime?
+
+}
+
+// ============================
+// PRODUCT / PROMOTION / TYPE
+// ============================
+
+model Product {
+  id              String   @id @default(cuid())
+  name            String
+  category        String?
+  productType     Int
+  productTypeName String?
+  quantity        Int      @default(0)
+  minStockLevel   Int      @default(10)
+  costPrice       Float
+  sellPrice       Float
+  budgetUsed      Float    @default(0) // Track budget allocated to this product
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stockHistory  StockHistory[]
+  aiSuggestions AIProductSuggestion[]
+  promotions    Promotion[]
+
+  @@index([organizationId])
+  @@index([productType])
+}
+
+model Promotion {
+  id             String  @id @default(cuid())
+  organizationId String
+  productId      String
+  product        Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  buyQuantity     Int
+  freeQuantity    Int
+  discountPercent Float?
+  discountAmount  Float?
+
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([productId])
+  @@index([isActive])
+}
+
+model ProductType {
+  id             String   @id @default(cuid())
+  organizationId String
+  typeNumber     Int
+  typeName       String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, typeNumber])
+  @@index([organizationId])
+}
+
+model StockHistory {
+  id        String    @id @default(cuid())
+  productId String
+  type      StockType
+  quantity  Int
+  reason    String?
+  createdAt DateTime  @default(now())
+  userId    String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([userId])
+}
+
+// ============================
+// BUDGET
+// ============================
+
+model Budget {
+  id             String @id @default(cuid())
+  organizationId String
+
+  // Budget info
+  name        String?
+  totalAmount Float
+  remaining   Float
+  description String?
+
+  // Budget items (expense breakdown)
+  items BudgetItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model BudgetItem {
+  id       String @id @default(cuid())
+  budgetId String
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  name     String
+  amount   Float
+  quantity Int     @default(1)
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([budgetId])
+}
+
+model CapitalBudget {
+  id             String   @id @default(cuid())
+  amount         Float
+  remaining      Float
+  minThreshold   Float    @default(5000)
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions CapitalBudgetTransaction[]
+
+  @@index([organizationId])
+}
+
+model CapitalBudgetTransaction {
+  id             String   @id @default(cuid())
+  budgetId       String
+  type           String
+  amount         Float
+  description    String?
+  productId      String?
+  orderId        String?
+  createdBy      String
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  budget CapitalBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model BudgetRequest {
+  id      String @id @default(cuid())
+  amount  Float
+  purpose String
+
+  description String?
+  status      BudgetRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  requesterId String
+  requester   User   @relation("BudgetRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewNote String?
+
+  @@index([organizationId])
+  @@index([requesterId])
+}
+
+// ============================
+// ADS
+// ============================
+
+model AdCampaign {
+  id           String     @id @default(cuid())
+  platform     AdPlatform
+  campaignName String
+  budget       Float
+  spent        Float      @default(0)
+  remaining    Float      @default(0)
+
+  impressions Int @default(0)
+  reach       Int @default(0)
+  clicks      Int @default(0)
+  conversions Int @default(0)
+
+  ctr  Float @default(0)
+  cpc  Float @default(0)
+  cpm  Float @default(0)
+  cpa  Float @default(0)
+  roas Float @default(0)
+  roi  Float @default(0)
+
+  revenue      Float @default(0)
+  profit       Float @default(0)
+  profitMargin Float @default(0)
+
+  status    CampaignStatus @default(ACTIVE)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  adAccountId String?
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  receipts AdReceipt[]
+  metrics  AdMetrics[]
+
+  @@index([organizationId])
+  @@index([adAccountId])
+  @@index([platform])
+  @@index([status])
+}
+
+model AdAccount {
+  id String @id @default(cuid())
+
+  platform    AdPlatform
+  accountName String
+  accountId   String
+
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isActive    Boolean   @default(true)
+  isDefault   Boolean   @default(false)
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
+
+  currency  String   @default("THB")
+  timezone  String   @default("Asia/Bangkok")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  campaigns        AdCampaign[]
+  facebookInsights FacebookAdInsight[]
+  AutomationRule   AutomationRule[]
+
+  @@unique([organizationId, platform, accountId])
+  @@index([organizationId])
+  @@index([platform, isDefault])
+}
+
+model PlatformCredential {
+  id String @id @default(cuid())
+
+  platform     ExternalPlatform
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+
+  isValid     Boolean   @default(false)
+  lastTested  DateTime?
+  testMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, platform])
+  @@index([organizationId])
+}
+
+model AdReceipt {
+  id             String      @id @default(cuid())
+  organizationId String
+  campaignId     String?
+  campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  receiptNumber String @unique
+  platform      String
+  paymentMethod String
+
+  amount   Float
+  currency String @default("THB")
+
+  receiptUrl String?
+  qrCodeData String?
+
+  fileHash String? @db.Char(64)
+  qrHash   String? @db.Char(64)
+
+  isProcessed Boolean   @default(false)
+  processedAt DateTime?
+
+  paidAt DateTime @default(now())
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, fileHash])
+  @@unique([organizationId, qrHash])
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([platform])
+  @@index([isProcessed])
+  @@index([paidAt])
+}
+
+model AdMetrics {
+  id             String     @id @default(cuid())
+  organizationId String
+  campaignId     String
+  campaign       AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  date DateTime
+
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  conversions Int   @default(0)
+  spent       Float @default(0)
+  revenue     Float @default(0)
+
+  ctr  Float @default(0)
+  cpc  Float @default(0)
+  cpa  Float @default(0)
+  roas Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, date])
+  @@index([organizationId])
+  @@index([date])
+  @@index([campaignId])
+}
+
+model FacebookAdsStatement {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  period      String
+  startDate   DateTime
+  endDate     DateTime
+  totalAmount Float
+  vat         Float
+
+  fileUrl  String
+  fileName String
+  fileHash String?
+
+  source        String  @default("WEB")
+  lineMessageId String?
+
+  isProcessed Boolean   @default(false)
+  processedAt DateTime?
+  notes       String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, fileHash])
+  @@index([organizationId, startDate])
+  @@index([source])
+}
+
+// ============================
+// PROFIT / KPI
+// ============================
+
+model Profit {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  revenue   Float
+  costs     Float
+  netProfit Float
+  createdAt DateTime @default(now())
+}
+
+model KPI {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String
+  date           DateTime
+
+  totalRevenue Float @default(0)
+  totalCost    Float @default(0)
+  totalProfit  Float @default(0)
+  profitMargin Float @default(0)
+
+  productsSold  Int   @default(0)
+  avgOrderValue Float @default(0)
+
+  stockTurnover  Float @default(0)
+  costEfficiency Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, date])
+  @@index([organizationId, period])
+}
+
+model ProfitTarget {
+  id             String   @id @default(cuid())
+  organizationId String
+  productType    Int?
+  targetMargin   Float
+  minMargin      Float
+  alertThreshold Float
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, productType])
+}
+
+// ============================
+// NOTIFICATION
+// ============================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================
+// AI
+// ============================
+
+model AIProvider {
+  id          String       @id @default(cuid())
+  provider    ProviderType
+  apiKey      String
+  modelName   String?
+  isActive    Boolean      @default(false)
+  isDefault   Boolean      @default(false)
+  isValid     Boolean      @default(false)
+  lastTested  DateTime?
+  testMessage String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([isDefault])
+}
+
+model ChatSession {
+  id        String       @id @default(cuid())
+  userId    String
+  title     String       @default("New Chat")
+  provider  ProviderType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  role      MessageRole
+  content   String      @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model AutomationRule {
+  id        String   @id @default(cuid())
+  platform  String
+  tool      String
+  ruleName  String
+  condition Json
+  action    Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId      String
+  adAccountId String?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([adAccountId])
+}
+
+model WorkflowTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  template    Json
+  category    String
+  createdAt   DateTime @default(now())
+}
+
+model MetricsPlan {
+  id           String   @id @default(cuid())
+  templateName String
+  targets      Json
+  actual       Json?
+  period       String
+  createdAt    DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AIConversation {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String @default("New Conversation")
+  provider String
+  messages Json
+  context  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model FacebookAdInsight {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  campaignId   String
+  campaignName String
+
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  spend       Float @default(0)
+  reach       Int   @default(0)
+  conversions Int   @default(0)
+  ctr         Float @default(0)
+  cpc         Float @default(0)
+  cpm         Float @default(0)
+  roas        Float @default(0)
+
+  aiRecommendation  String?
+  optimizationScore Float?
+
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([adAccountId, campaignId, date])
+  @@index([userId])
+  @@index([adAccountId])
+}
+
+model AIProductSuggestion {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productName String
+  category    String
+  description String @db.Text
+
+  aiProvider String
+  confidence Float
+  isApplied  Boolean @default(false)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============================
+// CUSTOMER & ORDER
+// ============================
+
+model Customer {
+  id             String       @id @default(cuid())
+  name           String
+  phone          String
+  address        String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders         Order[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([phone])
+}
+
+model Order {
+  id             String @id @default(cuid())
+  organizationId String
+
+  orderNumber   String?
+  dailySequence Int?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  productType Int?
+  productName String?
+  quantity    Int     @default(1)
+
+  amount    Float
+  unitPrice Float @default(0)
+
+  source     String      @default("MANUAL")
+  status     OrderStatus @default(PENDING)
+  notes      String?
+  rawMessage String?
+
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  // ✅ FIX: ใส่ชื่อ relation ให้จับคู่กับ User.cancelledOrders
+  cancelledByUser   User?     @relation("OrderCancelledByUser", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  orderDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([orderDate])
+  @@index([customerId])
+  @@index([productType])
+  @@index([status])
+  @@index([dailySequence])
+  @@index([cancelledByUserId])
+}
+
+// ============================
+// LINE SETTINGS
+// ============================
+
+model LINESettings {
+  id                 String       @id @default(cuid())
+  channelAccessToken String?
+  channelSecret      String?
+  webhookUrl         String?
+  isActive           Boolean      @default(false)
+  organizationId     String       @unique
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ============================
+// DAILY SUMMARY
+// ============================
+
+model DailySummary {
+  id             String   @id @default(cuid())
+  date           DateTime
+  organizationId String
+
+  totalRevenue Float @default(0)
+  totalCost    Float @default(0)
+  totalProfit  Float @default(0)
+  totalOrders  Int   @default(0)
+
+  productsSold Json
+
+  createdAt  DateTime @default(now())
+  cutOffTime DateTime
+
+  @@unique([organizationId, date])
+  @@index([organizationId, date])
+  @@index([date])
+}
+
+// ============================
+// SYSTEM SETTINGS
+// ============================
+
+model SystemSettings {
+  id String @id @default(cuid())
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  dailyCutOffHour   Int @default(23)
+  dailyCutOffMinute Int @default(59)
+
+  dailySummaryLastSentAt DateTime?
+
+  lastCutOffTime       DateTime?
+  currentDailySequence Int       @default(0)
+
+  lineNotifyToken        String?
+  lineChannelAccessToken String?
+  lineChannelSecret      String?
+  lineWebhookUrl         String?
+  lineTargetId           String?
+
+  adsLineNotifyToken        String?
+  adsLineChannelAccessToken String?
+  adsLineChannelSecret      String?
+  adsLineWebhookUrl         String?
+
+  adminEmails String?
+
+  notifyOnOrder      Boolean @default(true)
+  notifyOnLowStock   Boolean @default(true)
+  notifyDailySummary Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}

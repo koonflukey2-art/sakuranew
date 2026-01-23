@@ -1,0 +1,90 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getToken } from "next-auth/jwt";
+import { cookies } from "next/headers";
+
+export const runtime = "nodejs";
+
+function pickUserIdFromToken(token: any): string | null {
+  return (
+    (token?.sub ? String(token.sub) : null) ||
+    (token?.id ? String(token.id) : null) ||
+    (token?.userId ? String(token.userId) : null) ||
+    (token?.user?.id ? String(token.user.id) : null) ||
+    null
+  );
+}
+
+function pickSessionTokenFromCookies(): string | null {
+  const c = cookies();
+  return (
+    c.get("__Secure-authjs.session-token")?.value ||
+    c.get("authjs.session-token")?.value ||
+    c.get("__Secure-next-auth.session-token")?.value ||
+    c.get("next-auth.session-token")?.value ||
+    null
+  );
+}
+
+async function resolveUserId(req: NextRequest): Promise<string | null> {
+  const secret = process.env.NEXTAUTH_SECRET;
+  const isHttps = (process.env.NEXTAUTH_URL || "").startsWith("https://");
+
+  try {
+    const token = await getToken({
+      req: req as any,
+      secret,
+      secureCookie: isHttps,
+    } as any);
+
+    const uid = pickUserIdFromToken(token);
+    if (uid) return uid;
+  } catch {}
+
+  const sessionToken = pickSessionTokenFromCookies();
+  if (!sessionToken) return null;
+
+  const anyPrisma = prisma as any;
+  if (!anyPrisma.session?.findUnique) return null;
+
+  const sess = await anyPrisma.session.findUnique({
+    where: { sessionToken },
+    select: { userId: true },
+  });
+
+  return sess?.userId ? String(sess.userId) : null;
+}
+
+export async function GET(req: NextRequest) {
+  const userId = await resolveUserId(req);
+  if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
+  const me = await prisma.user.findUnique({
+    where: { id: String(userId) },
+    select: { organizationId: true },
+  });
+
+  const now = new Date();
+  const onlineWindowMs = 2 * 60 * 1000;
+
+  const users = await prisma.user.findMany({
+    where: me?.organizationId ? { organizationId: me.organizationId } : undefined,
+    orderBy: [{ name: "asc" }, { email: "asc" }],
+    select: { id: true, name: true, email: true, role: true, lastSeenAt: true },
+  });
+
+  const data = users.map((u) => {
+    const last = u.lastSeenAt ? new Date(u.lastSeenAt) : null;
+    const msAgo = last ? now.getTime() - last.getTime() : null;
+    const online = msAgo !== null && msAgo >= 0 && msAgo <= onlineWindowMs;
+
+    return {
+      ...u,
+      lastSeenAt: last ? last.toISOString() : null,
+      online,
+      msAgo,
+    };
+  });
+
+  return NextResponse.json({ ok: true, now: now.toISOString(), onlineWindowMs, users: data }, { status: 200 });
+}

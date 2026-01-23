@@ -1,0 +1,218 @@
+export type ParsedLineMessage = {
+  productType: number;
+  quantity: number;
+  amount: number;
+  productName?: string;
+  phone?: string;        // digits only
+  customerName?: string;
+  address?: string;
+};
+
+function normalizeLines(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+}
+
+function isIntLine(s: string) {
+  return /^[0-9]{1,4}$/.test(s.trim());
+}
+
+function extractAmount(lines: string[]) {
+  const re =
+    /(เก็บยอด|ยอดเก็บ)\s*[:：]?\s*(?:฿\s*)?([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:บาท)?/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) {
+      const amt = Number(String(m[2]).replace(/,/g, ""));
+      if (Number.isFinite(amt) && amt > 0) return { amount: amt, index: i };
+    }
+  }
+  return { amount: null as number | null, index: -1 };
+}
+
+function extractPhone(lines: string[]) {
+  // จับ: 0912345678, 098 123 4568, 095-503-0658
+  const phoneRe = /0\d[\d\s-]{7,14}\d/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(phoneRe);
+    if (m) {
+      const digits = m[0].replace(/\D/g, "");
+      if (digits.startsWith("0") && (digits.length === 9 || digits.length === 10)) {
+        return { phone: digits, index: i };
+      }
+    }
+  }
+  return { phone: null as string | null, index: -1 };
+}
+
+export function parseLineMessage(raw: string): ParsedLineMessage | null {
+  const message = (raw || "").replace(/\r/g, "").trim();
+  if (!message) return null;
+
+  const rawLines = message
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (rawLines.length < 2) return null;
+
+  // ---------- helpers ----------
+  const stripNoise = (line: string) => {
+    return line
+      .replace(/\b(จาก\s*LINE|ลูกค้า\s*LINE|ส่งจาก\s*LINE)\b/gi, "")
+      .replace(/\b(เก็บปลายทาง|COD|ปลายทาง)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const isQtyLine = (line: string) => /^\d+$/.test(line) && line.length < 5;
+
+  const extractProductTypeFromHeader = (line: string): number | null => {
+    // รองรับ: "13:52 น 1" หรือ "15:48 Fon😂😅 2"
+    if (!/^\d{1,2}:\d{2}/.test(line)) return null;
+    const nums = line.match(/\d+/g) || [];
+    if (!nums.length) return null;
+    const last = parseInt(nums[nums.length - 1], 10);
+    if (!Number.isFinite(last) || last <= 0) return null;
+    return last;
+  };
+
+  const extractThaiPhone = (text: string): string | null => {
+    // รองรับ "โทร 083..." และ "T 099..."
+    const m1 = text.match(/(?:โทร|tel|phone|T)\s*[:：]?\s*(0\d[\d -]{7,14}\d)/i);
+    if (m1) {
+      const digits = m1[1].replace(/\D/g, "");
+      if ((digits.length === 9 || digits.length === 10) && digits.startsWith("0")) return digits;
+    }
+
+    const matches = text.match(/0\d[\d -]{7,14}\d/g);
+    if (!matches) return null;
+
+    for (const m of matches) {
+      const digits = m.replace(/\D/g, "");
+      if ((digits.length === 9 || digits.length === 10) && digits.startsWith("0")) return digits;
+    }
+    return null;
+  };
+
+  const stripPhoneFromLine = (line: string) =>
+    line
+      .replace(/0\d[\d -]{7,14}\d/g, "")
+      .replace(/(?:โทร|tel|phone|T)\s*[:：]?/gi, "")
+      .trim();
+
+  const splitNameAddressOneLine = (line: string): { name: string; address: string } => {
+    const cleaned = stripNoise(stripPhoneFromLine(line));
+    const m = cleaned.match(/\d+/); // เลขบ้านครั้งแรก
+    if (m && m.index !== undefined && m.index > 0) {
+      const idx = m.index;
+      return { name: cleaned.slice(0, idx).trim(), address: cleaned.slice(idx).trim() };
+    }
+    return { name: cleaned.trim(), address: "" };
+  };
+
+  const extractAmount = (lines: string[]): number => {
+    // รองรับ: "เก็บยอด 390 บาท", "ยอดเก็บ 390", "เก็บ 390"
+    for (const l of lines) {
+      const m =
+        l.match(/(?:ยอดเก็บ|เก็บยอด|เก็บ)\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i) ||
+        l.match(/([0-9][0-9,]*(?:\.\d{1,2})?)\s*บาท/i);
+      if (m) {
+        const n = parseFloat(m[1].replace(/,/g, ""));
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return 0;
+  };
+
+  // ---------- main ----------
+  let lines = [...rawLines];
+
+  // 1) quantity: เอาจากท้าย ถ้าเป็นเลขล้วน
+  let quantity = 1;
+  if (lines.length && isQtyLine(lines[lines.length - 1])) {
+    quantity = parseInt(lines[lines.length - 1], 10) || 1;
+    lines = lines.slice(0, -1);
+  }
+
+  // 2) productType: ดึงจาก header เวลา ถ้ามี (แล้วลบทิ้ง)
+  let productType: number | null = null;
+  const headerIdx = lines.findIndex((l) => /^\d{1,2}:\d{2}/.test(l));
+  if (headerIdx >= 0) {
+    const t = extractProductTypeFromHeader(lines[headerIdx]);
+    if (t) productType = t;
+    lines.splice(headerIdx, 1);
+  }
+
+  // fallback: ถ้าบรรทัดแรกเป็นเลขล้วน
+  if (!productType && lines.length && /^\d+$/.test(lines[0])) {
+    productType = parseInt(lines[0], 10);
+    lines = lines.slice(1);
+  }
+
+  if (!productType) return null;
+
+  // 3) amount: หาในทุกบรรทัด แล้วลบ “บรรทัดยอด” ออกไม่ให้ไหลไปเป็นที่อยู่
+  const amount = extractAmount(lines);
+  lines = lines.filter((l) => !/(ยอดเก็บ|เก็บยอด|เก็บ)\s*\d/i.test(l));
+
+  // 4) phone: หาในทั้งข้อความ
+  const phone = extractThaiPhone(message) || `UNKNOWN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+  // 5) ตัดบรรทัดที่มีโทรศัพท์ออกจาก lines เพื่อไม่ให้ปนใน address
+  lines = lines
+    .map((l) => stripNoise(l))
+    .filter((l) => l.length > 0)
+    .filter((l) => !/0\d[\d -]{7,14}\d/.test(l) && !/(?:โทร|tel|phone|T)\s*[:：]?\s*0/i.test(l));
+
+  // 6) หา segment ชื่อ/ที่อยู่
+  // เคสพิเศษ: มีคำว่า "ส่ง ..."
+  let customerName = "";
+  let address = "";
+
+  const joined = " " + lines.join(" ") + " ";
+  const sendMatch = joined.match(/\bส่ง\b([\s\S]*)/);
+  if (sendMatch) {
+    const afterSend = stripNoise(sendMatch[1]).trim();
+    const { name, address: a } = splitNameAddressOneLine(afterSend);
+    customerName = name;
+    address = a;
+  } else {
+    // ปกติ: บรรทัดแรกเป็นชื่อ ที่เหลือเป็นที่อยู่
+    const first = lines[0] || "";
+    const rest = lines.slice(1);
+
+    // ถ้าชื่อบรรทัดแรกติดเลขบ้าน -> split ได้เลย (เช่น จันทร์แก้ว...21หมู่3...)
+    const split = splitNameAddressOneLine(first);
+    customerName = split.name;
+    address = split.address;
+
+    const tail = rest
+      .map((l) => stripNoise(stripPhoneFromLine(l)))
+      .filter((l) => l.length > 0 && !isQtyLine(l))
+      .join(" ")
+      .trim();
+
+    address = [address, tail].filter(Boolean).join(" ").trim();
+  }
+
+  // cleanup address: กัน noise ที่ยังหลง
+  address = stripNoise(stripPhoneFromLine(address)).trim();
+
+  if (!customerName || !amount) return null;
+
+  const unitPrice = amount / Math.max(1, quantity);
+
+  return {
+    productType,
+    productName: `สินค้าประเภท ${productType}`,
+    amount,
+    quantity,
+    customerName,
+    phone,
+    address,
+  };
+}

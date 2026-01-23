@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getToken } from "next-auth/jwt";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+  const userId = (token as any)?.sub || (token as any)?.id || null;
+  if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
+  const me = await prisma.user.findUnique({
+    where: { id: String(userId) },
+    select: { organizationId: true },
+  });
+
+  const now = new Date();
+  const onlineWindowMs = 2 * 60 * 1000; // 2 นาทีล่าสุด = ออนไลน์
+
+  const users = await prisma.user.findMany({
+    where: me?.organizationId ? { organizationId: me.organizationId } : undefined,
+    orderBy: [{ name: "asc" }, { email: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      lastSeenAt: true,
+    },
+  });
+
+  const data = users.map((u) => {
+    const last = u.lastSeenAt ? new Date(u.lastSeenAt) : null;
+    const msAgo = last ? now.getTime() - last.getTime() : null;
+    const online = msAgo !== null && msAgo >= 0 && msAgo <= onlineWindowMs;
+
+    return {
+      ...u,
+      lastSeenAt: last ? last.toISOString() : null,
+      online,
+      msAgo,
+    };
+  });
+
+  return NextResponse.json(
+    { ok: true, now: now.toISOString(), onlineWindowMs, users: data },
+    { status: 200 }
+  );
+}

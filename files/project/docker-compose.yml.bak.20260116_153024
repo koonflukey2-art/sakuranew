@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sakuranew
+      POSTGRES_USER: sakuranew
+      POSTGRES_PASSWORD: DB_PASS_CHANGE_ME
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      UPLOAD_DIR: /data/uploads/statements
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - /opt/sakuranew/data/uploads:/data/uploads
+
+volumes:
+  pgdata:

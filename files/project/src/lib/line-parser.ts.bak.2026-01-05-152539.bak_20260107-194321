@@ -1,0 +1,114 @@
+export type ParsedLineMessage = {
+  productType: number;
+  quantity: number;
+  amount: number;
+  phone?: string;        // digits only (เช่น 0955030658)
+  customerName?: string;
+  address?: string;
+};
+
+function normalizeLines(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+}
+
+function isIntLine(s: string) {
+  return /^[0-9]{1,4}$/.test(s.trim());
+}
+
+function extractAmount(lines: string[]) {
+  // รองรับ: "เก็บยอด 390 บาท", "ยอดเก็บ390", "เก็บยอด: 1,250"
+  const re =
+    /(เก็บยอด|ยอดเก็บ)\s*[:：]?\s*(?:฿\s*)?([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:บาท)?/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) {
+      const amt = Number(String(m[2]).replace(/,/g, ""));
+      if (Number.isFinite(amt) && amt > 0) return { amount: amt, index: i };
+    }
+  }
+  return { amount: null as number | null, index: -1 };
+}
+
+function extractPhone(lines: string[]) {
+  // จับเบอร์ไทยแบบมีช่องว่าง/ขีดได้:
+  // 0912345678, 098 123 4568, 095-503-0658
+  const phoneRe = /0\d[\d\s-]{7,14}\d/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(phoneRe);
+    if (m) {
+      const digits = m[0].replace(/\D/g, "");
+      if (digits.startsWith("0") && (digits.length === 9 || digits.length === 10)) {
+        return { phone: digits, index: i };
+      }
+    }
+  }
+  return { phone: null as string | null, index: -1 };
+}
+
+export function parseLineMessage(raw: string): ParsedLineMessage | null {
+  const lines = normalizeLines(raw);
+  if (lines.length === 0) return null;
+
+  // productType = บรรทัดแรกที่เป็นเลขล้วน
+  const productTypeIndex = lines.findIndex(isIntLine);
+  if (productTypeIndex === -1) return null;
+
+  const productType = parseInt(lines[productTypeIndex], 10);
+  if (!Number.isFinite(productType) || productType <= 0) return null;
+
+  // quantity = บรรทัดท้ายที่เป็นเลขล้วน
+  let quantityIndex = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (isIntLine(lines[i])) {
+      quantityIndex = i;
+      break;
+    }
+  }
+  if (quantityIndex === -1) return null;
+
+  const quantity = parseInt(lines[quantityIndex], 10);
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+
+  // amount
+  const { amount, index: amountIndex } = extractAmount(lines);
+  if (!amount) return null;
+
+  // phone
+  const { phone, index: phoneIndex } = extractPhone(lines);
+
+  // address: หลังบรรทัด amount จนถึงก่อน phone/quantity
+  const startAddr = amountIndex >= 0 ? amountIndex + 1 : productTypeIndex + 1;
+  const endAddrCandidate = [phoneIndex, quantityIndex].filter((x) => x !== -1);
+  const endAddr = endAddrCandidate.length ? Math.min(...endAddrCandidate) : lines.length;
+
+  const addressLines: string[] = [];
+  for (let i = startAddr; i < endAddr; i++) {
+    if (i === productTypeIndex) continue;
+    if (i === quantityIndex) continue;
+    if (i === amountIndex) continue;
+    if (phoneIndex === i) continue;
+    addressLines.push(lines[i]);
+  }
+  const address = addressLines.join("\n").trim() || undefined;
+
+  // customerName: บรรทัดหลัง phone (ก่อน quantity) ถ้ามี
+  let customerName: string | undefined;
+  if (phoneIndex !== -1) {
+    const tail = lines.slice(phoneIndex + 1, quantityIndex);
+    const candidates = tail.filter((l) => !isIntLine(l));
+    customerName = candidates.length ? candidates[candidates.length - 1] : undefined;
+  }
+
+  return {
+    productType,
+    quantity,
+    amount,
+    phone: phone || undefined,
+    customerName,
+    address,
+  };
+}

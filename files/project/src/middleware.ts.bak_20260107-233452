@@ -1,0 +1,43 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+
+const PUBLIC_PREFIXES = [
+  "/auth",
+  "/api/auth",
+  "/api/webhooks/line",
+  "/api/line/webhook",
+  "/_next",
+  "/favicon.ico",
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // allow public paths
+  if (
+    PUBLIC_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p)
+    )
+  ) {
+    return NextResponse.next();
+  }
+
+  // Edge-safe auth check
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+  const token = await getToken({ req: request, secret });
+
+  if (!token) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const url = new URL("/auth/sign-in", request.url);
+    url.searchParams.set("from", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)", "/(api|trpc)(.*)"],
+};

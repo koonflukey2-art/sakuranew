@@ -1,0 +1,245 @@
+
+export interface ParsedOrder {
+  productType: number;
+  productName: string;
+  amount: number;
+  unitPrice: number;
+  quantity: number;
+  customerName: string;
+  phone: string;
+  address: string;
+}
+
+export type ParsedLineMessage = {
+  productType: number;
+  quantity: number;
+  amount: number;
+  productName?: string;
+  phone?: string;        // digits only
+  customerName?: string;
+  address?: string;
+};
+
+function normalizeLines(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+}
+
+function isIntLine(s: string) {
+  return /^[0-9]{1,4}$/.test(s.trim());
+}
+
+function extractAmount(lines: string[]) {
+  const re =
+    /(เก็บยอด|ยอดเก็บ)\s*[:：]?\s*(?:฿\s*)?([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:บาท)?/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) {
+      const amt = Number(String(m[2]).replace(/,/g, ""));
+      if (Number.isFinite(amt) && amt > 0) return { amount: amt, index: i };
+    }
+  }
+  return { amount: null as number | null, index: -1 };
+}
+
+function extractPhone(lines: string[]) {
+  // จับ: 0912345678, 098 123 4568, 095-503-0658
+  const phoneRe = /0\d[\d\s-]{7,14}\d/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(phoneRe);
+    if (m) {
+      const digits = m[0].replace(/\D/g, "");
+      if (digits.startsWith("0") && (digits.length === 9 || digits.length === 10)) {
+        return { phone: digits, index: i };
+      }
+    }
+  }
+  return { phone: null as string | null, index: -1 };
+}
+
+
+
+export function parseLineMessage(message: string): ParsedOrder | null {
+  const raw = String(message ?? "").replace(/\r/g, "").trim();
+  if (!raw) return null;
+
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) return null;
+
+  // ---------- helpers ----------
+  const hasThai = (s: string) => /[ก-๙]/.test(s);
+
+  const phoneRe = /0\d[\d -]{7,14}\d/g; // รองรับ 0953214569 / 095-357-4569 / เว้นวรรค
+  const normalizePhone = (s: string) => s.replace(/\D/g, "");
+  const extractPhone = (text: string) => {
+    const ms = text.match(phoneRe);
+    if (!ms) return null;
+    for (const m of ms) {
+      const d = normalizePhone(m);
+      if ((d.length === 9 || d.length === 10) && d.startsWith("0")) return d;
+    }
+    return null;
+  };
+  const stripPhone = (s: string) => s.replace(phoneRe, "").trim();
+
+  const moneyRe = /(\d+(?:,\d{3})*(?:\.\d+)?)/;
+  const parseMoneyFromLine = (s: string) => {
+    const m = s.match(moneyRe);
+    if (!m) return 0;
+    const n = parseFloat(m[1].replace(/,/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const isQtyLine = (s: string) => /^\d{1,4}$/.test(s); // จำนวน 1-4 หลัก
+  const addressKw = /(ถนน|ซอย|แขวง|เขต|จังหวัด|อ\.|ต\.|จ\.|อำเภอ|ตำบล|หมู่|ม\.|เลขที่|บ้านเลขที่|หมู่บ้าน|คอนโด|อาคาร|ชั้น|กทม|กรุงเทพ|รหัสไปรษณีย์)/;
+
+  const isNameLine = (s: string) => {
+    if (!hasThai(s)) return false;
+    if (/\d/.test(s)) return false;
+    if (addressKw.test(s)) return false;
+    if (/(ยอด|เก็บ|บาท|฿|โทร|tel|phone)/i.test(s)) return false;
+    if (s.length > 60) return false;
+    return true;
+  };
+
+  const splitNameAddressOneLine = (line: string) => {
+    const noPhone = stripPhone(line).replace(/(?:โทร|tel|phone)\s*[:：]?/ig, " ").trim();
+    const m = noPhone.match(/\d/);
+    if (m && m.index !== undefined && m.index > 0) {
+      const idx = m.index;
+      return {
+        name: noPhone.slice(0, idx).trim(),
+        address: noPhone.slice(idx).trim(),
+      };
+    }
+    return { name: noPhone.trim(), address: "" };
+  };
+
+  // ---------- 1) productType ----------
+  const firstLine = lines[0];
+  const typeNum = parseInt(firstLine.replace(/[^\d]/g, ""), 10);
+  if (!Number.isFinite(typeNum) || typeNum <= 0) return null;
+
+  // ---------- 2) quantity (scan from bottom) ----------
+  let qty = 1;
+  let qtyIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (isQtyLine(lines[i])) {
+      qty = Math.max(1, parseInt(lines[i], 10));
+      qtyIdx = i;
+      break;
+    }
+  }
+
+  // ---------- 3) phone ----------
+  const phoneAll = extractPhone(raw) || "";
+  let phoneIdx = -1;
+  if (phoneAll) {
+    for (let i = 0; i < lines.length; i++) {
+      if (extractPhone(lines[i])) { phoneIdx = i; break; }
+    }
+  }
+
+  // ---------- 4) amount (prefer lines with keywords) ----------
+  let amount = 0;
+  let amountIdx = -1;
+
+  const moneyPrefer = /(ยอด|เก็บ|บาท|฿)/i;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (moneyPrefer.test(l)) {
+      const m = parseMoneyFromLine(l);
+      if (m > 0) { amount = m; amountIdx = i; break; }
+    }
+  }
+  if (amount <= 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const m = parseMoneyFromLine(lines[i]);
+      if (m > 0) { amount = m; amountIdx = i; break; }
+    }
+  }
+  if (amount <= 0) return null;
+
+  // ---------- 5) name/address ----------
+  let customerName = "";
+  let address = "";
+
+  // กรณีบรรทัดที่มีเบอร์เป็น "ชื่อ+ที่อยู่+เบอร์" (เคสเก่า)
+  if (phoneIdx >= 0) {
+    const l = lines[phoneIdx];
+    if (hasThai(l) && /\d/.test(stripPhone(l))) {
+      const sp = splitNameAddressOneLine(l);
+      if (sp.name) customerName = sp.name;
+      if (sp.address) address = sp.address;
+    }
+  }
+
+  // candidates (exclude type/amount/qty/phone)
+  const excluded = new Set([0, amountIdx, qtyIdx, phoneIdx].filter((x) => x >= 0));
+  const candidates: { i: number; s: string }[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (excluded.has(i)) continue;
+    candidates.push({ i, s: lines[i] });
+  }
+
+  // ถ้ายังไม่มีชื่อ -> เลือกบรรทัดที่ดูเป็นชื่อ (เอาอันท้ายๆ)
+  if (!customerName) {
+    const nameCandidates = candidates.filter((c) => isNameLine(c.s));
+    if (nameCandidates.length > 0) {
+      customerName = nameCandidates[nameCandidates.length - 1].s;
+      // เอาบรรทัดชื่อออกจาก candidates เพื่อไม่ไปรวมเป็นที่อยู่
+      const idx = candidates.findIndex((c) => c.s == customerName);
+      if (idx >= 0) candidates.splice(idx, 1);
+    }
+  }
+
+  // address: รวมบรรทัดที่เหลือ + (ถ้ามี address จาก split แล้วให้ append)
+  const addrParts: string[] = [];
+  for (const c of candidates) {
+    let s = c.s;
+    s = stripPhone(s);
+    s = s.replace(/(?:โทร|tel|phone)\s*[:：]?\s*$/i, "").trim();
+    if (!s) continue;
+    // กันเอาบรรทัดแปลกๆ ที่เป็นเงิน
+    if (moneyPrefer.test(s) && parseMoneyFromLine(s) > 0) continue;
+    addrParts.push(s);
+  }
+  const tailAddr = addrParts.join(" ").trim();
+  if (!address) address = tailAddr;
+  else if (tailAddr) address = (address + " " + tailAddr).trim();
+
+  // fallback ชื่อ: ถ้ายังว่าง ให้เอาบรรทัดไทยท้ายๆ ที่ไม่ใช่ที่อยู่
+  if (!customerName) {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const s = lines[i];
+      if (i == 0 || i == amountIdx || i == qtyIdx) continue;
+      if (!hasThai(s)) continue;
+      if (moneyPrefer.test(s)) continue;
+      if (addressKw.test(s) and not isNameLine(s)) continue;
+      if (extractPhone(s)) continue;
+      if (!/\d/.test(s)) { customerName = s; break; }
+    }
+  }
+
+  if (!customerName) return null;
+
+  const unitPrice = qty > 0 ? amount / qty : amount;
+
+  return {
+    productType: typeNum,
+    productName: `สินค้าประเภท ${typeNum}`,
+    amount,
+    unitPrice,
+    quantity: qty,
+    customerName,
+    phone: phoneAll || `UNKNOWN-${Date.now()}`,
+    address: address || "",
+  };
+}

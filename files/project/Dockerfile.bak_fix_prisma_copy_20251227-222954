@@ -1,0 +1,93 @@
+# syntax=docker/dockerfile:1.5
+
+############################
+# deps: install node_modules
+############################
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV npm_config_loglevel=warn
+ENV npm_config_fund=false
+ENV npm_config_audit=false
+# ชัดเจนว่าถ้าต้องสร้าง sharp จาก source ให้ทำ (ช่วยกรณี prebuilt ใช้ไม่ได้)
+
+# Toolchain + libs ที่ sharp ต้องใช้ตอน compile (ที่ขาดคือ libglib2.0-dev)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl \
+    python3 make g++ pkg-config \
+    libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+    libglib2.0-dev \
+    libvips-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# copy only manifests first (cache-friendly)
+COPY package*.json ./
+# ถ้าใช้ pnpm/yarn ให้ปรับเอง แต่ตอนนี้คุณใช้ npm + package-lock
+# COPY pnpm-lock.yaml ./
+# COPY yarn.lock ./
+
+# IMPORTANT:
+# ใช้ --ignore-scripts เพื่อกัน postinstall (ที่คุณเจอ prisma: not found / prisma generate)
+RUN npm ci
+
+# copy prisma schema (needed for prisma generate later)
+COPY prisma ./prisma
+
+
+############################
+# build: next build + prisma generate
+############################
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV npm_config_loglevel=warn
+ENV npm_config_fund=false
+ENV npm_config_audit=false
+
+# runtime/build deps (บางที next build ก็เรียก sharp ตอน build-time)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl \
+    libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
+  && rm -rf /var/lib/apt/lists/*
+
+# bring node_modules from deps
+COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+COPY prisma ./prisma
+
+# app source
+COPY . .
+
+# Prisma generate (เรียกหลังจากมี node_modules แล้ว)
+RUN npx prisma generate
+
+# Next.js build
+RUN npm run build
+
+
+############################
+# runner: minimal runtime
+############################
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl \
+    libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
+  && rm -rf /var/lib/apt/lists/*
+
+# If using Next.js standalone output (แนะนำ)
+# ต้องตั้ง next.config ให้ output: "standalone"
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]
+

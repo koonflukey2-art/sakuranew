@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sakuranew
+      POSTGRES_USER: sakuranew
+      POSTGRES_PASSWORD: DB_PASS_CHANGE_ME
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  app:
+    environment:
+      - AUTH_TRUST_HOST=true
+      - NEXTAUTH_URL=https://sakura-production.online
+      - AUTH_URL=http://sakura-production.online
+      - AUTH_TRUST_HOST=true
+      - NEXTAUTH_URL=https://sakura-production.online
+      - AUTH_URL=http://sakura-production.online
+    build: .
+    env_file:
+      - .env.production
+    depends_on:
+      - db
+    ports:
+        - "127.0.0.1:3000:3000"

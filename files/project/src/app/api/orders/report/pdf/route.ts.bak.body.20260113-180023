@@ -1,0 +1,182 @@
+import { NextRequest, NextResponse } from "next/server";
+import React from "react";
+import { DateTime } from "luxon";
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const h = React.createElement;
+
+const styles = StyleSheet.create({
+  page: { fontSize: 10, padding: 28 },
+  header: { marginBottom: 10 },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  title: { fontSize: 16 },
+  sub: { marginTop: 4, color: "#444" },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, color: "#444" },
+  divider: { height: 1, backgroundColor: "#E5E7EB", marginTop: 10 },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    padding: 6,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  row: { flexDirection: "row", padding: 6, borderBottomWidth: 1, borderColor: "#F1F5F9" },
+
+  cNo: { width: 32 },
+  cTime: { width: 44 },
+  cCust: { width: 90 },
+  cItem: { flexGrow: 1 },
+  cQty: { width: 32, textAlign: "right" },
+  cAmount: { width: 70, textAlign: "right" },
+  cStatus: { width: 60 },
+  cSource: { width: 60 },
+});
+
+function money(n: number) {
+  return new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+function int(n: number) {
+  return new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(n);
+}
+
+function ReportDoc(props: {
+  orgName: string;
+  reportDate: string;
+  generatedAt: string;
+  generatedBy: string;
+  rows: any[];
+}) {
+  const totalOrders = props.rows.length;
+  const totalQty = props.rows.reduce((s, r) => s + (r.quantity ?? 0), 0);
+  const totalAmount = props.rows.reduce((s, r) => s + (r.amount ?? 0), 0);
+
+  return h(
+    Document,
+    null,
+    h(
+      Page,
+      { size: "A4", style: styles.page, wrap: true },
+      h(
+        View,
+        { style: styles.header },
+        h(
+          View,
+          { style: styles.titleRow },
+          h(Text, { style: styles.title }, "Order Report"),
+          h(Text, null, props.orgName)
+        ),
+        h(Text, { style: styles.sub }, "รายงานออเดอร์ตามวันที่เลือก (Timezone: Asia/Bangkok)"),
+        h(View, { style: styles.metaRow }, h(Text, null, `วันที่รายงาน: ${props.reportDate}`), h(Text, null, `สร้างเมื่อ: ${props.generatedAt}`)),
+        h(
+          View,
+          { style: styles.metaRow },
+          h(Text, null, `สร้างโดย: ${props.generatedBy}`),
+          h(Text, null, `รวม: ${int(totalOrders)} รายการ • ${int(totalQty)} ชิ้น • ${money(totalAmount)} บาท`)
+        ),
+        h(View, { style: styles.divider })
+      ),
+      h(
+        View,
+        { style: styles.tableHeader },
+        h(Text, { style: styles.cNo }, "No"),
+        h(Text, { style: styles.cTime }, "Time"),
+        h(Text, { style: styles.cCust }, "Customer"),
+        h(Text, { style: styles.cItem }, "Item"),
+        h(Text, { style: styles.cQty }, "Qty"),
+        h(Text, { style: styles.cAmount }, "Amount"),
+        h(Text, { style: styles.cStatus }, "Status"),
+        h(Text, { style: styles.cSource }, "Source")
+      ),
+      ...props.rows.map((r: any, idx: number) => {
+        const timeBkk = DateTime.fromJSDate(new Date(r.orderDate)).setZone("Asia/Bangkok").toFormat("HH:mm");
+        const item = [r.productType, r.productName].filter(Boolean).join(" - ") || "-";
+        return h(
+          View,
+          { key: r.id, style: styles.row, wrap: false },
+          h(Text, { style: styles.cNo }, String(idx + 1)),
+          h(Text, { style: styles.cTime }, timeBkk),
+          h(Text, { style: styles.cCust }, r.customerName || "-"),
+          h(Text, { style: styles.cItem }, item),
+          h(Text, { style: styles.cQty }, int(r.quantity ?? 0)),
+          h(Text, { style: styles.cAmount }, money(r.amount ?? 0)),
+          h(Text, { style: styles.cStatus }, r.status ?? "-"),
+          h(Text, { style: styles.cSource }, r.source ?? "-")
+        );
+      })
+    )
+  );
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
+    if (!date) return NextResponse.json({ error: "Missing ?date=YYYY-MM-DD" }, { status: 400 });
+
+    const orgId = await getOrganizationId();
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
+
+    const startBkk = DateTime.fromISO(date, { zone: "Asia/Bangkok" }).startOf("day");
+    const endBkk = startBkk.plus({ days: 1 });
+
+    const orders = await prisma.order.findMany({
+      where: {
+        organizationId: orgId,
+        orderDate: { gte: startBkk.toUTC().toJSDate(), lt: endBkk.toUTC().toJSDate() },
+      },
+      include: { customer: true },
+      orderBy: { orderDate: "asc" },
+    });
+
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } });
+
+    const rows = orders.map((o: any) => ({
+      id: o.id,
+      orderDate: o.orderDate,
+      productType: o.productType ?? null,
+      productName: o.productName ?? null,
+      quantity: o.quantity ?? 0,
+      amount: o.amount ?? 0,
+      status: o.status ?? null,
+      source: o.source ?? null,
+      customerName: o.customer?.name ?? null,
+    }));
+
+    const nowBkk = DateTime.now().setZone("Asia/Bangkok");
+    const reportDate = startBkk.toFormat("dd LLL yyyy");
+    const generatedAt = nowBkk.toFormat("dd LLL yyyy HH:mm");
+    const generatedBy = user.email ?? user.name ?? "System";
+
+    const element = h(ReportDoc as any, {
+      orgName: org?.name || "Sakura",
+      reportDate,
+      generatedAt,
+      generatedBy,
+      rows,
+    });
+
+    const buf = await pdf(element as any).toBuffer();
+
+    return new NextResponse(buf, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="orders-${date}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
+  }
+}

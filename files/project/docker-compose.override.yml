@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      UPLOAD_DIR: /data/uploads/statements
+    volumes:
+      - /opt/sakuranew/data/uploads:/data/uploads

@@ -1,0 +1,1050 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogBody,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import {
+  Plus,
+  Edit,
+  Package,
+  Trash2,
+  AlertTriangle,
+  Wallet,
+  PackagePlus,
+  DollarSign,
+  RefreshCw,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  category: string | null;
+  productType: number;
+  productTypeName: string | null;
+  quantity: number;
+  minStockLevel: number;
+  costPrice: number;
+  sellPrice: number;
+  budgetUsed?: number;
+}
+
+interface ProductType {
+  id: string;
+  typeNumber: number;
+  typeName: string;
+  isActive: boolean;
+}
+
+export default function ProductsPage() {
+  const { toast } = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Budget state
+  const [availableBudget, setAvailableBudget] = useState(0);
+  
+  const [totalBudget, setTotalBudget] = useState(0);
+  const [usedBudget, setUsedBudget] = useState(0);
+const [budgetWarning, setBudgetWarning] = useState(false);
+
+  // Create product dialog
+  const [openCreateProduct, setOpenCreateProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "",
+    productType: 1,
+    costPrice: 0,
+    quantity: 0,
+    minStockLevel: 10,
+  });
+
+  // Edit product state
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editName, setEditName] = useState("");
+
+  // Add stock state
+  const [addingStockProduct, setAddingStockProduct] =
+    useState<Product | null>(null);
+  const [addStockQuantity, setAddStockQuantity] = useState(0);
+  const [addStockCost, setAddStockCost] = useState(0);
+
+  // Delete confirmation
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+
+  // Manage types dialogs
+  const [openManageTypes, setOpenManageTypes] = useState(false);
+  const [openEditType, setOpenEditType] = useState(false);
+  const [editingType, setEditingType] = useState<ProductType | null>(null);
+  const [newType, setNewType] = useState({
+    typeNumber: 5,
+    typeName: "",
+  });
+
+  useEffect(() => {
+    fetchData();
+    fetchAvailableBudget();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check budget when cost or quantity changes
+  useEffect(() => {
+    const totalCost = (Number(newProduct.costPrice) || 0) * (Number(newProduct.quantity) || 0);
+    setBudgetWarning(totalCost > availableBudget);
+  }, [newProduct.costPrice, newProduct.quantity, availableBudget]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [productsRes, typesRes] = await Promise.all([
+        fetch("/api/products"),
+        fetch("/api/product-types"),
+      ]);
+
+      if (productsRes.ok) setProducts(await productsRes.json());
+      if (typesRes.ok) setProductTypes(await typesRes.json());
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ เปลี่ยนมาเรียก /api/budgets แล้วใช้ remaining ของงบล่าสุด
+const fetchAvailableBudget = async () => {
+    try {
+      const response = await fetch("/api/capital-budget/available");
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        throw new Error(`HTTP ${response.status} ${errText}`);
+      }
+      const data = await response.json();
+      setAvailableBudget(data.available ?? 0);
+      setTotalBudget(data.totalAmount ?? 0);
+      setUsedBudget(data.used ?? 0);
+    } catch (error) {
+      console.error("Failed to fetch budget:", error);
+    }
+  };
+
+  const createProduct = async () => {
+    try {
+      const selectedType = productTypes.find(
+        (type) => type.typeNumber === newProduct.productType
+      );
+
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newProduct,
+          productTypeName: selectedType?.typeName,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create");
+      }
+
+      toast({ title: "✅ สร้างสินค้าสำเร็จ" });
+      setOpenCreateProduct(false);
+      setNewProduct({
+        name: "",
+        category: "",
+        productType: 1,
+        costPrice: 0,
+        quantity: 0,
+        minStockLevel: 10,
+      });
+      fetchData();
+      fetchAvailableBudget();
+    } catch (error: any) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: error?.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditProduct = async () => {
+    if (!editingProduct || !editName.trim()) {
+      toast({
+        title: "กรุณาระบุชื่อสินค้า",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/products/${editingProduct.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update product");
+
+      toast({ title: "✅ แก้ไขสินค้าสำเร็จ" });
+      setEditingProduct(null);
+      fetchData();
+    } catch (error) {
+      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStock = async () => {
+    if (!addingStockProduct || addStockQuantity <= 0) {
+      toast({
+        title: "กรุณาระบุจำนวนที่ต้องการเพิ่ม",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalCost = (Number(addStockCost) || 0) * (Number(addStockQuantity) || 0);
+
+    if (totalCost > availableBudget) {
+      toast({
+        title: "งบประมาณไม่พอ",
+        description: `ต้องการ ฿${totalCost.toLocaleString()} แต่มี ฿${availableBudget.toLocaleString()}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `/api/products/${addingStockProduct.id}/add-stock`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quantity: addStockQuantity,
+            costPrice: addStockCost,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to add stock");
+      }
+
+      toast({ title: "✅ เพิ่มสต๊อกสำเร็จ" });
+      setAddingStockProduct(null);
+      setAddStockQuantity(0);
+      setAddStockCost(0);
+      fetchData();
+      fetchAvailableBudget();
+    } catch (error: any) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/products/${deletingProduct.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete product");
+
+      const data = await response.json();
+
+      toast({
+        title: "✅ ลบสินค้าสำเร็จ",
+        description: `งบคืน: ฿${(data.budgetReturned ?? 0).toLocaleString()}`,
+      });
+
+      setDeletingProduct(null);
+      fetchData();
+      fetchAvailableBudget();
+    } catch (error) {
+      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createProductType = async () => {
+    try {
+      const response = await fetch("/api/product-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newType),
+      });
+
+      if (!response.ok) throw new Error("Failed to create");
+
+      toast({ title: "✅ เพิ่มประเภทสินค้าสำเร็จ" });
+      setNewType({ typeNumber: productTypes.length + 1, typeName: "" });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateProductType = async () => {
+    try {
+      const response = await fetch("/api/product-types", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingType),
+      });
+
+      if (!response.ok) throw new Error("Failed to update");
+
+      toast({ title: "✅ อัพเดทสำเร็จ" });
+      setOpenEditType(false);
+      setEditingType(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-pink">
+            จัดการสินค้า
+          </h1>
+          <p className="text-gray-400 mt-1">
+            สร้างและจัดการสินค้า รวมถึงประเภทสินค้าสำหรับ LINE
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={fetchData} variant="outline" disabled={loading}>
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
+            รีเฟรช
+          </Button>
+          <Button onClick={() => setOpenManageTypes(true)} variant="outline">
+            จัดการประเภทสินค้า LINE
+          </Button>
+          <Button onClick={() => setOpenCreateProduct(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            สร้างสินค้าใหม่
+          </Button>
+        </div>
+      </div>
+
+      {/* Budget Overview Card */}
+      <Card className="bg-gradient-to-br from-green-900/20 to-green-950/20 border-green-500/30">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">งบประมาณคงเหลือ</p>
+                <p className="text-3xl font-bold text-green-400">
+                  ฿{availableBudget.toLocaleString()}
+                </p>
+                <div className="mt-2 text-sm text-gray-300 space-y-1">
+                  <div className="flex justify-between">
+                    <span>รวมที่เติม:</span>
+                    <span>฿{totalBudget.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ใช้ไป:</span>
+                    <span>฿{usedBudget.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-400">สถานะ</p>
+              <Badge
+                className={
+                  availableBudget > 10000
+                    ? "bg-green-500"
+                    : availableBudget > 5000
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
+                }
+              >
+                {availableBudget > 10000
+                  ? "✅ ปกติ"
+                  : availableBudget > 5000
+                  ? "⚠️ ต่ำ"
+                  : "❌ ต่ำมาก"}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Product Types Grid */}
+      <Card>
+        <CardHeader>
+          <CardTitle>ประเภทสินค้า (สำหรับ LINE)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {productTypes.map((type) => (
+              <Card
+                key={type.id}
+                className="bg-gradient-to-br from-purple-900/30 to-purple-950/30 border-purple-500/40"
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge className="bg-purple-500">
+                      ประเภท {type.typeNumber}
+                    </Badge>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingType(type);
+                        setOpenEditType(true);
+                      }}
+                      className="h-8 px-2 border-purple-400/60 text-purple-100 bg-purple-500/10 hover:bg-purple-500/20"
+                      title="แก้ไขประเภท"
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">แก้ไข</span>
+                    </Button>
+                  </div>
+                  <p className="font-semibold text-white">{type.typeName}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    LINE: "{type.typeNumber} [จำนวน] [ราคา]"
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+
+            <Card
+              className="border-dashed border-2 border-gray-600 cursor-pointer hover:border-purple-500 transition-colors"
+              onClick={() => setOpenManageTypes(true)}
+            >
+              <CardContent className="pt-6 flex flex-col items-center justify-center h-full">
+                <Plus className="w-8 h-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-400">เพิ่มประเภทใหม่</p>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Products List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>รายการสินค้าทั้งหมด</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {products.map((product) => (
+              <Card key={product.id} className="bg-white/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    {/* Product Info */}
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <Package className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-white">
+                          {product.name}
+                        </h3>
+                        <p className="text-sm text-gray-400">
+                          หมวดหมู่: {product.category || "-"} | ประเภท:{" "}
+                          {product.productType}
+                          {product.productTypeName
+                            ? ` - ${product.productTypeName}`
+                            : ""}
+                        </p>
+                        <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
+                          <div>
+                            <p className="text-gray-400">ราคาทุน</p>
+                            <p className="font-medium text-white">
+                              ฿{product.costPrice.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">ราคาขาย</p>
+                            <p className="font-medium text-white">
+                              ฿{product.sellPrice.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">สต๊อก</p>
+                            <p className="font-medium text-white">
+                              {product.quantity} ชิ้น
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">งบที่ใช้</p>
+                            <p className="font-medium text-green-400">
+                              ฿{(product.budgetUsed ?? 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingProduct(product);
+                          setEditName(product.name);
+                        }}
+                        className="border-purple-400 text-purple-200"
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        แก้ไข
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAddingStockProduct(product);
+                          setAddStockCost(product.costPrice);
+                        }}
+                        className="border-blue-400 text-blue-200"
+                      >
+                        <PackagePlus className="w-4 h-4 mr-1" />
+                        เพิ่มสต๊อก
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeletingProduct(product)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        ลบ
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Create Product Dialog */}
+      <Dialog open={openCreateProduct} onOpenChange={setOpenCreateProduct}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>สร้างสินค้าใหม่</DialogTitle>
+          </DialogHeader>
+
+          <DialogBody className="space-y-4">
+            <div>
+              <Label>ชื่อสินค้า</Label>
+              <Input
+                value={newProduct.name}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, name: e.target.value })
+                }
+                placeholder="เช่น: ครีมนวด Premium"
+              />
+            </div>
+
+            <div>
+              <Label>หมวดหมู่</Label>
+              <Input
+                value={newProduct.category}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, category: e.target.value })
+                }
+                placeholder="เช่น: สกินแคร์"
+              />
+            </div>
+
+            <div>
+              <Label>รหัสประเภทสินค้า (สำหรับ LINE)</Label>
+              <select
+                className="w-full h-10 px-3 rounded-md bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/60 focus:border-purple-500"
+                value={newProduct.productType}
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    productType: parseInt(e.target.value),
+                  })
+                }
+                disabled={productTypes.length === 0}
+              >
+                {productTypes.length === 0 ? (
+                  <option className="bg-slate-900 text-slate-100" value={1}>
+                    ยังไม่มีประเภทสินค้า (เพิ่มก่อน)
+                  </option>
+                ) : (
+                  productTypes.map((type) => (
+                    <option
+                      key={type.id}
+                      value={type.typeNumber}
+                      className="bg-slate-900 text-slate-100"
+                    >
+                      {type.typeNumber} - {type.typeName}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>ต้นทุน (บาท)</Label>
+                <Input
+                  type="number"
+                  value={newProduct.costPrice}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      costPrice: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label>จำนวนเริ่มต้น</Label>
+                <Input
+                  type="number"
+                  value={newProduct.quantity}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      quantity: parseInt(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>สต็อกขั้นต่ำ</Label>
+              <Input
+                type="number"
+                value={newProduct.minStockLevel}
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    minStockLevel: parseInt(e.target.value) || 10,
+                  })
+                }
+              />
+            </div>
+
+            {/* Budget Display Card */}
+            <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-green-400" />
+                    <span className="text-sm font-semibold text-green-300">
+                      งบประมาณคงเหลือ
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-400">
+                    ฿{availableBudget.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-300">
+                    <span>ต้นทุนต่อชิ้น:</span>
+                    <span>฿{(Number(newProduct.costPrice) || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-300">
+                    <span>จำนวน:</span>
+                    <span>{Number(newProduct.quantity) || 0} ชิ้น</span>
+                  </div>
+                  <Separator className="bg-green-500/30" />
+                  <div className="flex justify-between font-semibold text-white">
+                    <span>ต้นทุนรวม:</span>
+                    <span>
+                      ฿{((Number(newProduct.costPrice) || 0) * (Number(newProduct.quantity) || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {budgetWarning && (
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertTriangle className="w-4 h-4" />
+                    <AlertDescription>
+                      <strong>⚠️ งบประมาณไม่เพียงพอ!</strong>
+                      <br />
+                      ต้องการ: ฿{((Number(newProduct.costPrice) || 0) * (Number(newProduct.quantity) || 0)).toLocaleString()}
+                      <br />
+                      มีเพียง: ฿{availableBudget.toLocaleString()}
+                      <br />
+                      ขาดอีก: ฿
+                      {Math.max(
+                        0,
+                        (Number(newProduct.costPrice) || 0) *
+                          (Number(newProduct.quantity) || 0) -
+                          availableBudget
+                      ).toLocaleString()}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </DialogBody>
+
+          <DialogFooter className="pt-3 border-t border-slate-200">
+            <Button
+              onClick={createProduct}
+              disabled={budgetWarning || loading}
+              className={budgetWarning ? "bg-gray-600" : ""}
+            >
+              {budgetWarning
+                ? "❌ งบประมาณไม่พอ"
+                : loading
+                ? "กำลังสร้าง..."
+                : "✅ สร้างสินค้า"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขสินค้า</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>ชื่อสินค้า</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="ระบุชื่อสินค้า"
+              />
+            </div>
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <AlertTriangle className="w-4 h-4 text-blue-400" />
+              <AlertDescription className="text-blue-200">
+                <strong>หมายเหตุ:</strong> แก้ไขได้เฉพาะชื่อสินค้า
+                <br />
+                ไม่สามารถแก้ไขสต๊อกได้โดยตรง
+                <br />
+                ใช้ปุ่ม "เพิ่มสต๊อก" เพื่อเพิ่มจำนวนสินค้า
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button onClick={handleEditProduct} disabled={loading} className="flex-1">
+                บันทึก
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setEditingProduct(null)}
+                className="flex-1"
+              >
+                ยกเลิก
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={!!addingStockProduct} onOpenChange={() => setAddingStockProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่มสต๊อก - {addingStockProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <DollarSign className="w-4 h-4 text-blue-400" />
+              <AlertDescription className="text-blue-200">
+                งบประมาณคงเหลือ: ฿{availableBudget.toLocaleString()}
+              </AlertDescription>
+            </Alert>
+
+            <div>
+              <Label>จำนวนที่ต้องการเพิ่ม (ชิ้น)</Label>
+              <Input
+                type="number"
+                value={addStockQuantity}
+                onChange={(e) => setAddStockQuantity(parseInt(e.target.value) || 0)}
+                min="1"
+              />
+            </div>
+
+            <div>
+              <Label>ราคาทุนต่อชิ้น (บาท)</Label>
+              <Input
+                type="number"
+                value={addStockCost}
+                onChange={(e) => setAddStockCost(parseFloat(e.target.value) || 0)}
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <Card className="bg-muted">
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>จำนวน:</span>
+                    <span className="font-bold">{addStockQuantity} ชิ้น</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ราคาทุน/ชิ้น:</span>
+                    <span className="font-bold">฿{addStockCost.toLocaleString()}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg">
+                    <span className="font-semibold">ยอดรวม:</span>
+                    <span className="font-bold text-green-500">
+                      ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {addStockCost * addStockQuantity > availableBudget && (
+              <Alert variant="destructive">
+                <AlertTriangle className="w-4 h-4" />
+                <AlertDescription>
+                  งบประมาณไม่พอ!
+                  <br />
+                  ต้องการ: ฿{(addStockCost * addStockQuantity).toLocaleString()}
+                  <br />
+                  มี: ฿{availableBudget.toLocaleString()}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleAddStock}
+                disabled={
+                  loading ||
+                  addStockQuantity <= 0 ||
+                  addStockCost * addStockQuantity > availableBudget
+                }
+                className="flex-1"
+              >
+                เพิ่มสต๊อก
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setAddingStockProduct(null)}
+                className="flex-1"
+              >
+                ยกเลิก
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingProduct} onOpenChange={() => setDeletingProduct(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบสินค้า</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบสินค้า "{deletingProduct?.name}" ใช่หรือไม่?
+              <br />
+              <br />
+              <div className="bg-muted p-3 rounded-lg space-y-1">
+                <p>
+                  <strong>สต๊อกคงเหลือ:</strong> {deletingProduct?.quantity} ชิ้น
+                </p>
+                <p>
+                  <strong>ราคาทุน/ชิ้น:</strong> ฿{deletingProduct?.costPrice.toLocaleString()}
+                </p>
+                <p className="text-green-500 font-semibold">
+                  <strong>งบที่จะคืน:</strong> ฿
+                  {deletingProduct
+                    ? (deletingProduct.costPrice * deletingProduct.quantity).toLocaleString()
+                    : 0}
+                </p>
+              </div>
+              <br />
+              งบประมาณจะถูกคืนตามจำนวนสต๊อกที่เหลือ
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProduct} className="bg-destructive">
+              ลบสินค้า
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Manage Types Dialog */}
+      <Dialog open={openManageTypes} onOpenChange={setOpenManageTypes}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>จัดการประเภทสินค้า LINE</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Card className="bg-blue-500/10 border-blue-500/30">
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>หมายเลขประเภท</Label>
+                      <Input
+                        type="number"
+                        value={newType.typeNumber}
+                        onChange={(e) =>
+                          setNewType({
+                            ...newType,
+                            typeNumber: parseInt(e.target.value) || 1,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>ชื่อประเภท</Label>
+                      <Input
+                        value={newType.typeName}
+                        onChange={(e) =>
+                          setNewType({
+                            ...newType,
+                            typeName: e.target.value,
+                          })
+                        }
+                        placeholder="เช่น: ครีมนวด"
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={createProductType} className="w-full">
+                    <Plus className="w-4 h-4 mr-2" />
+                    เพิ่มประเภทใหม่
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-2">
+              {productTypes.map((type) => (
+                <div
+                  key={type.id}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                >
+                  <div>
+                    <p className="font-semibold">
+                      ประเภท {type.typeNumber}: {type.typeName}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      LINE command: "{type.typeNumber} [จำนวน] [ราคา]"
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingType(type);
+                      setOpenManageTypes(false);
+                      setOpenEditType(true);
+                    }}
+                    className="h-8 px-2 border-slate-500/60 text-slate-100 bg-slate-800/40 hover:bg-slate-800/70"
+                    title="แก้ไข"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    แก้ไข
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Type Dialog */}
+      <Dialog open={openEditType} onOpenChange={setOpenEditType}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขประเภทสินค้า</DialogTitle>
+          </DialogHeader>
+          {editingType && (
+            <div className="space-y-4">
+              <div>
+                <Label>หมายเลขประเภท</Label>
+                <Input
+                  type="number"
+                  value={editingType.typeNumber}
+                  disabled
+                  className="bg-gray-800"
+                />
+              </div>
+              <div>
+                <Label>ชื่อประเภท</Label>
+                <Input
+                  value={editingType.typeName}
+                  onChange={(e) =>
+                    setEditingType({
+                      ...editingType,
+                      typeName: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={updateProductType}>บันทึก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,70 @@
+name: sakuranew
+services:
+  app:
+    build:
+      context: /opt/sakuranew
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_started
+        required: true
+    environment:
+      APP_URL: https://sakura-production.online
+      AUTH_SECRET: c5917a14ba9d0e54ecffce4dd3c7440f9f9c8befa3aad781912630de46c42f14
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: https://sakura-production.online
+      CLERK_SECRET_KEY: sk_test_R6CGCO1YI2VDQCG7vh1S31YgyS8ZlmrFVOJJNIYdoi
+      CRON_SECRET: ed0e99060c56aab665413dfe8384fe84bd29aaf24106ca9c591cab8a9370c1eb
+      DAILY_CUTOFF_GRACE_MINUTES: "15"
+      DATABASE_DIRECT_URL: postgresql://sakura_user:no336699@127.0.0.1:5432/sakura_db?connection_limit=3&pool_timeout=10
+      DATABASE_URL: postgresql://sakuranew:fKBrtdZ18ucxmbHeHl2RbmT9@db:5432/sakuranew
+      ENABLE_TEST_RESET: "true"
+      ENCRYPTION_KEY: your-32-character-secret-key-here-12345
+      GEMINI_API_KEY: ""
+      N8N_WEBHOOK_URL: ""
+      NEXT_PUBLIC_API_URL: ""
+      NEXT_PUBLIC_APP_URL: https://sakura-production.online
+      NEXT_PUBLIC_BASE_URL: ""
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y29tcGxldGUtYWxpZW4tNjEuY2xlcmsuYWNjb3VudHMuZGV2JA
+      NEXT_PUBLIC_SITE_URL: https://sakura-production.online
+      NEXTAUTH_SECRET: c5917a14ba9d0e54ecffce4dd3c7440f9f9c8befa3aad781912630de46c42f14
+      NEXTAUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: https://sakura-production.online
+      NODE_ENV: production
+      OPENAI_API_KEY: ""
+      SITE_URL: https://sakura-production.online
+      UPLOAD_DIR: /data/uploads/statements
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 3000
+        published: "3000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /opt/sakuranew/data/uploads
+        target: /data/uploads
+        bind: {}
+  db:
+    environment:
+      POSTGRES_DB: sakuranew
+      POSTGRES_PASSWORD: fKBrtdZ18ucxmbHeHl2RbmT9
+      POSTGRES_USER: sakuranew
+    image: postgres:16
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/data
+        volume: {}
+networks:
+  default:
+    name: sakuranew_default
+volumes:
+  pgdata:
+    name: sakuranew_pgdata

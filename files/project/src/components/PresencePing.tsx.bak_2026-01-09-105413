@@ -1,0 +1,33 @@
+"use client";
+
+import { useEffect } from "react";
+
+export default function PresencePing() {
+  useEffect(() => {
+    let alive = true;
+
+    const ping = async () => {
+      try {
+        await fetch("/api/presence/ping", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+          cache: "no-store",
+        });
+      } catch {}
+    };
+
+    ping();
+    const t = setInterval(() => {
+      if (!alive) return;
+      ping();
+    }, 60_000);
+
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  return null;
+}

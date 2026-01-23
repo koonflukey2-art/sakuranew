@@ -1,0 +1,400 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Trash2, Save, DollarSign } from "lucide-react";
+
+interface BudgetItem {
+  id?: string;
+  name: string;
+  amount: number;
+  quantity: number;
+  notes: string;
+}
+
+interface Budget {
+  id: string;
+  name: string;
+  totalAmount: number;
+  remaining: number;
+  description: string;
+  items: BudgetItem[];
+  createdAt: string;
+}
+
+export default function CapitalBudgetPage() {
+  const { toast } = useToast();
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Form state
+  const [budgetName, setBudgetName] = useState("");
+  const [budgetDescription, setBudgetDescription] = useState("");
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([
+    { name: "", amount: 0, quantity: 1, notes: "" },
+  ]);
+
+  useEffect(() => {
+    fetchBudgets();
+  }, []);
+
+  const fetchBudgets = async () => {
+    try {
+      const response = await fetch("/api/budgets");
+      if (response.ok) {
+        const data = await response.json();
+        setBudgets((Array.isArray(data) ? data : []).map((b: any) => ({
+          id: b.id,
+          name: b.description || "งบประมาณ",
+          totalAmount: Number(b.amount || 0),
+          remaining: Number(b.remaining || 0),
+          description: b.description || "",
+          items: [], // ตอนนี้ API ยังไม่ได้เก็บ items แยกรายการ
+          createdAt: b.createdAt,
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch budgets:", error);
+    }
+  };
+
+  // Calculate total from items
+  const calculateTotal = () => {
+    return budgetItems.reduce((sum, item) => {
+      return sum + (item.amount * item.quantity);
+    }, 0);
+  };
+
+  // Add new item row
+  const addItem = () => {
+    setBudgetItems([
+      ...budgetItems,
+      { name: "", amount: 0, quantity: 1, notes: "" },
+    ]);
+  };
+
+  // Remove item row
+  const removeItem = (index: number) => {
+    if (budgetItems.length === 1) {
+      toast({
+        title: "ไม่สามารถลบได้",
+        description: "ต้องมีรายการอย่างน้อย 1 รายการ",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBudgetItems(budgetItems.filter((_, i) => i !== index));
+  };
+
+  // Update item
+  const updateItem = (index: number, field: keyof BudgetItem, value: any) => {
+    const newItems = [...budgetItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setBudgetItems(newItems);
+  };
+
+  // Submit budget
+  const handleSubmit = async () => {
+    // Validate
+    if (!budgetName.trim()) {
+      toast({
+        title: "กรุณาระบุชื่องบประมาณ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validItems = budgetItems.filter(
+      (item) => item.name.trim() && item.amount > 0
+    );
+
+    if (validItems.length === 0) {
+      toast({
+        title: "กรุณาระบุรายการค่าใช้จ่าย",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const totalAmount = calculateTotal();
+
+      const response = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalAmount,
+          minThreshold: 5000,
+          description: budgetDescription
+            ? `${budgetName} - ${budgetDescription}`
+            : budgetName,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create budget");
+
+      toast({
+        title: "✅ เพิ่มงบประมาณสำเร็จ",
+        description: `จำนวน ฿${totalAmount.toLocaleString()}`,
+      });
+
+      // Reset form
+      setBudgetName("");
+      setBudgetDescription("");
+      setBudgetItems([{ name: "", amount: 0, quantity: 1, notes: "" }]);
+
+      // Refresh list
+      fetchBudgets();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">งบประมาณทุน</h1>
+        <p className="text-muted-foreground mt-1">
+          จัดการงบประมาณและค่าใช้จ่ายต่างๆ
+        </p>
+      </div>
+
+      {/* Add Budget Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>เพิ่มงบประมาณใหม่</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Budget Name */}
+          <div>
+            <Label>ชื่องบประมาณ</Label>
+            <Input
+              value={budgetName}
+              onChange={(e) => setBudgetName(e.target.value)}
+              placeholder="เช่น งบประมาณเดือน มกราคม 2025"
+            />
+          </div>
+
+          {/* Budget Description */}
+          <div>
+            <Label>คำอธิบาย (ไม่บังคับ)</Label>
+            <Input
+              value={budgetDescription}
+              onChange={(e) => setBudgetDescription(e.target.value)}
+              placeholder="รายละเอียดเพิ่มเติม"
+            />
+          </div>
+
+          {/* Budget Items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>รายการค่าใช้จ่าย</Label>
+              <Button size="sm" onClick={addItem} variant="outline">
+                <Plus className="w-4 h-4 mr-1" />
+                เพิ่มรายการ
+              </Button>
+            </div>
+
+            {budgetItems.map((item, index) => (
+              <Card key={index} className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-3">
+                  {/* Item Name */}
+                  <div className="col-span-1 md:col-span-3 lg:col-span-4">
+                    <Label className="text-xs">ชื่อรายการ</Label>
+                    <Input
+                      value={item.name}
+                      onChange={(e) =>
+                        updateItem(index, "name", e.target.value)
+                      }
+                      placeholder="เช่น ค่ากล่องพัสดุ"
+                    />
+                  </div>
+
+                  {/* Amount */}
+                  <div className="col-span-1 md:col-span-2 lg:col-span-3">
+                    <Label className="text-xs">จำนวนเงิน (บาท)</Label>
+                    <Input
+                      type="number"
+                      value={item.amount}
+                      onChange={(e) =>
+                        updateItem(index, "amount", parseFloat(e.target.value) || 0)
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="col-span-1 md:col-span-1 lg:col-span-2">
+                    <Label className="text-xs">จำนวน</Label>
+                    <Input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(index, "quantity", parseInt(e.target.value) || 1)
+                      }
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="col-span-1 md:col-span-3 lg:col-span-2">
+                    <Label className="text-xs">หมายเหตุ</Label>
+                    <Input
+                      value={item.notes}
+                      onChange={(e) =>
+                        updateItem(index, "notes", e.target.value)
+                      }
+                      placeholder="เพิ่มเติม"
+                    />
+                  </div>
+
+                  {/* Remove Button */}
+                  <div className="col-span-1 md:col-span-3 lg:col-span-1 flex items-end">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => removeItem(index)}
+                      className="w-full md:w-auto"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Item Subtotal */}
+                <div className="mt-2 text-right text-sm text-muted-foreground">
+                  รวม: ฿{(item.amount * item.quantity).toLocaleString()}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Total Display */}
+          <Card className="bg-gradient-to-br from-green-900/30 to-green-950/30 border-green-500/40">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-400" />
+                  <span className="text-lg font-semibold text-green-300">
+                    ยอดรวมทั้งหมด:
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-green-400">
+                  ฿{calculateTotal().toLocaleString()}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              "กำลังบันทึก..."
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                บันทึกงบประมาณ
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Budget List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>งบประมาณทั้งหมด</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {budgets.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              ยังไม่มีงบประมาณ
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {budgets.map((budget) => (
+                <Card key={budget.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">{budget.name}</h3>
+                        {budget.description && (
+                          <p className="text-sm text-muted-foreground">
+                            {budget.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-500">
+                          ฿{budget.totalAmount.toLocaleString()}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          เหลือ: ฿{budget.remaining.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">รายการค่าใช้จ่าย:</p>
+                      {budget.items && budget.items.length > 0 ? (
+                        <div className="space-y-2">
+                          {budget.items.map((item, idx) => (
+                            <div
+                              key={item.id || idx}
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                {item.notes && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">
+                                  ฿{item.amount.toLocaleString()}
+                                </p>
+                                {item.quantity > 1 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    × {item.quantity} = ฿
+                                    {(item.amount * item.quantity).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          ไม่มีรายละเอียด
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

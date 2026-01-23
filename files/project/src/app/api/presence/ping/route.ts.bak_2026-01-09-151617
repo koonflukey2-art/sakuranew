@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getToken } from "next-auth/jwt";
+
+export const runtime = "nodejs";
+
+function pickUserId(token: any): string | null {
+  // รองรับหลายแบบ เผื่อโปรเจกต์ใส่ field ต่างกัน
+  return (
+    (token?.sub ? String(token.sub) : null) ||
+    (token?.id ? String(token.id) : null) ||
+    (token?.userId ? String(token.userId) : null) ||
+    null
+  );
+}
+
+// ให้ curl -I (HEAD) / GET ไม่หลอกตา
+export async function GET(_req: NextRequest) {
+  return NextResponse.json({ ok: true, message: "presence ping ready" }, { status: 200 });
+}
+
+export async function POST(req: NextRequest) {
+  const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+  const userId = pickUserId(token);
+
+  // ไม่ล็อกอินก็ให้ 200 (กันยิงซ้ำ/กัน client เงียบ)
+  if (!userId) return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastSeenAt: new Date() },
+  });
+
+  return NextResponse.json({ ok: true }, { status: 200 });
+}

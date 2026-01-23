@@ -1,0 +1,263 @@
+export interface ParsedOrder {
+  productType: number;
+  productName: string;
+  amount: number;
+  unitPrice: number;
+  quantity: number;
+  customerName: string;
+  phone: string;
+  address: string;
+}
+
+function normalizeText(s: string) {
+  return (s ?? "").replace(/\r/g, "").trim();
+}
+
+function normalizeLines(message: string): string[] {
+  return normalizeText(message)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    // ตัดเส้นคั่นยาว ๆ
+    .filter((l) => !/^[-_]{3,}$/.test(l));
+}
+
+/**
+ * ✅ ดึงเบอร์โทรแบบไทยจากข้อความ:
+ * - รองรับ 062-223-6733 / 062 223 6733 / 0622236733 / 0634942 910
+ * - คืนค่าเป็น "ตัวเลขล้วน" เช่น 0622236733
+ */
+function extractThaiPhone(text: string): string | null {
+  const t = normalizeText(text);
+
+  // จับกลุ่มที่เริ่มด้วย 0 และมีตัวเลขรวม 9-10 หลัก โดยยอมให้มี space/- คั่น
+  const matches = t.match(/0[\d\s-]{8,14}\d/g);
+  if (!matches) return null;
+
+  for (const m of matches) {
+    const digits = m.replace(/\D/g, "");
+    if ((digits.length === 9 || digits.length === 10) && digits.startsWith("0")) {
+      return digits;
+    }
+  }
+  return null;
+}
+
+function stripPhone(text: string) {
+  return text.replace(/0[\d\s-]{8,14}\d/g, "").trim();
+}
+
+function stripNoise(text: string) {
+  return text
+    .replace(/(?:โทร|tel|เบอร์|phone)\s*[:：]?\s*/gi, "")
+    .replace(/(?:เก็บปลายทาง|เก็บปายทาง|ปลายทาง)\s*/gi, "")
+    .trim();
+}
+
+function isLikelyAddress(line: string) {
+  const l = line.replace(/\s+/g, "");
+  if (!l) return false;
+
+  // มีคำบอกที่อยู่/ตำบล/อำเภอ/จังหวัด/หมู่/ถนน/ซอย/เลขที่/รหัสไปรษณีย์
+  if (/(ต\.|อ\.|จ\.|ตำบล|อำเภอ|จังหวัด|หมู่|ม\.|ถ\.|ถนน|ซอย|เลขที่|บ้านเลขที่)/.test(l)) return true;
+  if (/\b\d{5}\b/.test(line)) return true; // postcode
+  if (/^\d+\/\d+/.test(l)) return true; // เลขบ้าน 88/8
+  return false;
+}
+
+function isLikelyName(line: string) {
+  const l = stripNoise(stripPhone(line));
+  if (!l) return false;
+
+  // ถ้ามี token ที่อยู่ชัด ๆ ให้ถือว่าไม่ใช่ชื่อ
+  if (isLikelyAddress(l)) return false;
+
+  // ถ้ามีตัวเลขเยอะ ๆ มักเป็นที่อยู่
+  const digits = (l.match(/\d/g) || []).length;
+  if (digits >= 2) return false;
+
+  // ถ้าสั้น/เป็นคำล้วน ๆ (ไทย/อังกฤษ) มักเป็นชื่อ
+  return l.length <= 80;
+}
+
+function extractNumberFromLine(line: string): number | null {
+  const m = line.match(/(\d+(?:,\d{3})*(?:\.\d{1,2})?)/);
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function findProductType(lines: string[]): { idx: number; type: number } | null {
+  // ปกติบรรทัดแรกเป็น "1" แต่กันกรณีมีข้อความนำหน้า
+  for (let i = 0; i < Math.min(lines.length, 3); i++) {
+    const raw = lines[i];
+    const onlyDigits = raw.replace(/[^\d]/g, "");
+    if (!onlyDigits) continue;
+    const typeNum = parseInt(onlyDigits, 10);
+    if (!isNaN(typeNum) && typeNum > 0 && typeNum <= 99) {
+      return { idx: i, type: typeNum };
+    }
+  }
+  return null;
+}
+
+function findPriceLine(lines: string[]): { idx: number; amount: number } | null {
+  // หาไลน์ที่มี keyword ยอดเก็บ/เก็บยอด ก่อน
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const l = lines[i];
+    if (/(ยอดเก็บ|เก็บยอด|ยอด\s*เก็บ|เก็บ\s*ยอด|ยอดรวม)/.test(l)) {
+      const n = extractNumberFromLine(l);
+      if (n && n > 0) return { idx: i, amount: n };
+    }
+  }
+
+  // fallback: เจอตัวเลขบรรทัดที่ 2 บ่อย
+  if (lines.length >= 2) {
+    const n = extractNumberFromLine(lines[1]);
+    if (n && n > 0) return { idx: 1, amount: n };
+  }
+
+  return null;
+}
+
+function findQuantity(lines: string[]): { idx: number; qty: number } | null {
+  // qty มักอยู่บรรทัดสุดท้าย เป็นตัวเลขสั้น ๆ
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i].trim();
+
+    // กัน postcode 5 หลัก
+    if (/^\d{5}$/.test(l)) continue;
+
+    if (/^\d{1,4}$/.test(l)) {
+      const q = parseInt(l, 10);
+      if (q > 0 && q <= 999) return { idx: i, qty: q };
+    }
+  }
+  return null;
+}
+
+/**
+ * ✅ แยกชื่อ+ที่อยู่ในบรรทัดเดียวแบบฉลาด:
+ * - ถ้าเจอ keyword ที่อยู่ (ต./อ./จ./หมู่/ถนน/ซอย/เลขที่) ให้ split ตรงนั้น
+ * - ไม่งั้น split ที่เลขบ้านตัวแรก
+ */
+function splitNameAddressSmart(line: string): { name: string; address: string } {
+  const noPhone = stripNoise(stripPhone(line));
+
+  const keyword = noPhone.match(/(ต\.|อ\.|จ\.|ตำบล|อำเภอ|จังหวัด|หมู่|ม\.|ถ\.|ถนน|ซอย|เลขที่|บ้านเลขที่)/);
+  if (keyword && keyword.index !== undefined && keyword.index > 0) {
+    const idx = keyword.index;
+    return { name: noPhone.slice(0, idx).trim(), address: noPhone.slice(idx).trim() };
+  }
+
+  const m = noPhone.match(/\d+/); // เลขบ้านครั้งแรก
+  if (m && m.index !== undefined && m.index > 0) {
+    const idx = m.index;
+    return { name: noPhone.slice(0, idx).trim(), address: noPhone.slice(idx).trim() };
+  }
+
+  return { name: noPhone.trim(), address: "" };
+}
+
+export function parseLineMessage(message: string): ParsedOrder | null {
+  const msg = normalizeText(message);
+  const lines = normalizeLines(msg);
+
+  if (lines.length < 2) return null;
+
+  const prod = findProductType(lines);
+  const price = findPriceLine(lines);
+  const qty = findQuantity(lines);
+
+  const productType = prod?.type ?? 0;
+  const amount = price?.amount ?? 0;
+  const quantity = qty?.qty ?? 1;
+
+  const phone = extractThaiPhone(msg) ?? "";
+
+  // เอาเฉพาะบรรทัดข้อมูล (ตัด productType/price/qty ออก)
+  const skip = new Set<number>();
+  if (prod) skip.add(prod.idx);
+  if (price) skip.add(price.idx);
+  if (qty) skip.add(qty.idx);
+
+  const core = lines
+    .map((l, idx) => ({ l, idx }))
+    .filter((x) => !skip.has(x.idx))
+    .map((x) => x.l);
+
+  // 1) ถ้า core บรรทัดแรกมีทั้งชื่อ+ที่อยู่+เบอร์ → split
+  let customerName = "";
+  let address = "";
+
+  if (core.length > 0) {
+    const first = core[0];
+
+    // ถ้าเป็นบรรทัดเดียวที่มีที่อยู่/ตัวเลขบ้าน/keyword ที่อยู่ → split
+    if (isLikelyAddress(first) || extractThaiPhone(first)) {
+      const { name, address: addr } = splitNameAddressSmart(first);
+      if (name) customerName = name;
+      if (addr) address = addr;
+    }
+  }
+
+  // 2) ถ้ายังไม่มีชื่อ → กวาดชื่อ 1-3 บรรทัดแรกที่ดูเป็นชื่อ
+  if (!customerName) {
+    const nameLines: string[] = [];
+    let i = 0;
+    while (i < core.length && nameLines.length < 3) {
+      const l = core[i];
+
+      // ถ้าบรรทัดนี้ดูเป็นที่อยู่แล้ว ให้หยุดกวาดชื่อ
+      if (isLikelyAddress(l)) break;
+
+      if (isLikelyName(l)) {
+        nameLines.push(stripNoise(stripPhone(l)));
+        i++;
+        continue;
+      }
+
+      // ถ้าไม่ใช่ชื่อชัด ๆ ก็หยุด (กันเอาที่อยู่ติดมา)
+      break;
+    }
+
+    customerName = nameLines.join(" ").replace(/\s+/g, " ").trim();
+    core.splice(0, nameLines.length);
+  } else {
+    // ถ้าเรา split จาก core[0] ไปแล้ว ให้ตัด core[0] ออก
+    core.shift();
+  }
+
+  // 3) ที่อยู่ = เอาสิ่งที่เหลือทั้งหมด (รวมบรรทัดที่เป็นเลข 5 หลัก) แล้วล้าง noise/phone
+  const addrParts: string[] = [];
+  for (const l of core) {
+    let x = stripNoise(stripPhone(l));
+    if (!x) continue;
+    addrParts.push(x);
+  }
+
+  const tailAddr = addrParts.join(" ").replace(/\s+/g, " ").trim();
+  address = [address, tailAddr].filter(Boolean).join(" ").trim();
+
+  const unitPrice = quantity > 0 ? amount / quantity : amount;
+
+  // ✅ ผ่อนปรน: ถ้าไม่มีชื่อจริง ๆ ให้ใส่ placeholder แทน (กันไปกลายเป็น "ลูกค้า LINE" ทั้งหมด)
+  const finalName = customerName || "ไม่ระบุชื่อ";
+
+  if (!productType || !amount) return null;
+
+  return {
+    productType,
+    productName: `สินค้าประเภท ${productType}`,
+    amount,
+    unitPrice,
+    quantity,
+    customerName: finalName,
+    phone: phone || `UNKNOWN-${Date.now()}`,
+    address,
+  };
+}
+
+export function getProductTypeName(type: number): string {
+  return `สินค้าประเภท ${type}`;
+}

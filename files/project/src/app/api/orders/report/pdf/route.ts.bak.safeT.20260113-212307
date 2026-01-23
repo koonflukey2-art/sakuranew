@@ -1,0 +1,189 @@
+import { NextRequest, NextResponse } from "next/server";
+import React from "react";
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+
+import { prisma } from "@/lib/prisma";
+import { getOrganizationId } from "@/lib/organization";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+
+
+async function toUint8Array(body: any): Promise<Uint8Array> {
+  if (!body) return new Uint8Array();
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(body)) return new Uint8Array(body);
+  if (body instanceof Uint8Array) return body;
+
+  // Web ReadableStream
+  if (typeof body.getReader === "function") {
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+    return out;
+  }
+
+  // Node.js Readable (async iterator)
+  if (typeof body[Symbol.asyncIterator] === "function") {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body) {
+      const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+      chunks.push(u8);
+    }
+    const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+    return out;
+  }
+
+  if (typeof body.arrayBuffer === "function") {
+    const ab = await body.arrayBuffer();
+    return new Uint8Array(ab);
+  }
+
+  return new Uint8Array();
+}
+
+const h = React.createElement;
+
+// กัน object/element หลุดเข้ามาใน <Text>
+const S = (v: any) => {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "bigint" || typeof v === "boolean") return String(v);
+  // Date / Decimal / object
+  try {
+    if (v instanceof Date) return v.toISOString();
+  } catch {}
+  return String(v);
+};
+
+const styles = StyleSheet.create({
+  page: { fontSize: 10, padding: 28 },
+  header: { marginBottom: 12 },
+  title: { fontSize: 16, marginBottom: 6 },
+  sub: { color: "#444", marginBottom: 10 },
+
+  row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#E5E7EB", paddingVertical: 6 },
+  colA: { width: "22%", paddingRight: 6 },
+  colB: { width: "44%", paddingRight: 6 },
+  colC: { width: "12%", textAlign: "right", paddingRight: 6 },
+  colD: { width: "22%", textAlign: "right" },
+  th: { fontWeight: 700 },
+});
+
+export async function GET(req: NextRequest) {
+  const rid = Math.random().toString(36).slice(2, 8);
+  try {
+    console.log(`[pdf:${rid}] start`, req.url);
+
+    const url = new URL(req.url);
+    const date = url.searchParams.get("date") || "";
+    if (!date) return NextResponse.json({ error: "Missing date" }, { status: 400 });
+
+    const orgId = await getOrganizationId();
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });
+    console.log(`[pdf:${rid}] orgId`, orgId);
+
+    // ทำช่วงวันแบบง่าย ๆ (เริ่ม-จบ 1 วัน)
+    const start = new Date(date + "T00:00:00.000Z");
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+    // ปรับ where ให้เข้ากับของเดิม: ใช้ orderDate หรือ createdAt ก็ได้
+    const where: any = {
+      organizationId: orgId,
+      AND: [
+        {
+          OR: [
+            { orderDate: { gte: start, lt: end } },
+            { createdAt: { gte: start, lt: end } },
+          ],
+        },
+      ],
+    };
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: { customer: true },
+      orderBy: { orderDate: "asc" },
+    });
+
+    const rows = orders.map((o: any) => ({
+      id: S(o.id),
+      orderDate: S(o.orderDate || o.createdAt),
+      customerName: S(o.customer?.name || ""),
+      total: S(o.total ?? o.amount ?? 0),
+    }));
+
+    console.log(`[pdf:${rid}] render begin rows=`, rows.length);
+
+    // *** ห้ามใส่ React element เข้า <Text> เด็ดขาด ***
+    const doc = h(
+      Document,
+      null,
+      h(
+        Page,
+        { size: "A4", style: styles.page, wrap: true },
+        h(
+          View,
+          { style: styles.header },
+          h(Text, { style: styles.title }, "Orders Report"),
+          h(Text, { style: styles.sub }, `Date: ${date}`)
+        ),
+
+        // header row
+        h(
+          View,
+          { style: styles.row },
+          h(Text, { style: [styles.colA, styles.th] }, "Date"),
+          h(Text, { style: [styles.colB, styles.th] }, "Customer"),
+          h(Text, { style: [styles.colC, styles.th] }, "ID"),
+          h(Text, { style: [styles.colD, styles.th] }, "Total")
+        ),
+
+        // data rows
+        ...rows.map((r) =>
+          h(
+            View,
+            { key: r.id, style: styles.row },
+            h(Text, { style: styles.colA }, S(r.orderDate)),
+            h(Text, { style: styles.colB }, S(r.customerName)),
+            h(Text, { style: styles.colC }, S(r.id)),
+            h(Text, { style: styles.colD }, S(r.total))
+          )
+        )
+      )
+    );
+
+    const body = await pdf(doc).toBuffer();
+    const buf = (typeof Buffer !== 'undefined' && Buffer.isBuffer(body))
+      ? body
+      : Buffer.from(await toUint8Array(body));
+console.log(`[pdf:] render ok`);
+
+    return new NextResponse(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="orders-${date}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e: any) {
+    console.error(`[pdf:${rid}] failed`, e?.message);
+    console.error(`[pdf:${rid}] stack`, e?.stack || e);
+    return NextResponse.json(
+      { error: "Failed to generate PDF", detail: String(e?.message || e) },
+      { status: 500 }
+    );
+  }
+}

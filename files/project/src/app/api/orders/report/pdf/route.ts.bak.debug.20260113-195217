@@ -1,0 +1,172 @@
+import { NextRequest, NextResponse } from "next/server";
+import React from "react";
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+
+import { prisma } from "@/lib/prisma";
+import { getOrganizationId } from "@/lib/organization";
+import { auth } from "@/auth";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const h = React.createElement;
+
+const styles = StyleSheet.create({
+  page: { fontSize: 10, padding: 28 },
+  header: { marginBottom: 12 },
+  title: { fontSize: 16, marginBottom: 6 },
+  sub: { color: "#444", marginBottom: 10 },
+
+  row: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    paddingVertical: 6,
+  },
+  colA: { width: "22%", paddingRight: 6 },
+  colB: { width: "40%", paddingRight: 6 },
+  colC: { width: "10%", textAlign: "right", paddingRight: 6 },
+  colD: { width: "14%", textAlign: "right", paddingRight: 6 },
+  colE: { width: "14%", textAlign: "right" },
+  th: { fontWeight: 700 as any },
+});
+
+function S(v: any) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+function fmtMoney(v: any) {
+  const n = Number(v);
+  if (!isFinite(n)) return "0.00";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(d: any) {
+  try {
+    const dt = d instanceof Date ? d : new Date(d);
+    if (isNaN(dt.getTime())) return "";
+    return dt.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+  } catch {
+    return "";
+  }
+}
+
+type Row = {
+  orderDate: any;
+  productName: any;
+  customerName: any;
+  quantity: any;
+  amount: any;
+  status: any;
+};
+
+function ReportDoc(props: { orgName: string; reportDate: string; rows: Row[] }) {
+  const total = props.rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  const header = h(
+    View,
+    { style: styles.header },
+    h(Text, { style: styles.title }, "Orders Report"),
+    h(Text, { style: styles.sub }, `${S(props.orgName)} • ${S(props.reportDate)}`),
+    h(Text, { style: styles.sub }, `Total: ${fmtMoney(total)}`)
+  );
+
+  const tableHead = h(
+    View,
+    { style: styles.row },
+    h(Text, { style: [styles.colA, styles.th] }, "Date"),
+    h(Text, { style: [styles.colB, styles.th] }, "Product / Customer"),
+    h(Text, { style: [styles.colC, styles.th] }, "Qty"),
+    h(Text, { style: [styles.colD, styles.th] }, "Amount"),
+    h(Text, { style: [styles.colE, styles.th] }, "Status")
+  );
+
+  const tableRows = props.rows.map((r, i) =>
+    h(
+      View,
+      { key: i, style: styles.row },
+      h(Text, { style: styles.colA }, S(fmtDate(r.orderDate))),
+      h(
+        Text,
+        { style: styles.colB },
+        `${S(r.productName)}\n${S(r.customerName)}`
+      ),
+      h(Text, { style: styles.colC }, S(r.quantity)),
+      h(Text, { style: styles.colD }, S(fmtMoney(r.amount))),
+      h(Text, { style: styles.colE }, S(r.status))
+    )
+  );
+
+  const page = h(Page, { size: "A4", style: styles.page, wrap: true }, header, tableHead, ...tableRows);
+  return h(Document, null, page);
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date"); // YYYY-MM-DD
+    if (!date) return NextResponse.json({ error: "Missing ?date=YYYY-MM-DD" }, { status: 400 });
+
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const orgId = await getOrganizationId();
+    if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 403 });
+
+    // ช่วงวันเวลาไทย
+    const start = new Date(`${date}T00:00:00.000+07:00`);
+    const end = new Date(`${date}T23:59:59.999+07:00`);
+
+    // ✅ ทำเหมือน /api/orders: filter OR (orderDate หรือ createdAt)
+    const where: any = {
+      organizationId: orgId,
+      AND: [
+        {
+          OR: [
+            { orderDate: { gte: start, lte: end } },
+            { createdAt: { gte: start, lte: end } },
+          ],
+        },
+      ],
+    };
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: { customer: true }, // ✅ มีจริงตาม /api/orders
+      orderBy: { orderDate: "desc" },
+    });
+
+    const rows: Row[] = (orders as any[]).map((o) => ({
+      orderDate: o.orderDate ?? o.createdAt,
+      productName: o.productName ?? "-",
+      customerName: o.customer?.name ?? o.customerName ?? "",
+      quantity: o.quantity ?? 0,
+      amount: o.totalAmount ?? o.amount ?? 0,
+      status: o.status ?? "",
+    }));
+
+    const element = h(ReportDoc as any, {
+      orgName: "Sakura Biotech",
+      reportDate: date,
+      rows,
+    });
+
+    const buf = await (pdf as any)(element).toBuffer();
+
+    return new NextResponse(buf as any, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="orders-${date}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
+  }
+}

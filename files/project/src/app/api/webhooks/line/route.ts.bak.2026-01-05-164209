@@ -1,0 +1,97 @@
+// src/app/api/webhooks/line/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+import {
+  parseLineOrderMessage,
+  replyLineMessage,
+  sendLineNotify,
+} from "@/lib/line-integration";
+import { getDailySequence, resetDailySequenceIfNeeded } from "@/lib/daily-counter";
+
+export const runtime = "nodejs";
+
+function verifyLineSig(
+  rawBody: Buffer,
+  channelSecret: string,
+  signature: string
+) {
+  try {
+    const hash = crypto
+      .createHmac("sha256", channelSecret)
+      .update(rawBody)
+      .digest(); // Buffer
+
+    const sig = Buffer.from((signature || "").trim(), "base64");
+    if (sig.length !== hash.length) return false;
+    return crypto.timingSafeEqual(hash, sig);
+  } catch {
+    return false;
+  }
+}
+
+type LineWebhookEvent = {
+  type?: string;
+  replyToken?: string;
+  message?: { type?: string; text?: string };
+  source?: {
+    type?: "user" | "group" | "room";
+    userId?: string;
+    groupId?: string;
+    roomId?: string;
+  };
+};
+
+export async function POST(request: NextRequest) {
+  try {
+    const rawBuf = Buffer.from(await request.arrayBuffer());
+    const bodyText = rawBuf.toString("utf8");
+
+    const signature = request.headers.get("x-line-signature") || "";
+    if (!signature) return NextResponse.json({ ok: true }, { status: 200 });
+
+    const settings = await prisma.systemSettings.findFirst({
+      where: {
+        lineChannelSecret: { not: null },
+        lineChannelAccessToken: { not: null },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!settings?.lineChannelSecret || !settings.lineChannelAccessToken) {
+      console.error(
+        "LINE not configured (lineChannelSecret/lineChannelAccessToken)"
+      );
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    const valid = verifyLineSig(rawBuf, settings.lineChannelSecret, signature);
+    if (!valid) {
+      console.error("Invalid LINE signature");
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    let payload: any = null;
+    try {
+      payload = JSON.parse(bodyText);
+    } catch (err) {
+      console.error("Invalid JSON body:", err);
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    const events: LineWebhookEvent[] = Array.isArray(payload?.events) ? payload.events : [];
+
+    for (const event of events) {
+      if (event.type !== "message") continue;
+      if (event.message?.type !== "text") continue;
+
+      const messageText = event.message.text || "";
+      const replyToken = event.replyToken || "";
+      if (!replyToken) continue;
+
+      const orderData = parseLineOrderMessage(messageText);
+      if (!orderData) {
+        await replyLineMessage(
+          replyToken,
+          settings.lineChannelAccessToken,
+          "à¸œà¸•à¸£à¹Œà¸•à¸™à¸²à¸à¹à¸­à¸™à¸´à¹Œ \n\nSà¸ªà¸à¸Ÿà¹Œ 2 à¸‘à¸²à¸§à¸‡à¹Œ \n1) à¸™à¸‘à¸²à¸§à¸‡à¹Œ: 1 2 390\nR) à¸šà¸›à¸›à¸§à¸™ à¸«à¸™à¹Œ:\n1\nà¸œà¸£à¹Œà¸•à¸™à¸²à¸à 390\n(à¸”ã‚â_‚âŸ‚â‚âŸ‚âh¤q¸Èˆ(€€€€€€€€¤ì(€€€€€€€½¹Ñ¥¹Õ”ì(€€€€€ô((€€€€€½¹ÍĞÁÉ½‘ÕĞ€ô…İ…¥ĞÁÉ¥Íµ„¹ÁÉ½‘ÕĞ¹™¥¹‘¥ÉÍĞ¡ì(€€€€€€€İ¡•É”èì(€€€€€€€€€½É…¹¥é…Ñ¥½¹%èÍ•ÑÑ¥¹Ì¹½É…¹¥é…Ñ¥½¹%°(€€€€€€€€€ÁÉ½‘ÕÑQåÁ”è½É‘•É…Ñ„¹ÁÉ½‘ÕÑQåÁ”°(€€€€€€€ô°(€€€€€ô¤ì((€€€€€¥˜€ …ÁÉ½‘ÕĞ¤ì(€€€€€€€…İ…¥ĞÉ•Á±å1¥¹•5•ÍÍ…” (€€€€€€€€€É•Á±åQ½­•¸°(€€€€€€€€€Í•ÑÑ¥¹Ì¹±¥¹•¡…¹¹•±•ÍÍQ½­•¸°(€€€€€€€€€ƒŠvPƒ‚â‚âg‚âË‚â‚âG‚âË‚âŸ‚â‚æ0€‘í½É‘•É…Ñ„¹ÁÉ½‘ÕÑQåÁ•õq»‚â7‚â«‚âg‚âŸ‚æ0ƒ‚æ‚â/‚âg‚â‹‚âg‚âË‚â«‚âã‚â‚âŸ‚â‚âç‚âg‚âÛ‚â‚æ‚â‚â×‚â‹‚âg‚âg‚â_‚â‚â_‚âã‚â‚â«‚âË‚âg‚â

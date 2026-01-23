@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+async function getUserIdFromSessionOrBody(req: NextRequest): Promise<string | null> {
+  // 1) Try NextAuth session if available
+  try {
+    const mod = await import("next-auth/next");
+    // ปรับ path authOptions ให้ตรงโปรเจกต์คุณ (ดูคำสั่งค้นหาด้านล่าง)
+    const { authOptions } = await import("@/lib/auth");
+    const session = await mod.getServerSession(authOptions as any);
+    const uid = (session as any)?.user?.id;
+    if (uid) return String(uid);
+  } catch {
+    // ignore
+  }
+
+  // 2) fallback: accept userId in body (not ideal, use only if you don't have session util)
+  try {
+    const body = await req.json().catch(() => null);
+    if (body?.userId) return String(body.userId);
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+export async function POST(req: NextRequest) {
+  const userId = await getUserIdFromSessionOrBody(req);
+
+  if (!userId) {
+    return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastSeenAt: new Date() },
+  });
+
+  return NextResponse.json({ ok: true }, { status: 200 });
+}

@@ -1,0 +1,418 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { pushLineMessage } from "@/lib/line-integration";
+import { calculateOrderProfit } from "@/lib/profit-calculator";
+import { manualResetDailySequence } from "@/lib/daily-counter";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const BKK_OFFSET_HOURS = 7;
+const MS_HOUR = 3600 * 1000;
+const MS_MIN = 60 * 1000;
+
+function parseEnvInt(name: string, min: number, max: number): number | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    console.warn(
+      `Invalid ${name}="${raw}" (expected integer ${min}-${max}); falling back to SystemSettings.`
+    );
+    return null;
+  }
+  return value;
+}
+
+function parseEnvBool(name: string): boolean | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null;
+  const normalized = raw.trim().toLowerCase();
+  if (["true", "1", "yes", "y"].includes(normalized)) return true;
+  if (["false", "0", "no", "n"].includes(normalized)) return false;
+  console.warn(
+    `Invalid ${name}="${raw}" (expected true/false); falling back to SystemSettings.`
+  );
+  return null;
+}
+
+function toBangkok(date = new Date()) {
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utcMs + BKK_OFFSET_HOURS * MS_HOUR);
+}
+
+function toThaiDateLabel(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/**
+ * คืน start/end ของ "วันนี้" ตาม Bangkok แต่เป็น UTC สำหรับ query DB
+ * - startUtc คือ "00:00 BKK" ในรูป UTC (เช่น 17:00Z ของวันก่อน)
+ */
+function todayWindowBangkok() {
+  const bkkNow = toBangkok(new Date());
+
+  const startLocalBkk = new Date(bkkNow);
+  startLocalBkk.setHours(0, 0, 0, 0);
+
+  const endLocalBkk = new Date(bkkNow);
+  endLocalBkk.setHours(23, 59, 59, 999);
+
+  const startUtc = new Date(startLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+  const endUtc = new Date(endLocalBkk.getTime() - BKK_OFFSET_HOURS * MS_HOUR);
+
+  return {
+    startUtc,
+    endUtc,
+    bkkNow,
+    startLocalBkk,
+    dateLabel: toThaiDateLabel(bkkNow),
+  };
+}
+
+const fmtTHB = (n: number) =>
+  (Number.isFinite(n) ? n : 0).toLocaleString("th-TH");
+
+function formatMessage(p: {
+  dateLabel: string;
+  orderCount: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  margin: number;
+  breakdownLines: string[];
+}) {
+  const breakdown =
+    p.breakdownLines.length > 0
+      ? `\n\n🧾 รายการสินค้า:\n${p.breakdownLines.join("\n")}`
+      : "";
+
+  return (
+    `📊 สรุปยอดประจำวัน ${p.dateLabel}\n\n` +
+    `📦 ออเดอร์: ${p.orderCount} รายการ\n` +
+    `💰 รายได้: ฿${fmtTHB(p.totalRevenue)}\n` +
+    `💵 ต้นทุน: ฿${fmtTHB(p.totalCost)}\n` +
+    `✨ กำไรสุทธิ: ฿${fmtTHB(p.totalProfit)}\n` +
+    `📈 Margin: ${p.margin.toFixed(2)}%` +
+    breakdown
+  );
+}
+
+/** ใช้เช็คว่า “เคยส่งวันนี้แล้วหรือยัง” (ตามเวลา BKK) */
+function alreadySentToday(args: {
+  startLocalBkk: Date;
+  lastSentAt: Date | null;
+}) {
+  const { startLocalBkk, lastSentAt } = args;
+  if (!lastSentAt) return false;
+  const lastSentBkk = toBangkok(lastSentAt);
+  return lastSentBkk.getTime() >= startLocalBkk.getTime();
+}
+
+function isAuthorized(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return { ok: false as const, reason: "CRON_SECRET_NOT_SET" };
+
+  const auth = req.headers.get("authorization");
+  const xcron = req.headers.get("x-cron-secret");
+
+  const ok =
+    (auth && auth === `Bearer ${secret}`) || (xcron && xcron === secret);
+
+  return { ok: !!ok, reason: ok ? "OK" : "BAD_SECRET_OR_MISSING_HEADER" };
+}
+
+export async function GET(req: Request) {
+  try {
+    // --- Auth ---
+    const auth = isAuthorized(req);
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: "Unauthorized", reason: auth.reason },
+        { status: 401 }
+      );
+    }
+
+    const envCutOffHour = parseEnvInt("DAILY_CUTOFF_HOUR", 0, 23);
+    const envCutOffMinute = parseEnvInt("DAILY_CUTOFF_MINUTE", 0, 59);
+    const envDailySummary = parseEnvBool("ENABLE_DAILY_SUMMARY");
+
+    if (envDailySummary === false) {
+      return NextResponse.json({
+        ok: true,
+        processed: 0,
+        skipped: true,
+        reason: "ENABLE_DAILY_SUMMARY=false",
+      });
+    }
+
+    // --- โหลด org ที่เปิด notifyDailySummary และมี token ใช้งานได้ ---
+    const settings = await prisma.systemSettings.findMany({
+      where: {
+        notifyDailySummary: true,
+        AND: [
+          { lineChannelAccessToken: { not: null } },
+          { lineChannelAccessToken: { not: "" } },
+          { lineTargetId: { not: null } },
+          { lineTargetId: { not: "" } },
+        ],
+      },
+      select: {
+        organizationId: true,
+        lineChannelAccessToken: true,
+        lineTargetId: true,
+dailyCutOffHour: true,
+        dailyCutOffMinute: true,
+        dailySummaryLastSentAt: true,
+      },
+    });
+
+    const { startUtc, endUtc, bkkNow, startLocalBkk, dateLabel } =
+      todayWindowBangkok();
+
+    const results: Array<Record<string, any>> = [];
+
+    for (const s of settings) {
+      try {
+        const cutOffHour = envCutOffHour ?? s.dailyCutOffHour ?? 23;
+        const cutOffMinute = envCutOffMinute ?? s.dailyCutOffMinute ?? 59;
+
+        // ✅ cut-off วันนี้ (ในมุม UTC ของ startUtc ที่แทน 00:00 BKK)
+        const cutoffUtc = new Date(
+          startUtc.getTime() + cutOffHour * MS_HOUR + cutOffMinute * MS_MIN
+        );
+
+        // ถ้ายังไม่ถึงเวลา cut-off -> ข้ามทั้งการสร้าง summary และส่ง line
+        const nowMs = Date.now();
+
+        // ✅ window หลัง cutoff ที่อนุญาตให้ cron ทำงาน (กันตัดทั้งวันเวลา set 00:00)
+        const graceMinutes =
+          parseEnvInt("DAILY_CUTOFF_GRACE_MINUTES", 1, 180) ?? 10;
+        const graceMs = graceMinutes * MS_MIN;
+
+        if (nowMs < cutoffUtc.getTime()) {
+          results.push({
+            organizationId: s.organizationId,
+            skipped: true,
+            reason: "not_time_yet",
+            debug: {
+              nowUtc: new Date(nowMs).toISOString(),
+              cutoffUtc: cutoffUtc.toISOString(),
+              graceMinutes,
+            },
+          });
+          continue;
+        }
+
+        // ✅ ถ้าเลย cutoff ไปนานเกิน window → ไม่ทำอะไร (กันรีเซ็ตแล้วตัดตอนดึกทั้งที่ตั้ง 00:00)
+        if (nowMs >= cutoffUtc.getTime() + graceMs) {
+          results.push({
+            organizationId: s.organizationId,
+            skipped: true,
+            reason: "after_cutoff_window",
+            debug: {
+              nowUtc: new Date(nowMs).toISOString(),
+              cutoffUtc: cutoffUtc.toISOString(),
+              graceMinutes,
+            },
+          });
+          continue;
+        }
+
+        // --- ดึงออเดอร์ใน window วันนี้ (BKK) ---
+        const orders = await prisma.order.findMany({
+          where: {
+            organizationId: s.organizationId,
+            orderDate: { gte: startUtc, lte: endUtc },
+            status: { not: "CANCELLED" },
+          },
+          select: {
+            productType: true,
+            productName: true,
+            quantity: true,
+            amount: true,
+          },
+        });
+
+        // --- สรุปยอด + รวมสินค้าแบบละเอียดสำหรับหน้าเว็บ ---
+        let totalRevenue = 0;
+        let totalCost = 0;
+
+        const map = new Map<
+          string,
+          {
+            productType: number | null;
+            productName: string;
+            quantity: number;
+            revenue: number;
+            cost: number;
+            profit: number;
+          }
+        >();
+
+        for (const o of orders) {
+          totalRevenue += o.amount;
+
+          const calc = await calculateOrderProfit(
+            {
+              productType: o.productType ?? null,
+              productName: o.productName ?? null,
+              quantity: o.quantity,
+              amount: o.amount,
+            },
+            s.organizationId
+          );
+
+          totalCost += calc.cost;
+
+          const name =
+            (o.productName && o.productName.trim()) ||
+            (o.productType != null ? `ประเภท ${o.productType}` : "ไม่ระบุสินค้า");
+
+          const key = `${o.productType ?? "null"}::${name}`;
+
+          const prev =
+            map.get(key) ??
+            ({
+              productType: o.productType ?? null,
+              productName: name,
+              quantity: 0,
+              revenue: 0,
+              cost: 0,
+              profit: 0,
+            } as const);
+
+          const next = {
+            productType: prev.productType,
+            productName: prev.productName,
+            quantity: prev.quantity + (o.quantity || 0),
+            revenue: prev.revenue + (o.amount || 0),
+            cost: prev.cost + (calc.cost || 0),
+            profit: 0,
+          };
+          next.profit = next.revenue - next.cost;
+
+          map.set(key, next);
+        }
+
+        const productsSold = Array.from(map.values()).sort(
+          (a, b) => b.quantity - a.quantity
+        );
+
+        const breakdownLines = productsSold.map(
+          (p) => `• ${p.productName}: ${fmtTHB(p.quantity)} ชิ้น`
+        );
+
+        const orderCount = orders.length;
+        const totalProfit = totalRevenue - totalCost;
+        const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+        // ✅ 1) สร้าง/อัปเดต DailySummary ลง DB เสมอ (เมื่อถึงเวลา cut-off แล้ว)
+        await prisma.dailySummary.upsert({
+          where: { organizationId_date: { organizationId: s.organizationId, date: startUtc } },
+          create: {
+            organizationId: s.organizationId,
+            date: startUtc,
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            totalOrders: orderCount,
+            productsSold,
+            cutOffTime: cutoffUtc,
+          },
+          update: {
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            totalOrders: orderCount,
+            productsSold,
+            cutOffTime: cutoffUtc,
+          },
+        });
+
+        // ✅ 2) ส่ง LINE เฉพาะ "ครั้งแรกของวัน"
+        const sentBefore = alreadySentToday({
+          startLocalBkk,
+          lastSentAt: s.dailySummaryLastSentAt ?? null,
+        });
+
+        let sent = false;
+        let via: "push" | "notify" | "none" = "none";
+
+        if (!sentBefore) {
+          const message = formatMessage({
+            dateLabel,
+            orderCount,
+            totalRevenue,
+            totalCost,
+            totalProfit,
+            margin,
+            breakdownLines,
+          });
+
+          if (s.lineChannelAccessToken && s.lineTargetId) {
+            sent = await pushLineMessage(
+              s.lineTargetId,
+              s.lineChannelAccessToken,
+              message
+            );
+            via = "push";
+          }
+if (sent) {
+            await prisma.systemSettings.update({
+              where: { organizationId: s.organizationId },
+              data: { dailySummaryLastSentAt: new Date() },
+            });
+          }
+
+          // ✅ 3) Reset daily sequence counter after sending summary
+          await manualResetDailySequence(s.organizationId);
+        }
+
+        results.push({
+          organizationId: s.organizationId,
+          summarySaved: true,
+          orderCount,
+          totalRevenue,
+          totalCost,
+          totalProfit,
+          margin,
+          sentBefore,
+          sent,
+          via,
+          debug: {
+            startUtc: startUtc.toISOString(),
+            endUtc: endUtc.toISOString(),
+            cutoffUtc: cutoffUtc.toISOString(),
+            bkkNow: bkkNow.toISOString(),
+          },
+        });
+      } catch (err: any) {
+        results.push({
+          organizationId: s.organizationId,
+          error: err?.message ?? String(err),
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      processed: results.length,
+      window: {
+        startUtc: startUtc.toISOString(),
+        endUtc: endUtc.toISOString(),
+        dateLabel,
+      },
+      results,
+    });
+  } catch (error: any) {
+    console.error("GET /api/cron/daily-summary error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}

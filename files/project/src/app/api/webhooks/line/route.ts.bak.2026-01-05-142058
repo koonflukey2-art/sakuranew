@@ -1,0 +1,257 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+import {
+  parseLineOrderMessage,
+  replyLineMessage,
+  pushLineMessage,
+} from "@/lib/line-integration";
+import { getDailySequence, resetDailySequenceIfNeeded } from "@/lib/daily-counter";
+
+export const runtime = "nodejs";
+
+function verifyLineSig(rawBody: Buffer, channelSecret: string, signature: string) {
+  const hash = crypto
+    .createHmac("sha256", channelSecret)
+    .update(rawBody)
+    .digest("base64");
+
+  const a = Buffer.from(hash);
+  const b = Buffer.from((signature || "").trim());
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+
+type LineWebhookEvent = {
+  type?: string;
+  replyToken?: string;
+  message?: { type?: string; text?: string };
+  source?: {
+    type?: "user" | "group" | "room";
+    userId?: string;
+    groupId?: string;
+    roomId?: string;
+  };
+};
+
+function pickTargetId(e: LineWebhookEvent): string | null {
+  return e.source?.groupId || e.source?.roomId || e.source?.userId || null;
+}
+
+export async function POST(request: NextRequest) {
+  let body = "";
+  let rawBuf: Buffer | null = null;
+  try {
+    rawBuf = Buffer.from(await request.arrayBuffer());
+    body = rawBuf.toString("utf8");
+    const signature = request.headers.get("x-line-signature") || "";
+    if (!signature) return NextResponse.json({ ok: true }, { status: 200 });
+
+    // TODO: ถ้ามีหลาย org ให้เปลี่ยนการหา settings ตาม org ให้ชัดเจน
+    const url = new URL(request.url);
+    const webhookUrl = ``;
+
+    const settings =
+      (await prisma.systemSettings.findFirst({
+        where: {
+          lineWebhookUrl: webhookUrl,
+          lineChannelSecret: { not: null },
+          lineChannelAccessToken: { not: null },
+        },
+        orderBy: { updatedAt: "desc" },
+      })) ||
+      (await prisma.systemSettings.findFirst({
+        where: {
+          lineChannelSecret: { not: null },
+          lineChannelAccessToken: { not: null },
+        },
+        orderBy: { updatedAt: "desc" },
+      }));
+
+    if (!settings?.lineChannelSecret || !settings.lineChannelAccessToken) {
+      console.error("LINE not configured (lineChannelSecret/lineChannelAccessToken)");
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    const valid = rawBuf ? verifyLineSig(rawBuf, settings.lineChannelSecret, signature) : false;
+    if (!valid) {
+      console.error("Invalid LINE signature");
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(body);
+    } catch (err) {
+      console.error("Invalid JSON body:", err);
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    const events: LineWebhookEvent[] = Array.isArray(parsed?.events) ? parsed.events : [];
+
+    for (const event of events) {
+      if (event.type !== "message") continue;
+      if (event.message?.type !== "text") continue;
+
+      const messageText = event.message.text || "";
+      const replyToken = event.replyToken || "";
+      const targetIdFromEvent = pickTargetId(event);
+
+      // ✅ เก็บ targetId (groupId/roomId/userId) อัตโนมัติ เพื่อใช้ PUSH ทีหลัง
+      if (targetIdFromEvent && targetIdFromEvent !== settings.lineTargetId) {
+        try {
+          await prisma.systemSettings.update({
+            where: { organizationId: settings.organizationId },
+            data: { lineTargetId: targetIdFromEvent },
+          });
+          console.log("✅ Saved LINE targetId:", {
+            organizationId: settings.organizationId,
+            sourceType: event.source?.type,
+            targetId: targetIdFromEvent,
+          });
+          (settings as any).lineTargetId = targetIdFromEvent;
+        } catch (e) {
+          console.error("Failed to save lineTargetId:", e);
+        }
+      }
+
+      if (!replyToken) continue;
+
+      const src = (event as any).source || {};
+      console.log("LINE source:", { userId: src.userId, groupId: src.groupId, roomId: src.roomId });
+
+      const orderData = parseLineOrderMessage(messageText);
+      if (!orderData) {
+        await replyLineMessage(
+          replyToken,
+          settings.lineChannelAccessToken,
+          "รูปแบบไม่ถูกต้อง\nใช้: [ประเภทสินค้า] [จำนวน] [ราคา]\nตัวอย่าง: 1 5 100"
+        );
+        continue;
+      }
+
+      const product = await prisma.product.findFirst({
+        where: {
+          organizationId: settings.organizationId,
+          productType: orderData.productType,
+        },
+      });
+
+      if (!product) {
+        await replyLineMessage(
+          replyToken,
+          settings.lineChannelAccessToken,
+          `❌ ไม่พบสินค้าประเภท ${orderData.productType}\n\n` +
+            `กรุณาสร้างสินค้าประเภทนี้ในระบบก่อน\n` +
+            `หรือตรวจสอบหมายเลขประเภทสินค้า`
+        );
+        continue;
+      }
+
+      if (product.quantity < orderData.quantity) {
+        await replyLineMessage(
+          replyToken,
+          settings.lineChannelAccessToken,
+          `❌ สต็อกไม่พอ!\n\n` +
+            `สินค้า: ${product.name}\n` +
+            `สต็อกคงเหลือ: ${product.quantity} ชิ้น\n` +
+            `ต้องการ: ${orderData.quantity} ชิ้น`
+        );
+        continue;
+      }
+
+      await resetDailySequenceIfNeeded(settings.organizationId);
+      const dailySequence = await getDailySequence(settings.organizationId);
+
+      const today = new Date();
+      const dateStr = today.toISOString().split("T")[0].replace(/-/g, "");
+      const orderNumber = `ORD-${dateStr}-${String(dailySequence).padStart(3, "0")}`;
+
+      let customer = await prisma.customer.findFirst({
+        where: { organizationId: settings.organizationId, phone: "LINE_DEFAULT" },
+      });
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            organizationId: settings.organizationId,
+            name: "ลูกค้า LINE",
+            phone: "LINE_DEFAULT",
+            address: "จาก LINE",
+          },
+        });
+      }
+
+      const order = await prisma.order.create({
+        data: {
+          organizationId: settings.organizationId,
+          orderNumber,
+          dailySequence,
+          productType: orderData.productType,
+          productName: product.name,
+          quantity: orderData.quantity,
+          amount: orderData.amount,
+          unitPrice: orderData.amount / orderData.quantity,
+          source: "LINE",
+          status: "PENDING",
+          customerId: customer.id,
+          orderDate: new Date(),
+        },
+      });
+
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { quantity: { decrement: orderData.quantity } },
+      });
+
+      const cutOffHour = typeof settings.dailyCutOffHour === "number" ? settings.dailyCutOffHour : 0;
+      const cutOffMinute = typeof settings.dailyCutOffMinute === "number" ? settings.dailyCutOffMinute : 0;
+
+      await replyLineMessage(
+        replyToken,
+        settings.lineChannelAccessToken,
+        `✅ รับออเดอร์แล้ว!\n\n` +
+          `📋 รายการที่ ${dailySequence} (วันนี้)\n` +
+          `เลขที่: ${order.orderNumber}\n` +
+          `สินค้า: ${product.name}\n` +
+          `ประเภท: ${orderData.productType}\n` +
+          `จำนวน: ${orderData.quantity} ชิ้น\n` +
+          `ราคา: ฿${orderData.amount.toLocaleString()}\n\n` +
+          `🕐 รอตัดยอดเวลา ${String(cutOffHour).padStart(2, "0")}:${String(cutOffMinute).padStart(2, "0")} น.`
+      );
+
+      // ✅ แจ้งเตือนเข้ากลุ่มเดิมด้วย PUSH (แทน LINE Notify)
+      const pushTo = (settings as any).lineTargetId || targetIdFromEvent;
+      if (settings.notifyOnOrder && pushTo) {
+        await pushLineMessage(
+          pushTo,
+          settings.lineChannelAccessToken,
+          `🔔 ออเดอร์ใหม่ - รายการที่ ${dailySequence}\n\n` +
+            `เลขที่: ${order.orderNumber}\n` +
+            `สินค้า: ${product.name}\n` +
+            `ประเภท: ${orderData.productType}\n` +
+            `จำนวน: ${orderData.quantity} ชิ้น\n` +
+            `ราคา: ฿${orderData.amount.toLocaleString()}`
+        );
+      }
+
+      if (product.quantity < product.minStockLevel && settings.notifyOnLowStock && pushTo) {
+        await pushLineMessage(
+          pushTo,
+          settings.lineChannelAccessToken,
+          `⚠️ สต็อกต่ำ!\nสินค้า: ${product.name}\nเหลือ: ${product.quantity} ชิ้น`
+        );
+      }
+    }
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e: unknown) {
+    console.error("LINE webhook error:", e);
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+}
+
+export async function GET(_req: NextRequest) {
+  return NextResponse.json({ status: "ok", message: "LINE webhook ready" });
+}

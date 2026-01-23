@@ -1,0 +1,381 @@
+import { prisma } from "@/lib/prisma";
+
+export type ProfitOrderInput = {
+  productType: number | null;
+  productName?: string | null;
+  quantity: number;
+  amount: number;
+};
+
+export type ProfitCalcResult = {
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number; // percent
+  costSavedFromPromotion: number; // ✅ ต้นทุนที่เสียจาก “ของแถม” (โปรร้านแถมเอง) รวมในช่วงที่คำนวณ
+};
+
+function n(v: unknown, fallback = 0) {
+  const x = typeof v === "string" ? Number(v) : (v as number);
+  return Number.isFinite(x) ? x : fallback;
+}
+
+/**
+ * คำนวณต้นทุนต่อชิ้น "ตามโปรโมชั่นซื้อแถม" (supplier promo)
+ * - ไม่มี promo => ใช้ costPrice เดิม
+ * - มี promo buy/free => costPrice * buy / (buy+free)
+ */
+export function effectiveUnitCostFromPromotion(
+  costPrice: number,
+  buyQuantity: number,
+  freeQuantity: number
+) {
+  const buy = n(buyQuantity, 0);
+  const free = n(freeQuantity, 0);
+
+  if (costPrice <= 0) return 0;
+  if (buy <= 0) return costPrice;
+
+  const denom = buy + Math.max(0, free);
+  if (denom <= 0) return costPrice;
+
+  return (costPrice * buy) / denom;
+}
+
+/**
+ * รวมกำไรทั้งหมด (ใช้ใน dashboard/stats)
+ */
+export async function calculateTotalProfit(
+  orders: ProfitOrderInput[],
+  organizationId: string
+): Promise<ProfitCalcResult> {
+  const revenue = orders.reduce((sum, o) => sum + n(o.amount, 0), 0);
+
+  const productTypes = Array.from(
+    new Set(
+      orders
+        .map((o) => (typeof o.productType === "number" ? o.productType : null))
+        .filter((v): v is number => typeof v === "number" && v > 0)
+    )
+  );
+
+  if (orders.length === 0) {
+    return {
+      revenue,
+      cost: 0,
+      profit: revenue,
+      margin: revenue > 0 ? 100 : 0,
+      costSavedFromPromotion: 0,
+    };
+  }
+
+  // ✅ ถ้าไม่มี productType ให้ fallback คำนวณจาก "ชื่อสินค้า" (เช่นออเดอร์จาก LINE)
+  if (productTypes.length === 0) {
+    const normalize = (x: string) => x.trim().toLowerCase().replace(/\s+/g, " ");
+
+    const products = await prisma.product.findMany({
+      where: { organizationId },
+      select: { id: true, name: true, costPrice: true },
+    });
+
+    const productByName = new Map<string, { costPrice: number }>();
+    for (const pr of products) {
+      productByName.set(normalize(pr.name), { costPrice: pr.costPrice });
+    }
+
+    let cost = 0;
+
+    for (const o of orders) {
+      const qty = Math.max(0, Math.floor(n((o as any)?.quantity, 0)));
+      if (qty <= 0) continue;
+
+      const rawName = typeof (o as any)?.productName === "string" ? (o as any).productName : "";
+      const key = rawName ? normalize(rawName) : "";
+      if (!key) continue;
+
+      const pr = productByName.get(key);
+      if (!pr) continue;
+
+      const baseCost = n(pr.costPrice, 0);
+      if (baseCost <= 0) continue;
+
+      cost += baseCost * qty;
+    }
+
+    const profit = revenue - cost;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+    return { revenue, cost, profit, margin, costSavedFromPromotion: 0 };
+  }
+
+  // 1) ดึงสินค้าใน org ตาม productType
+  const products = await prisma.product.findMany({
+    where: {
+      organizationId,
+      productType: { in: productTypes },
+    },
+    select: {
+      id: true,
+      productType: true,
+      costPrice: true,
+    },
+  });
+
+  const productByType = new Map<number, { id: string; costPrice: number }>();
+  for (const p of products) {
+    productByType.set(p.productType, { id: p.id, costPrice: p.costPrice });
+  }
+
+  // 2) ดึง promo active ต่อสินค้า (เอาอันล่าสุด)
+  const productIds = products.map((p) => p.id);
+
+  const promos =
+    productIds.length > 0
+      ? await prisma.promotion.findMany({
+          where: {
+            organizationId,
+            isActive: true,
+            productId: { in: productIds },
+          },
+          select: {
+            productId: true,
+            buyQuantity: true,
+            freeQuantity: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+
+  const promoByProductId = new Map<string, { buyQuantity: number; freeQuantity: number }>();
+  for (const pr of promos) {
+    if (!promoByProductId.has(pr.productId)) {
+      promoByProductId.set(pr.productId, {
+        buyQuantity: pr.buyQuantity,
+        freeQuantity: pr.freeQuantity,
+      });
+    }
+  }
+
+  // 3) คิด cost ตามออเดอร์
+  let cost = 0;
+  let costSavedFromPromotion = 0;
+
+  for (const o of orders) {
+    const pt = typeof o.productType === "number" ? o.productType : null;
+    if (!pt) continue;
+
+    const qty = Math.max(0, Math.floor(n(o.quantity, 0)));
+    if (qty <= 0) continue;
+
+    const prod = productByType.get(pt);
+    if (!prod) continue;
+
+    const baseCost = n(prod.costPrice, 0);
+    if (baseCost <= 0) continue;
+
+    const promo = promoByProductId.get(prod.id);
+
+    // ✅ โปรร้านแถมเอง: ลูกค้าได้ของเพิ่ม แต่ต้นทุนต่อชิ้นของร้าน “ไม่ลดลง”
+    // คิดของแถมจากจำนวนที่ซื้อ: freeGiven = floor(qty / buyQty) * freeQty
+    const buyQty = promo ? Math.max(1, Math.floor(n(promo.buyQuantity, 0))) : 0;
+    const freeQty = promo ? Math.max(0, Math.floor(n(promo.freeQuantity, 0))) : 0;
+    const freeGiven = buyQty > 0 && freeQty > 0 ? Math.floor(qty / buyQty) * freeQty : 0;
+
+    const deliveredQty = qty + freeGiven;
+    cost += baseCost * deliveredQty;
+
+    // ✅ เก็บ “ต้นทุนของแถม” ไว้ในช่องเดิม (ชื่อเดิม แต่ความหมายใหม่)
+    costSavedFromPromotion += baseCost * freeGiven;
+  }
+
+  const profit = revenue - cost;
+  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+  return { revenue, cost, profit, margin, costSavedFromPromotion };
+}
+
+/**
+
+/**
+ * Backward-compatible exports (hotfix):
+ * บาง route ยัง import ชื่อฟังก์ชันเก่าอยู่ ให้ map มาที่ calculateTotalProfit
+ * หมายเหตุ: ใช้ any เพื่อให้ type-check ผ่าน แม้ caller ส่งรูปแบบข้อมูลต่างกัน
+ */
+
+function toProfitOrderInputs(maybeItems: any[]): ProfitOrderInput[] {
+  return (maybeItems || []).map((x) => ({
+    productType:
+      typeof x?.productType === "number"
+        ? x.productType
+        : typeof x?.productTypeId === "number"
+          ? x.productTypeId
+          : typeof x?.product_type === "number"
+            ? x.product_type
+            : null,
+    productName:
+      typeof x?.productName === "string"
+        ? x.productName
+        : typeof x?.product_name === "string"
+          ? x.product_name
+          : null,
+    quantity: n(x?.quantity ?? x?.qty ?? x?.count ?? 0, 0),
+    amount: n(x?.amount ?? x?.total ?? x?.lineTotal ?? x?.totalPrice ?? x?.price ?? 0, 0),
+  }));
+}
+
+async function fetchProfitLines(orgId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
+  const range: any = {};
+  if (startDate) range.gte = startDate;
+  if (endDate) range.lte = endDate;
+
+  const whereBase: any = { organizationId: orgId };
+  if (Object.keys(range).length) whereBase.createdAt = range;
+
+  // 1) พยายามหา orderItem model ก่อน
+  const orderItemModel =
+    (prisma as any).orderItem ??
+    (prisma as any).orderItems ??
+    (prisma as any).order_item ??
+    (prisma as any).order_items;
+
+  if (orderItemModel?.findMany) {
+    try {
+      return await orderItemModel.findMany({
+        where: whereBase,
+        select: {
+          productType: true,
+          productTypeId: true,
+          product_type: true,
+          quantity: true,
+          qty: true,
+          amount: true,
+          total: true,
+          totalPrice: true,
+          lineTotal: true,
+          price: true,
+          createdAt: true,
+        },
+      });
+    } catch {
+      // fallback ต่อ
+    }
+  }
+
+  // 2) fallback: ดึง order แล้ว flatten items
+  const orderModel = (prisma as any).order ?? (prisma as any).orders;
+  if (orderModel?.findMany) {
+    try {
+      const orders = await orderModel.findMany({
+        where: whereBase,
+        include: {
+          items: true,
+          orderItems: true,
+          lines: true,
+        },
+      });
+
+      const lines: any[] = [];
+      for (const o of orders || []) {
+        const arr = (o as any).items ?? (o as any).orderItems ?? (o as any).lines ?? [];
+        if (Array.isArray(arr)) lines.push(...arr);
+      }
+      return lines;
+    } catch {
+      // fallback ต่อ
+    }
+  }
+
+  return [];
+}
+
+type AnyProfitResult = ProfitCalcResult & { [k: string]: any };
+
+export async function calculateOrderProfit(arg1: any, arg2?: any, arg3?: any): Promise<AnyProfitResult> {
+  // case: (itemsArray, orgId)
+  if (Array.isArray(arg1) && typeof arg2 === "string") {
+    return (await calculateTotalProfit(toProfitOrderInputs(arg1), arg2)) as any;
+  }
+
+  // case: (orgId, itemsArray) (เผื่อบางที่สลับลำดับ)
+  if (typeof arg1 === "string" && Array.isArray(arg2)) {
+    return (await calculateTotalProfit(toProfitOrderInputs(arg2), arg1)) as any;
+  }
+
+  // case: ({ organizationId, items/... }, orgId?)
+  if (arg1 && typeof arg1 === "object") {
+    const orgId =
+      typeof arg2 === "string"
+        ? arg2
+        : typeof (arg1 as any).organizationId === "string"
+          ? (arg1 as any).organizationId
+          : typeof (arg1 as any).orgId === "string"
+            ? (arg1 as any).orgId
+            : undefined;
+
+    const items =
+      (arg1 as any).items ??
+      (arg1 as any).orderItems ??
+      (arg1 as any).lines ??
+      (arg1 as any).products ??
+      (arg1 as any).data;
+
+    if (Array.isArray(items) && typeof orgId === "string") {
+      return (await calculateTotalProfit(toProfitOrderInputs(items), orgId)) as any;
+    }
+  }
+
+  return { revenue: 0, cost: 0, profit: 0, margin: 0, costSavedFromPromotion: 0 } as any;
+}
+
+export async function calculateOrderProfitWithPromotionData(arg1: any, arg2?: any, arg3?: any): Promise<AnyProfitResult> {
+  return calculateOrderProfit(arg1, arg2, arg3);
+}
+
+export async function calculateComprehensiveProfit(arg1: any, arg2?: any, arg3?: any): Promise<AnyProfitResult> {
+  // ✅ expected call: (orgId, startDate?, endDate?)
+  if (
+    typeof arg1 === "string" &&
+    (arg2 instanceof Date || arg2 == null) &&
+    (arg3 instanceof Date || arg3 == null)
+  ) {
+    const orgId = arg1;
+    const startDate = arg2 instanceof Date ? arg2 : undefined;
+    const endDate = arg3 instanceof Date ? arg3 : undefined;
+
+    const lines = await fetchProfitLines(orgId, startDate, endDate);
+    return (await calculateTotalProfit(toProfitOrderInputs(lines), orgId)) as any;
+  }
+
+  // fallback: (itemsArray, orgId)
+  if (Array.isArray(arg1) && typeof arg2 === "string") {
+    return (await calculateTotalProfit(toProfitOrderInputs(arg1), arg2)) as any;
+  }
+
+  // fallback: ({ organizationId, orders/items }, orgId?)
+  if (arg1 && typeof arg1 === "object") {
+    const orgId =
+      typeof arg2 === "string"
+        ? arg2
+        : typeof (arg1 as any).organizationId === "string"
+          ? (arg1 as any).organizationId
+          : typeof (arg1 as any).orgId === "string"
+            ? (arg1 as any).orgId
+            : undefined;
+
+    const items = (arg1 as any).orders ?? (arg1 as any).items ?? (arg1 as any).data;
+
+    const startDate = (arg1 as any).startDate ? new Date((arg1 as any).startDate) : undefined;
+    const endDate = (arg1 as any).endDate ? new Date((arg1 as any).endDate) : undefined;
+
+    if (typeof orgId === "string") {
+      if (Array.isArray(items)) {
+        return (await calculateTotalProfit(toProfitOrderInputs(items), orgId)) as any;
+      }
+      const lines = await fetchProfitLines(orgId, startDate, endDate);
+      return (await calculateTotalProfit(toProfitOrderInputs(lines), orgId)) as any;
+    }
+  }
+
+  return { revenue: 0, cost: 0, profit: 0, margin: 0, costSavedFromPromotion: 0 } as any;
+}

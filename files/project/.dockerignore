@@ -1,0 +1,28 @@
+# dependencies / build output
+node_modules
+.next
+out
+dist
+coverage
+
+# caches
+.turbo
+.swc
+.cache
+*.log
+tsconfig.tsbuildinfo
+
+# VCS
+.git
+
+# env files (อย่าเอาเข้าภาพ build)
+.env
+.env.*
+
+# local backups
+backup_route_ts_*
+backup_route_ts_safe_*
+*.bak
+
+# uploads (ถ้าต้องการให้ติด image ให้ลบบรรทัดนี้ออก)
+uploads

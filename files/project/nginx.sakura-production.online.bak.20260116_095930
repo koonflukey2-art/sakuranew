@@ -1,0 +1,47 @@
+server {
+  listen 443 ssl;
+  server_name sakura-production.online;
+
+  ssl_certificate /etc/letsencrypt/live/sakura-production.online/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/sakura-production.online/privkey.pem;
+
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 5s;
+  proxy_read_timeout 60s;
+  proxy_send_timeout 60s;
+
+  # A) presence: ไม่เข้า node (ลดโหลดหนักมาก)
+  location = /api/presence/ping {
+    # ยังเข้า node เพื่ออัปเดต last seen แต่กันยิงถี่เกิน
+    limit_req zone=presence_zone burst=5;
+    limit_conn perip_conn 5;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # B) notifications: จำกัดถี่ๆ แบบ "หน่วง" (ไม่ใช้ nodelay)
+  location = /api/notifications {
+    # ถ้าไม่มี cookie (ยังไม่ได้ login) ตัดจบที่ nginx ไม่ต้องเข้า node
+    if ($has_cookie = 0) { return 401; }
+
+    # จำกัดความถี่แบบไม่ nodelay (ให้หน่วงได้ใน burst)
+    limit_req zone=notif_zone burst=120;
+    limit_conn perip_conn 10;
+
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # ทุกอย่างที่เหลือเข้า node ปกติ
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+  }
+}
+
+server {
+  listen 80;
+  server_name sakura-production.online;
+  return 301 https://$host$request_uri;
+}

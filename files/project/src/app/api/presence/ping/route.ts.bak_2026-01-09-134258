@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+export const runtime = "nodejs";
+
+export async function POST(_req: NextRequest) {
+  const session = await getServerSession(authOptions as any);
+  const userId = (session as any)?.user?.id ? String((session as any).user.id) : null;
+
+  // ถ้าไม่มี session ก็ไม่ error กันยิงซ้ำ
+  if (!userId) return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastSeenAt: new Date() },
+  });
+
+  return NextResponse.json({ ok: true }, { status: 200 });
+}

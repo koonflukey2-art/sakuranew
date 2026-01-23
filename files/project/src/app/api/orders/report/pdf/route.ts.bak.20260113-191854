@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from "next/server";
+import React from "react";
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const h = React.createElement;
+
+const styles = StyleSheet.create({
+  page: { fontSize: 10, padding: 28 },
+  header: { marginBottom: 12 },
+  title: { fontSize: 16, marginBottom: 6 },
+  sub: { color: "#444", marginBottom: 10 },
+
+  row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#E5E7EB", paddingVertical: 6 },
+  colA: { width: "18%", paddingRight: 6 },
+  colB: { width: "42%", paddingRight: 6 },
+  colC: { width: "12%", textAlign: "right", paddingRight: 6 },
+  colD: { width: "14%", textAlign: "right", paddingRight: 6 },
+  colE: { width: "14%", textAlign: "right" },
+  th: { fontWeight: 700 },
+});
+
+function S(v: any) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+function fmtMoney(v: any) {
+  const n = Number(v);
+  if (!isFinite(n)) return "0.00";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(d: any) {
+  try {
+    const dt = d instanceof Date ? d : new Date(d);
+    if (isNaN(dt.getTime())) return "";
+    return dt.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+  } catch {
+    return "";
+  }
+}
+
+type Row = {
+  orderDate: any;
+  productName: any;
+  quantity: any;
+  amount: any;
+  status: any;
+};
+
+function ReportDoc(props: { orgName: string; reportDate: string; rows: Row[] }) {
+  const total = props.rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  const header = h(
+    View,
+    { style: styles.header },
+    h(Text, { style: styles.title }, "Orders Report"),
+    h(Text, { style: styles.sub }, `${S(props.orgName)} • ${S(props.reportDate)}`),
+    h(Text, { style: styles.sub }, `Total: ${fmtMoney(total)}`)
+  );
+
+  const tableHead = h(
+    View,
+    { style: styles.row },
+    h(Text, { style: [styles.colA, styles.th] }, "Date"),
+    h(Text, { style: [styles.colB, styles.th] }, "Product"),
+    h(Text, { style: [styles.colC, styles.th] }, "Qty"),
+    h(Text, { style: [styles.colD, styles.th] }, "Amount"),
+    h(Text, { style: [styles.colE, styles.th] }, "Status")
+  );
+
+  const tableRows = props.rows.map((r, i) =>
+    h(
+      View,
+      { key: i, style: styles.row },
+      h(Text, { style: styles.colA }, S(fmtDate(r.orderDate))),
+      h(Text, { style: styles.colB }, S(r.productName)),
+      h(Text, { style: styles.colC }, S(r.quantity)),
+      h(Text, { style: styles.colD }, S(fmtMoney(r.amount))),
+      h(Text, { style: styles.colE }, S(r.status))
+    )
+  );
+
+  const page = h(
+    Page,
+    { size: "A4", style: styles.page, wrap: true },
+    header,
+    tableHead,
+    ...tableRows
+  );
+
+  return h(Document, null, page);
+}
+
+// Python-to-TS small trick: replace "null" with null
+// (We do it after write in file system)

@@ -1,0 +1,39 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+
+const PUBLIC_PREFIXES = [
+  "/auth",
+  "/api/auth",          // สำคัญ: ต้องปล่อย Auth.js endpoints
+  "/api/webhooks/line", // ✅ LINE webhook (ตามไฟล์ของคุณ)
+  "/api/line/webhook",  // ✅ เผื่อคุณใช้ path อีกแบบ
+  "/_next",
+  "/favicon.ico",
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // allow public paths
+  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // auth (Edge runtime friendly)
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+  const token = await getToken({ req: request, secret });
+
+  if (!token) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const url = new URL("/auth/sign-in", request.url);
+    url.searchParams.set("from", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)", "/(api|trpc)(.*)"],
+};

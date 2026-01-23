@@ -1,0 +1,47 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+
+const PUBLIC_PREFIXES = [
+  "/auth",
+  "/api/auth", // ต้องปล่อย auth endpoints
+  "/_next",
+  "/favicon.ico",
+];
+
+// cookie ของ Auth.js v5
+const AUTHJS_COOKIES = ["__Secure-authjs.session-token", "authjs.session-token"];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // ลองอ่าน token จาก cookie ของ authjs (สำคัญ)
+  let token: any = null;
+  for (const cookieName of AUTHJS_COOKIES) {
+    token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+      cookieName,
+    });
+    if (token) break;
+  }
+
+  if (!token) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/sign-in";
+    url.searchParams.set("callbackUrl", request.nextUrl.href);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)", "/(api|trpc)(.*)"],
+};

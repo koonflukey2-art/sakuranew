@@ -1,0 +1,40 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+
+// ปรับรายการนี้ได้ตามที่ระบบคุณต้องการ
+const PUBLIC_PREFIXES = [
+  "/auth",          // หน้า login
+  "/api/auth",      // Auth.js endpoints (สำคัญมากต้องปล่อย)
+  "/_next",
+  "/favicon.ico",
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // allow public
+  if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // ✅ ใช้ Auth.js v5
+  const session = await auth(request);
+  const user = session?.user;
+
+  if (!user) {
+    // API => 401 json, หน้าเว็บ => redirect ไป login
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/sign-in";
+    url.searchParams.set("callbackUrl", request.nextUrl.href);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)", "/(api|trpc)(.*)"],
+};

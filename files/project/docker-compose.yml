@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sakuranew
+      POSTGRES_USER: sakuranew
+      POSTGRES_PASSWORD: fKBrtdZ18ucxmbHeHl2RbmT9
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+    - .env
+    environment:
+      UPLOAD_DIR: /data/uploads/statements
+      NODE_ENV: production
+      NEXTAUTH_URL: https://sakura-production.online
+      AUTH_URL: https://sakura-production.online
+      NEXTAUTH_SECRET: c5917a14ba9d0e54ecffce4dd3c7440f9f9c8befa3aad781912630de46c42f14
+      AUTH_SECRET: c5917a14ba9d0e54ecffce4dd3c7440f9f9c8befa3aad781912630de46c42f14
+    depends_on:
+    - db
+    ports:
+    - 127.0.0.1:3000:3000
+    volumes:
+    - /opt/sakuranew/data/uploads:/data/uploads
+volumes:
+  pgdata: null

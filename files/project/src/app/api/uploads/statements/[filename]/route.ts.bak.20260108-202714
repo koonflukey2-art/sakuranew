@@ -1,0 +1,57 @@
+// src/app/api/uploads/statements/[filename]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { join, basename } from "path";
+import { readFile } from "fs/promises";
+import { existsSync } from "fs";
+
+export const runtime = "nodejs";
+
+function getUploadDir() {
+  return (
+    process.env.UPLOAD_DIR ||
+    join(process.cwd(), "public", "uploads", "statements")
+  );
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const url = new URL(req.url);
+    const raw = url.pathname.split("/").pop() || "";
+    const safeName = basename(decodeURIComponent(raw));
+
+    if (!safeName.toLowerCase().endsWith(".pdf")) {
+      return NextResponse.json({ error: "Invalid file" }, { status: 400 });
+    }
+
+    const dir = getUploadDir();
+    const filePath = join(dir, safeName);
+
+    if (!existsSync(filePath)) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    const buf = await readFile(filePath);
+    // Next.js 15 type: BodyInit ต้องเป็น string/ArrayBuffer/Uint8Array/ReadableStream ฯลฯ
+    const body = new Uint8Array(buf);
+
+    return new NextResponse(body, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e: any) {
+    console.error("serve statement pdf error:", e);
+    return NextResponse.json(
+      { error: e?.message || "Internal error" },
+      { status: 500 }
+    );
+  }
+}

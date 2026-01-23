@@ -1,0 +1,86 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type Row = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  lastSeenAt: string | null;
+  online: boolean;
+  msAgo: number | null;
+};
+
+function fmtAgo(ms: number | null) {
+  if (ms === null) return "ไม่เคยออนไลน์";
+  if (ms < 30_000) return "เมื่อสักครู่";
+  const sec = Math.floor(ms / 1000);
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} นาทีที่แล้ว`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} ชั่วโมงที่แล้ว`;
+  const day = Math.floor(hr / 24);
+  return `${day} วันที่แล้ว`;
+}
+
+export default function UsersPresencePanel() {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/presence/users", { cache: "no-store" });
+      const j = await res.json();
+      if (j?.ok && Array.isArray(j.users)) setRows(j.users);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    const t = setInterval(fetchUsers, 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const online = useMemo(() => rows.filter((r) => r.online), [rows]);
+  const offline = useMemo(() => rows.filter((r) => !r.online), [rows]);
+
+  return (
+    <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>สถานะผู้ใช้งาน</div>
+        <div style={{ fontSize: 12, opacity: 0.7 }}>
+          {loading ? "กำลังโหลด..." : `ออนไลน์ ${online.length} / ทั้งหมด ${rows.length}`}
+        </div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #eee" }}>ชื่อ</th>
+              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #eee" }}>อีเมล</th>
+              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #eee" }}>สถานะ</th>
+              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #eee" }}>ออฟไลน์ล่าสุด</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...online, ...offline].map((r) => (
+              <tr key={r.id}>
+                <td style={{ padding: 8, borderBottom: "1px solid #f3f4f6" }}>{r.name || "-"}</td>
+                <td style={{ padding: 8, borderBottom: "1px solid #f3f4f6" }}>{r.email}</td>
+                <td style={{ padding: 8, borderBottom: "1px solid #f3f4f6" }}>
+                  {r.online ? "🟢 ออนไลน์" : "⚪ ออฟไลน์"}
+                </td>
+                <td style={{ padding: 8, borderBottom: "1px solid #f3f4f6" }}>
+                  {r.online ? "-" : fmtAgo(r.msAgo)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
