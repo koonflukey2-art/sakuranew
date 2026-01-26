@@ -15,6 +15,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
+
+  // ✅ role บางโปรเจคไม่ได้ extend type ไว้ เลยอ่านแบบ any ให้ไม่ error
   const role = (session?.user as any)?.role ?? "EMPLOYEE";
   const accountMenuKey = role;
   const isAdmin = role === "ADMIN";
@@ -33,8 +35,8 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-gradient-dark text-white light:bg-white light:text-black overflow-hidden">
       <Sidebar />
 
-      {/* ✅ ตรงนี้เปลี่ยน: ใช้ class dashboard-shell ให้ CSS คุม margin-left */}
-      <div className="dashboard-shell flex-1 flex flex-col min-w-0 transition-[margin-left] duration-300">
+      {/* ✅ ใช้ dashboard-shell ให้ globals.css คุม margin-left ตอน sidebar ย่อ/ขยาย */}
+      <div className="dashboard-shell flex-1 flex flex-col min-w-0">
         <header className="px-4 py-4 md:px-8 md:py-6 border-b border-white/5 bg-black/20 backdrop-blur light:bg-white/80 light:border-black/10 lg:pl-8 pl-16">
           <div className="flex items-center justify-between gap-4">
             {/* Brand */}
@@ -42,6 +44,7 @@ export default function DashboardLayout({
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
                 <span className="text-2xl">🌸</span>
               </div>
+
               <div className="min-w-0">
                 <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                   Sakura Biotech
@@ -52,8 +55,9 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            {/* Right side */}
-            <div className="flex items-center gap-2">
+            {/* Right side: shortcuts + user */}
+            <div className="flex items-center gap-2 min-w-0">
+              {/* ✅ TopNav แถวเดียว: แสดงบน lg+ เท่านั้น (กันโผล่ 2 แถว) */}
               {isAdmin && (
                 <div className="hidden lg:block mr-2 max-w-[52vw] overflow-x-auto no-scrollbar px-1">
                   <DashboardTopNav />
@@ -65,12 +69,15 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* ถ้าคุณไม่อยากให้ TopNav โผล่ 2 แถว ให้ปิด block นี้ไว้ */}
-          {isAdmin && (
-            <div className="lg:hidden hidden md:block mt-4">
+          {/* ✅ ถ้าอยากให้จอ md โผล่ด้วย “แทน” ไม่ใช่เพิ่มอีกแถว:
+              ให้เอา TopNav ด้านบนออก แล้วเปิด block นี้แทน
+              ตอนนี้ปิดไว้เพื่อไม่ให้มี 2 แถว
+          */}
+          {/* {isAdmin && (
+            <div className="hidden md:block lg:hidden mt-4">
               <DashboardTopNav />
             </div>
-          )}
+          )} */}
         </header>
 
         <main className="dashboard-main flex-1 overflow-y-auto bg-gradient-dark light:bg-gradient-to-br light:from-gray-50 light:to-gray-100">
