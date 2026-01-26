@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 
 import { getRolePermissions, type UserRole } from "@/lib/rbac-core";
+import { SakuraLogo } from "@/components/sakura-logo";
 
 interface MenuItem {
   label: string;
@@ -330,9 +331,9 @@ export function Sidebar() {
           <div className="flex items-center justify-between mb-8">
             {isDrawerExpanded && (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
-                  <span className="text-2xl">🌸</span>
-                </div>
+                {/* ✅ โลโก้ซากุระสีชมพูอมขาว (ไม่มีพื้นหลัง) */}
+                <SakuraLogo className="w-10 h-10 shrink-0" />
+
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                     Sakura Biotech
@@ -345,8 +346,9 @@ export function Sidebar() {
             )}
 
             {!isDrawerExpanded && (
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mx-auto">
-                <span className="text-2xl">🌸</span>
+              <div className="mx-auto">
+                {/* ✅ โลโก้ซากุระสีชมพูอมขาว (ไม่มีพื้นหลัง) */}
+                <SakuraLogo className="w-10 h-10" />
               </div>
             )}
 

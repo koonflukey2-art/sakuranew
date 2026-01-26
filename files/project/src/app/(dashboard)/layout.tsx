@@ -8,6 +8,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
 import { AccountMenu } from "@/components/account-menu";
 import { DashboardTopNav } from "@/components/dashboard/dashboard-top-nav";
+import { SakuraLogo } from "@/components/sakura-logo";
 
 export default function DashboardLayout({
   children,
@@ -41,9 +42,8 @@ export default function DashboardLayout({
           <div className="flex items-center justify-between gap-4">
             {/* Brand */}
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <span className="text-2xl">🌸</span>
-              </div>
+              {/* ✅ โลโก้ซากุระ (ไม่มีพื้นหลัง) */}
+              <SakuraLogo className="w-10 h-10 shrink-0" />
 
               <div className="min-w-0">
                 <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">

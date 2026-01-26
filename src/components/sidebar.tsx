@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/contexts/theme-context";
 import { getRolePermissions, type UserRole } from "@/lib/rbac-core";
+import { SakuraLogo } from "@/components/sakura-logo";
 
 export interface MenuItem {
   label: string;
@@ -285,11 +286,7 @@ export function Sidebar() {
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         className="lg:hidden fixed top-3 left-3 z-50 p-2 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg text-white hover:bg-white/10 light:bg-white light:text-black light:border-black/20 shadow-lg"
       >
-        {isMobileMenuOpen ? (
-          <X className="w-6 h-6" />
-        ) : (
-          <Menu className="w-6 h-6" />
-        )}
+        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
       {/* Mobile Overlay */}
@@ -308,9 +305,7 @@ export function Sidebar() {
           isDrawerExpanded ? "w-64" : "w-20",
           // Mobile behavior
           "lg:translate-x-0",
-          isMobileMenuOpen
-            ? "translate-x-0"
-            : "-translate-x-full lg:translate-x-0"
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="p-4">
@@ -318,24 +313,24 @@ export function Sidebar() {
           <div className="flex items-center justify-between mb-8">
             {isDrawerExpanded && (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
-                  <span className="text-2xl">🌸</span>
-                </div>
+                {/* ✅ โลโก้ซากุระ (ไม่มีพื้นหลัง) */}
+                <SakuraLogo className="w-10 h-10 shrink-0" />
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                     Sakura Biotech
                   </h1>
-                  <p className="text-xs text-gray-400 light:text-gray-600">
-                    Co. Ltd
-                  </p>
+                  <p className="text-xs text-gray-400 light:text-gray-600">Co. Ltd</p>
                 </div>
               </div>
             )}
+
             {!isDrawerExpanded && (
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mx-auto">
-                <span className="text-2xl">🌸</span>
+              <div className="mx-auto">
+                {/* ✅ โลโก้ซากุระ (ไม่มีพื้นหลัง) */}
+                <SakuraLogo className="w-10 h-10" />
               </div>
             )}
+
             <button
               onClick={toggleExpanded}
               className="hidden lg:block p-1.5 hover:bg-white/10 rounded-lg transition-colors light:hover:bg-black/5"
@@ -374,9 +369,7 @@ export function Sidebar() {
             {menuStructure.map((section) => {
               const isCollapsed = collapsedSections.has(section.section);
               const visibleItems = section.items.filter((item) => {
-                const allowedByPermission = item.permission
-                  ? permissions[item.permission]
-                  : true;
+                const allowedByPermission = item.permission ? permissions[item.permission] : true;
                 const allowedByRole = item.allowedRoles
                   ? item.allowedRoles.includes(role)
                   : true;
@@ -397,11 +390,8 @@ export function Sidebar() {
                       }
                       className={cn(
                         "flex items-center justify-between mb-2 px-3 w-full text-left rounded-md transition-colors",
-                        section.collapsible
-                          ? "hover:bg-white/5"
-                          : "cursor-default",
-                        section.items.some((item) => isItemActive(item.href)) &&
-                          "bg-white/5"
+                        section.collapsible ? "hover:bg-white/5" : "cursor-default",
+                        section.items.some((item) => isItemActive(item.href)) && "bg-white/5"
                       )}
                     >
                       <h3 className="text-xs font-semibold text-gray-300 uppercase light:text-gray-600">
@@ -441,9 +431,7 @@ export function Sidebar() {
                         >
                           <item.icon className="w-5 h-5 flex-shrink-0" />
                           {isDrawerExpanded && (
-                            <span className="text-sm font-medium">
-                              {item.label}
-                            </span>
+                            <span className="text-sm font-medium">{item.label}</span>
                           )}
                         </Link>
                       ))}

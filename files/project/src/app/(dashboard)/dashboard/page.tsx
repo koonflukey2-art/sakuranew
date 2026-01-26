@@ -41,6 +41,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { SakuraLogo } from "@/components/sakura-logo";
 
 type TypeBreakdown = {
   count: number;
@@ -144,9 +145,7 @@ function DarkTooltip({
 
   return (
     <div className="rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 shadow-lg">
-      <div className="text-sm text-slate-100 font-semibold">
-        {String(name)}
-      </div>
+      <div className="text-sm text-slate-100 font-semibold">{String(name)}</div>
       <div className="text-sm text-slate-200 mt-1">
         {valueFormatter ? valueFormatter(value) : formatCurrency(value)}
       </div>
@@ -292,9 +291,9 @@ export default function DashboardPage() {
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช
           </Button>
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <span className="text-3xl">🌸</span>
-          </div>
+
+          {/* ✅ โลโก้ซากุระ (ไม่มีพื้นหลัง) */}
+          <SakuraLogo className="w-14 h-14" />
         </div>
       </div>
 
@@ -391,7 +390,11 @@ export default function DashboardPage() {
         />
         <MetricCard
           title="งบ & ROAS"
-          value={remainingBudget > 0 ? formatCurrency(remainingBudget) : formatCurrency(0)}
+          value={
+            remainingBudget > 0
+              ? formatCurrency(remainingBudget)
+              : formatCurrency(0)
+          }
           subtitle={`ROAS ${roas.toFixed(2)}x`}
           icon={<Wallet className="w-5 h-5 text-indigo-200" />}
           tone="indigo"
@@ -509,7 +512,6 @@ export default function DashboardPage() {
                       ))}
                     </Pie>
 
-                    {/* ✅ แก้ตรงนี้: ใช้ Custom Tooltip สีขาว */}
                     <Tooltip
                       content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                     />
@@ -522,11 +524,10 @@ export default function DashboardPage() {
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{ fill: "#E5E7EB", fontSize: 12 }} // ✅ เพิ่มความสว่าง
+                      tick={{ fill: "#E5E7EB", fontSize: 12 }}
                       width={80}
                     />
 
-                    {/* ✅ แก้ tooltip bar ด้วย */}
                     <Tooltip
                       content={<DarkTooltip valueFormatter={(v) => formatCurrency(v)} />}
                     />
@@ -545,7 +546,8 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   {pieData.map((entry, index) => {
                     const total = pieData.reduce((sum, item) => sum + item.value, 0);
-                    const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0.0";
+                    const pct =
+                      total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0.0";
                     return (
                       <div
                         key={entry.name}
@@ -739,15 +741,11 @@ export default function DashboardPage() {
                       className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white"
-                        >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white">
                           {index + 1}
                         </div>
                         <div>
-                          <p className="font-semibold text-white">
-                            {product.name}
-                          </p>
+                          <p className="font-semibold text-white">{product.name}</p>
                           <p className="text-sm text-gray-400">
                             {product.totalOrders} ออเดอร์ · {product.totalQuantitySold} ชิ้น
                           </p>

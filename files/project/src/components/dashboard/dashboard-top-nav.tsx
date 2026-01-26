@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Package,
@@ -22,6 +23,14 @@ const shortcuts = [
 
 export function DashboardTopNav() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+
+  // ✅ รอ session โหลดก่อน กันกระพริบ (optional)
+  if (status === "loading") return null;
+
+  // ✅ show เฉพาะ ADMIN เท่านั้น
+  const role = (session?.user as any)?.role;
+  if (role !== "ADMIN") return null;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
