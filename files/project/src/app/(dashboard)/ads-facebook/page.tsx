@@ -68,6 +68,38 @@ interface AdMetrics {
   avgROAS: number;
 }
 
+type MetricsChartRow = {
+  date: string; // expected: YYYY-MM-DD or something parseable
+  revenue?: number;
+  spent?: number;
+  profit?: number;
+};
+
+function toDayKey(d: Date) {
+  // YYYY-MM-DD
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseAnyDate(input: any): Date | null {
+  if (!input) return null;
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function daysFromPeriod(period: string) {
+  // รองรับค่าที่เจอบ่อย ๆ ในโปรเจค
+  if (period === "7days") return 7;
+  if (period === "30days") return 30;
+  if (period === "90days") return 90;
+  if (period === "1year") return 365;
+  // fallback
+  return 7;
+}
+
 export default function AdsFacebookPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -102,39 +134,107 @@ export default function AdsFacebookPage() {
           fetch("/api/facebook-ads/statements"), // สเตทเมนต์
         ]);
 
+      // 1) Campaigns
       if (campaignsRes.ok) {
         const campaignsData = await campaignsRes.json();
         setCampaigns(campaignsData);
       }
 
+      // 2) Metrics (revenue/profit per day ถ้ามี)
+      let metricsChart: MetricsChartRow[] = [];
       if (metricsRes.ok) {
         const metricsData = await metricsRes.json();
         setMetrics(metricsData.summary);
-        setChartData(metricsData.chartData || []);
+        metricsChart = (metricsData.chartData || []) as MetricsChartRow[];
       }
 
-      // ----- รวมจากสลิป -----
+      // 3) Receipts (spent จริง)
       let sumFromReceipts = 0;
       let receiptsLen = 0;
+      let receiptsList: any[] = [];
       if (receiptsRes.ok) {
         const receiptsData = await receiptsRes.json();
         sumFromReceipts = receiptsData.totalAmount || 0;
-        receiptsLen = receiptsData.receipts?.length || 0;
+        receiptsList = receiptsData.receipts || [];
+        receiptsLen = receiptsList.length || 0;
         setReceiptsCount(receiptsLen);
       }
 
-      // ----- รวมจากสเตทเมนต์ -----
+      // 4) Statements (spent จริง)
       let sumFromStatements = 0;
       let statementsLen = 0;
+      let statementsList: any[] = [];
       if (statementsRes.ok) {
         const statementsData = await statementsRes.json();
         sumFromStatements = statementsData.totalAmount || 0;
-        statementsLen = statementsData.statements?.length || 0;
+        statementsList = statementsData.statements || [];
+        statementsLen = statementsList.length || 0;
         setStatementsCount(statementsLen);
       }
 
-      // ✅ รวมสองฝั่งเป็นค่าโฆษณาทั้งหมด
+      // ✅ รวมสองฝั่งเป็นค่าโฆษณาทั้งหมด (ตัวเลขการ์ด)
       setTotalAdSpent(sumFromReceipts + sumFromStatements);
+
+      // =========================
+      // ✅ ทำ "กราฟจริง" ต่อวัน
+      // spent = receipts + statements
+      // revenue/profit = จาก metricsChart (ถ้ามี)
+      // =========================
+
+      // รวม spent ต่อวันจาก receipts + statements
+      const spentByDay = new Map<string, number>();
+
+      const addSpent = (dateLike: any, amountLike: any) => {
+        const d = parseAnyDate(dateLike);
+        if (!d) return;
+        const key = toDayKey(d);
+        const amt = Number(amountLike || 0);
+        if (!Number.isFinite(amt)) return;
+        spentByDay.set(key, (spentByDay.get(key) || 0) + amt);
+      };
+
+      // receipts: ลองเดาคีย์ยอด/วันแบบที่พบบ่อย ๆ
+      for (const r of receiptsList) {
+        addSpent(r.createdAt ?? r.date ?? r.paidAt ?? r.uploadedAt, r.amount ?? r.totalAmount ?? r.price ?? r.value);
+      }
+
+      // statements: ลองเดาคีย์ยอด/วันแบบที่พบบ่อย ๆ
+      for (const s of statementsList) {
+        addSpent(s.createdAt ?? s.date ?? s.statementDate ?? s.paidAt, s.amount ?? s.totalAmount ?? s.value);
+      }
+
+      // สร้าง map ของ revenue/profit ต่อวันจาก metricsChart (ถ้ามี)
+      const revenueByDay = new Map<string, number>();
+      const profitByDay = new Map<string, number>();
+
+      for (const row of metricsChart || []) {
+        const d = parseAnyDate(row.date);
+        if (!d) continue;
+        const key = toDayKey(d);
+        revenueByDay.set(key, Number(row.revenue || 0));
+        profitByDay.set(key, Number(row.profit || 0));
+        // หมายเหตุ: ไม่ใช้ spent จาก metrics เพราะเราจะใช้ spent จริงจาก receipts+statements
+      }
+
+      // build last N days (รวมวันนี้)
+      const nDays = daysFromPeriod(selectedPeriod);
+      const now = new Date();
+      const days: string[] = [];
+      for (let i = nDays - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        days.push(toDayKey(d));
+      }
+
+      // final chartData
+      const merged = days.map((dayKey) => ({
+        date: dayKey, // ใช้ key เดิม (แกน X)
+        revenue: revenueByDay.get(dayKey) ?? 0,
+        spent: spentByDay.get(dayKey) ?? 0,
+        profit: profitByDay.get(dayKey) ?? 0,
+      }));
+
+      setChartData(merged);
     } catch (error) {
       console.error("Failed to fetch ads data:", error);
       toast({
@@ -266,7 +366,9 @@ export default function AdsFacebookPage() {
         {/* Revenue vs Spent Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>รายได้ vs ค่าโฆษณา (7 วันล่าสุด)</CardTitle>
+            <CardTitle>
+              รายได้ vs ค่าโฆษณา ({daysFromPeriod(selectedPeriod)} วันล่าสุด)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -298,7 +400,7 @@ export default function AdsFacebookPage() {
                     dataKey="spent"
                     stroke="#ef4444"
                     strokeWidth={2}
-                    name="ค่าโฆษณา"
+                    name="ค่าโฆษณา (สลิป+สเตทเมนต์จริง)"
                   />
                   <Line
                     type="monotone"

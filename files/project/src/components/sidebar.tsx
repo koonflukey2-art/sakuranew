@@ -22,8 +22,6 @@ import {
   Target,
   GitBranch,
   Settings,
-  Sun,
-  Moon,
   Bot,
   MessageSquare,
   Users,
@@ -33,7 +31,7 @@ import {
   Facebook,
   Receipt,
 } from "lucide-react";
-import { useTheme } from "@/contexts/theme-context";
+
 import { getRolePermissions, type UserRole } from "@/lib/rbac-core";
 
 interface MenuItem {
@@ -211,10 +209,13 @@ const menuStructure: MenuSection[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { theme, toggleTheme } = useTheme();
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    new Set()
+  );
+
   const sidebarStorageKey = "sidebar-expanded";
   const role = (session?.user?.role as UserRole) || "EMPLOYEE";
   const permissions = useMemo(() => getRolePermissions(role), [role]);
@@ -234,7 +235,8 @@ export function Sidebar() {
     const expanded = saved === null ? true : saved === "true";
     document.documentElement.dataset.sidebarCollapsed = String(!expanded);
   } catch {}
-// Close mobile menu when route changes
+
+  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
@@ -244,11 +246,17 @@ export function Sidebar() {
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-  const handleMobileMenuButtonClick = () => {
-    setIsMobileMenuOpen((v) => !v);
-    // also toggle collapsed state for layout shift
-    try { toggleExpanded(); } catch (e) { console.warn("[Sidebar] toggleExpanded failed", e); }
-  };
+    const handleMobileMenuButtonClick = () => {
+      setIsMobileMenuOpen((v) => !v);
+      // also toggle collapsed state for layout shift
+      try {
+        toggleExpanded();
+      } catch (e) {
+        console.warn("[Sidebar] toggleExpanded failed", e);
+      }
+    };
+
+    void handleMobileMenuButtonClick; // keep function defined (no behavior change)
 
     return () => {
       document.body.style.overflow = original;
@@ -259,12 +267,12 @@ export function Sidebar() {
     const newState = !isExpanded;
     setIsExpanded(newState);
     localStorage.setItem(sidebarStorageKey, String(newState));
-  
-      try {
-        document.documentElement.dataset.sidebarCollapsed = String(!newState);
-      } catch {}
-      console.log("[Sidebar] toggleExpanded", { newState, collapsed: !newState });
-};
+
+    try {
+      document.documentElement.dataset.sidebarCollapsed = String(!newState);
+    } catch {}
+    console.log("[Sidebar] toggleExpanded", { newState, collapsed: !newState });
+  };
 
   const toggleSection = (section: string) => {
     setCollapsedSections((prev) => {
@@ -281,8 +289,12 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <button aria-label="toggle-sidebar"
-        onClick={() => { setIsMobileMenuOpen((v) => !v); toggleExpanded(); }}
+      <button
+        aria-label="toggle-sidebar"
+        onClick={() => {
+          setIsMobileMenuOpen((v) => !v);
+          toggleExpanded();
+        }}
         className="lg:hidden fixed top-3 left-3 z-50 p-2 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg text-white hover:bg-white/10 light:bg-white light:text-black light:border-black/20 shadow-lg"
       >
         {isMobileMenuOpen ? (
@@ -331,11 +343,13 @@ export function Sidebar() {
                 </div>
               </div>
             )}
+
             {!isDrawerExpanded && (
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mx-auto">
                 <span className="text-2xl">🌸</span>
               </div>
             )}
+
             <button
               onClick={toggleExpanded}
               className="hidden lg:block p-1.5 hover:bg-white/10 rounded-lg transition-colors light:hover:bg-black/5"
@@ -348,31 +362,13 @@ export function Sidebar() {
             </button>
           </div>
 
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className={cn(
-              "w-full mb-6 p-3 rounded-lg flex items-center gap-3 transition-colors",
-              "bg-white/5 hover:bg-white/10 light:bg-black/5 light:hover:bg-black/10",
-              !isDrawerExpanded && "justify-center"
-            )}
-          >
-            {theme === "dark" ? (
-              <Sun className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-blue-500" />
-            )}
-            {isDrawerExpanded && (
-              <span className="text-sm text-white light:text-black">
-                {theme === "dark" ? "โหมดสว่าง" : "โหมดมืด"}
-              </span>
-            )}
-          </button>
+          {/* ✅ Theme Toggle ถูกลบออกตามที่ขอ */}
 
           {/* Menu */}
           <nav className="space-y-6">
             {menuStructure.map((section) => {
               const isCollapsed = collapsedSections.has(section.section);
+
               const visibleItems = section.items.filter((item) => {
                 const allowedByPermission = item.permission
                   ? permissions[item.permission]
@@ -383,9 +379,7 @@ export function Sidebar() {
                 return allowedByPermission && allowedByRole;
               });
 
-              if (visibleItems.length === 0) {
-                return null;
-              }
+              if (visibleItems.length === 0) return null;
 
               return (
                 <div key={section.section}>
@@ -394,6 +388,7 @@ export function Sidebar() {
                       <h3 className="text-xs font-semibold text-gray-400 uppercase light:text-gray-600">
                         {section.section}
                       </h3>
+
                       {section.collapsible && (
                         <button
                           onClick={() => toggleSection(section.section)}
@@ -409,7 +404,9 @@ export function Sidebar() {
                     </div>
                   )}
 
-                  {(!section.collapsible || !isCollapsed || !isDrawerExpanded) && (
+                  {(!section.collapsible ||
+                    !isCollapsed ||
+                    !isDrawerExpanded) && (
                     <div className="space-y-1">
                       {visibleItems.map((item) => (
                         <Link
