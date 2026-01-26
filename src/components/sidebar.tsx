@@ -36,7 +36,7 @@ import {
 import { useTheme } from "@/contexts/theme-context";
 import { getRolePermissions, type UserRole } from "@/lib/rbac-core";
 
-interface MenuItem {
+export interface MenuItem {
   label: string;
   href: string;
   icon: any;
@@ -44,13 +44,13 @@ interface MenuItem {
   allowedRoles?: UserRole[];
 }
 
-interface MenuSection {
+export interface MenuSection {
   section: string;
   items: MenuItem[];
   collapsible?: boolean;
 }
 
-const menuStructure: MenuSection[] = [
+export const menuStructure: MenuSection[] = [
   {
     section: "ภาพรวม",
     items: [

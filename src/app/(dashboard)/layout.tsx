@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
@@ -31,12 +30,9 @@ export default function DashboardLayout({
   return (
     <ThemeProvider>
       <div className="flex min-h-screen bg-gradient-dark text-white light:bg-white light:text-black overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar />
-
         {/* Main area - adjust margin based on sidebar */}
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all">
-          <header className="px-4 py-4 md:px-8 md:py-6 border-b border-white/5 bg-black/30 backdrop-blur-xl light:bg-white/80 light:border-black/10 lg:pl-8 pl-16">
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="px-4 py-4 md:px-8 md:py-6 border-b border-white/5 bg-black/30 backdrop-blur-xl light:bg-white/80 light:border-black/10">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
