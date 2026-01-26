@@ -20,6 +20,13 @@ async function safeReadText(res: Response) {
 }
 
 export async function GET(req: NextRequest) {
+  const isProd = process.env.NODE_ENV === "production";
+  const debugEnabled =
+    process.env.DEBUG_ROUTES_ENABLED?.toLowerCase() === "true";
+  if (isProd && !debugEnabled) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   // ✅ IMPORTANT: internal Next server is HTTP on port 3000
   const base = "http://127.0.0.1:3000";
   const cookie = req.headers.get("cookie") ?? "";

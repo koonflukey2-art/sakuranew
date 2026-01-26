@@ -6,6 +6,13 @@ import { getOrganizationId } from "@/lib/organization";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  const isProd = process.env.NODE_ENV === "production";
+  const debugEnabled =
+    process.env.DEBUG_ROUTES_ENABLED?.toLowerCase() === "true";
+  if (isProd && !debugEnabled) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const h = await headers();
   const c = await cookies();
 

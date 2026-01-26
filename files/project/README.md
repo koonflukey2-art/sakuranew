@@ -48,6 +48,11 @@ NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:9002"
 ```
 
+### 🔒 Security notes (production)
+
+- **Do not commit secrets** (database passwords, auth secrets, API keys). Use `.env` and Docker `env_file` instead.
+- If any secrets were ever committed, **rotate them immediately** before deploying.
+
 4. Setup database
 ```bash
 npx prisma generate

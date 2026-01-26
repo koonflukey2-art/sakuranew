@@ -85,6 +85,9 @@ COPY --from=build /app/.next/static ./.next/static
 # deps for prisma seed/scripts
 COPY --from=build /app/node_modules ./node_modules
 
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 3000
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -9,6 +9,17 @@ const DEFAULT_ORG_NAME = "Sakura Biotech";
 
 export async function POST(request: Request) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+    const allowSignup =
+      !isProd || process.env.ENABLE_SIGNUP?.toLowerCase() === "true";
+
+    if (!allowSignup) {
+      return NextResponse.json(
+        { error: "Sign-up is disabled" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const email = String(body?.email || "").toLowerCase().trim();
     const password = String(body?.password || "");

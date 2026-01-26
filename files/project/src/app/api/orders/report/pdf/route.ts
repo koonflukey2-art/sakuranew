@@ -45,11 +45,16 @@ export async function GET(req: NextRequest) {
     }
     console.log("[pdf:" + rid + "] orgId", orgId);
 
+    if (!orgId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // ช่วงเวลา 1 วันของ date นั้น (UTC)
     const start = new Date(date + "T00:00:00.000Z");
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
     const where: any = {
+      organizationId: orgId,
       AND: [
         {
           OR: [
@@ -59,9 +64,6 @@ export async function GET(req: NextRequest) {
         },
       ],
     };
-    if (orgId) {
-      where.organizationId = orgId;
-    }
 
     const orders = await prisma.order.findMany({
       where,
