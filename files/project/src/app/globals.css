@@ -123,12 +123,13 @@
     background-clip: text;
   }
 
-.text-gradient-pink {
+  .text-gradient-pink {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }}
+  }
+}
 
 /* ---------- Scrollbar styling ---------- */
 ::-webkit-scrollbar {
@@ -178,7 +179,6 @@
 }
 
 /* ---------- Dialog pointer-events fix ---------- */
-/* Fix dialog pointer events - Ensure buttons are always clickable */
 [role="dialog"] {
   pointer-events: auto !important;
 }
@@ -192,7 +192,6 @@ button:not(:disabled) {
   cursor: pointer !important;
 }
 
-/* Ensure dialog content is always interactive */
 [data-state="open"] {
   pointer-events: auto !important;
 }
@@ -339,26 +338,52 @@ button:not(:disabled) {
   background: #a0a0a0;
 }
 
-
 /* hide horizontal scrollbar (used by top quick nav) */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
+/* =========================================================
+   ✅ FIX: Sidebar collapse should make content wider (X axis)
+   - ต้องใส่ className="dashboard-shell" ให้ div content ฝั่งขวา
+   - margin-left เปลี่ยนตาม html[data-sidebar-collapsed]
+   ========================================================= */
+@media (min-width: 1024px) {
+  .dashboard-shell {
+    margin-left: 16rem; /* sidebar ปกติ: w-64 */
+  }
+  html[data-sidebar-collapsed="true"] .dashboard-shell {
+    margin-left: 5rem; /* sidebar ย่อ: w-20 */
+  }
+}
 
-/* AccountMenu collapse -> shift dashboard content */
+/* transition ให้ลื่น */
+.dashboard-shell {
+  transition: margin-left 300ms ease-in-out;
+}
+
+/* =========================================================
+   Existing: AccountMenu collapse -> shift dashboard content
+   (อันนี้คงไว้ได้ ถ้าคุณยังใช้)
+   ========================================================= */
 .dashboard-main {
   transition: transform 300ms ease-in-out;
 }
+
 html[data-account-menu-collapsed="true"] .dashboard-main {
   transform: translateY(-40px);
 }
 
-/* Sidebar collapse -> shift dashboard content (mobile hamburger) */
+/* =========================================================
+   ❌ IMPORTANT: เอา sidebar-collapsed translateY ออก
+   นี่คือตัวทำให้ "ย่อ sidebar แล้วหน้าลอยขึ้นบน"
+   ========================================================= */
+/*
 html[data-sidebar-collapsed="true"] .dashboard-main {
   transform: translateY(-40px) !important;
 }
-
-/* Sidebar collapse -> shift dashboard content */
-html[data-sidebar-collapsed="true"] .dashboard-main {
-  transform: translateY(-40px) !important;
-}
+*/

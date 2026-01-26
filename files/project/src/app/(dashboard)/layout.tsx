@@ -15,8 +15,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
-  const accountMenuKey = session?.user?.role ?? "EMPLOYEE";
-  const isAdmin = session?.user?.role === "ADMIN";
+  const role = (session?.user as any)?.role ?? "EMPLOYEE";
+  const accountMenuKey = role;
+  const isAdmin = role === "ADMIN";
 
   useEffect(() => {
     const checkAlerts = async () => {
@@ -32,7 +33,8 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-gradient-dark text-white light:bg-white light:text-black overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all">
+      {/* ✅ ตรงนี้เปลี่ยน: ใช้ class dashboard-shell ให้ CSS คุม margin-left */}
+      <div className="dashboard-shell flex-1 flex flex-col min-w-0 transition-[margin-left] duration-300">
         <header className="px-4 py-4 md:px-8 md:py-6 border-b border-white/5 bg-black/20 backdrop-blur light:bg-white/80 light:border-black/10 lg:pl-8 pl-16">
           <div className="flex items-center justify-between gap-4">
             {/* Brand */}
@@ -50,9 +52,8 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            {/* Right side: shortcuts + user */}
+            {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* ✅ เหลือแค่ชุดเดียว (ลบรูป 2 แล้ว) */}
               {isAdmin && (
                 <div className="hidden lg:block mr-2 max-w-[52vw] overflow-x-auto no-scrollbar px-1">
                   <DashboardTopNav />
@@ -64,8 +65,7 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* ถ้าอยากให้จอ md แสดงด้วย แต่ไม่ให้แน่น header มาก
-              จะเปิดบรรทัดนี้ได้ (optional) */}
+          {/* ถ้าคุณไม่อยากให้ TopNav โผล่ 2 แถว ให้ปิด block นี้ไว้ */}
           {isAdmin && (
             <div className="lg:hidden hidden md:block mt-4">
               <DashboardTopNav />
