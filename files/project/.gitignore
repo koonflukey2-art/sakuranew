@@ -52,3 +52,10 @@ public/uploads/*
 !public/uploads/.gitkeep
 !public/uploads/receipts/.gitkeep
 /uploads/*
+# backups
+*.bak*
+nginx*.bak*
+docker-compose*.bak*
+Dockerfile.bak*
+# stray/broken filename artifacts
+Plan*
