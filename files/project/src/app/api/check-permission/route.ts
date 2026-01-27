@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       dashboard: permissions.canAccessDashboard,
       stock: permissions.canAccessStock,
       budget: permissions.canAccessBudget,
+      expenses: permissions.canAccessBudget,
       "budget-requests": permissions.canAccessBudgetRequests,
       analytics: permissions.canAccessAnalytics,
       "ai-chat": permissions.canAccessAI,

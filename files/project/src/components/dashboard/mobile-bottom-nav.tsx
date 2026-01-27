@@ -8,6 +8,7 @@ import {
   Package,
   ShoppingCart,
   Wallet,
+  Receipt,
   Gift,
   BarChart3,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const shortcuts = [
   { label: "จัดการสินค้า", href: "/products", icon: Package },
   { label: "คำสั่งซื้อ", href: "/orders", icon: ShoppingCart },
   { label: "การเงิน", href: "/capital-budget", icon: Wallet },
+  { label: "ค่าใช้จ่าย", href: "/expenses", icon: Receipt },
   { label: "โปรโมชั่น", href: "/promotions", icon: Gift },
   { label: "วิเคราะห์", href: "/analysis", icon: BarChart3 },
 ];

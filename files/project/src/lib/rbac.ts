@@ -163,6 +163,7 @@ export async function canAccessRoute(routePath: string): Promise<boolean> {
     "/ai-assistant": "canAccessAI",
     "/ai-dashboard": "canAccessAI",
     "/budget": "canAccessBudget",
+    "/expenses": "canAccessBudget",
     "/analytics": "canAccessAnalytics",
     "/settings": "canAccessSettings",
     "/automation": "canAccessAutomation",
