@@ -108,6 +108,12 @@ const menuStructure: MenuSection[] = [
         permission: "canAccessBudget",
       },
       {
+        label: "ค่าใช้จ่าย",
+        href: "/expenses",
+        icon: Receipt,
+        permission: "canAccessBudget",
+      },
+      {
         label: "กำไร",
         href: "/profit",
         icon: TrendingUp,

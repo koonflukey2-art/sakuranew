@@ -108,6 +108,7 @@ model Organization {
   budgets             Budget[]
   capitalBudgets      CapitalBudget[]
   budgetRequests      BudgetRequest[]
+  expenses            Expense[]
   adCampaigns         AdCampaign[]
   adAccounts          AdAccount[]
   aiProviders         AIProvider[]
@@ -291,6 +292,22 @@ model BudgetItem {
   updatedAt DateTime @default(now())
 
   @@index([budgetId])
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  quantity       Int
+  amount         Float
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([createdAt])
 }
 
 model CapitalBudget {
