@@ -33,9 +33,10 @@ export async function POST(request: NextRequest) {
     const bodyText = rawBuf.toString("utf8");
     const signature = request.headers.get("x-line-signature") || "";
 
-    // ถ้าไม่มี signature ให้ตอบ 400 (ไม่มี side-effect ก่อน verify)
+    // ถ้าไม่มี signature ให้ตอบ 200 เพื่อกัน retry (ไม่มี side-effect ก่อน verify)
     if (!signature) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+      console.warn("Missing LINE signature");
+      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     const settings = await prisma.systemSettings.findFirst({
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     const valid = verifyLineSig(rawBuf, settings.lineChannelSecret, signature);
     if (!valid) {
       console.error("Invalid LINE signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
     let payload: any;
