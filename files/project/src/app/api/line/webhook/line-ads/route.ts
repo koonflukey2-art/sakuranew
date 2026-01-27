@@ -494,10 +494,14 @@ export async function POST(req: NextRequest) {
 
     // ✅ verify signature
     const signature = req.headers.get("x-line-signature") || "";
+    if (!signature) {
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    }
+
     const okSig = verifyLineSignature(rawBody, adsSettings.adsLineChannelSecret, signature);
     if (!okSig) {
       console.warn("❌ LINE signature invalid");
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     if (!Array.isArray(data.events) || data.events.length === 0) {

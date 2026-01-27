@@ -1,9 +1,18 @@
+# Rate limit zones (define in http context if this file is included there)
+limit_req_zone $binary_remote_addr zone=webhook_zone:10m rate=5r/s;
+limit_req_zone $binary_remote_addr zone=ai_zone:10m rate=2r/s;
+
 server {
   listen 443 ssl;
   server_name sakura-production.online;
 
   ssl_certificate /etc/letsencrypt/live/sakura-production.online/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/sakura-production.online/privkey.pem;
+
+  add_header X-Frame-Options "DENY" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always; # enable after HTTPS is fully stable
 
   proxy_set_header Host $host;
   proxy_set_header X-Real-IP $remote_addr;
@@ -19,6 +28,45 @@ server {
     # ยังเข้า node เพื่ออัปเดต last seen แต่กันยิงถี่เกิน
     limit_req zone=presence_zone burst=5;
     limit_conn perip_conn 5;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # Cron endpoints: allow only localhost
+  location ^~ /api/cron/ {
+    allow 127.0.0.1;
+    deny all;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # Webhooks: rate limit
+  location = /api/webhooks/line {
+    limit_req zone=webhook_zone burst=20 nodelay;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  location = /api/webhooks/line-ads {
+    limit_req zone=webhook_zone burst=20 nodelay;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  location ^~ /api/line/webhook/ {
+    limit_req zone=webhook_zone burst=20 nodelay;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # AI endpoints: rate limit
+  location = /api/ai-chat {
+    limit_req zone=ai_zone burst=10 nodelay;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  location = /api/ai/chat {
+    limit_req zone=ai_zone burst=10 nodelay;
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  location = /api/line/ai-parse {
+    limit_req zone=ai_zone burst=10 nodelay;
     proxy_pass http://127.0.0.1:3000;
   }
 

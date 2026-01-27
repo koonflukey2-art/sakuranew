@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       console.warn("❌ Missing x-line-signature header");
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
     const settings = await prisma.systemSettings.findFirst({
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     const valid = rawBuf ? verifySignature(rawBuf, signature, settings.adsLineChannelSecret) : false;
     if (!valid) {
       console.error("❌ Invalid LINE Ads signature");
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const payload = JSON.parse(rawBody);

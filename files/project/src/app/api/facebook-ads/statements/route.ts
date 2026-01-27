@@ -9,6 +9,7 @@ import { join, basename } from "path";
 import { createHash } from "crypto";
 
 export const runtime = "nodejs";
+const MAX_STATEMENT_BYTES = 5 * 1024 * 1024;
 
 type Statement = {
   id: string;
@@ -236,6 +237,13 @@ export async function POST(request: NextRequest) {
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "Only PDF files are allowed" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_STATEMENT_BYTES) {
+      return NextResponse.json(
+        { error: "File too large (max 5MB)" },
         { status: 400 }
       );
     }

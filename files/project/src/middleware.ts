@@ -4,6 +4,7 @@ import { getToken } from "next-auth/jwt";
 const PUBLIC_PREFIXES = [
   "/api/daily-cutoff",
   "/api/cron",
+  "/api/health",
   "/auth",
   "/api/auth",
   "/api/webhooks/line",

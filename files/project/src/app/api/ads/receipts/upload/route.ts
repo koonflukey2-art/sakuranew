@@ -11,6 +11,12 @@ import sharp from "sharp";
 import jsQR from "jsqr";
 
 export const runtime = "nodejs";
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_RECEIPT_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 // --------------------- utils ---------------------
 function sha256Hex(input: Buffer | string) {
@@ -233,9 +239,21 @@ export async function POST(request: NextRequest) {
     const platform = (formData.get("platform") as string) || "META_ADS";
     const campaignId = (formData.get("campaignId") as string) || null;
 
-    if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+    if (!ALLOWED_RECEIPT_MIME.has(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type (allowed: jpg, png, webp)" },
+        { status: 400 }
+      );
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      return NextResponse.json(
+        { error: "File too large (max 5MB)" },
+        { status: 400 }
+      );
+    }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);

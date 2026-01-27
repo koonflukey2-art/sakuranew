@@ -197,6 +197,26 @@ ENABLE_DAILY_SUMMARY=true # optional: true/false
 
 > แนะนำให้ยิงไปที่ `http://127.0.0.1:3000` เพื่อไม่ต้องเปิด public และต้องส่ง header ตามที่ route ใช้ (`x-cron-secret` หรือ `Authorization: Bearer`).
 
+### 🔒 Cron access (production nginx)
+
+- แนะนำให้ตั้งค่า Nginx ให้ **allow เฉพาะ localhost** สำหรับ `/api/cron/*`
+- VPS cron ต้องยิง `http://127.0.0.1:3000/api/cron/...` เท่านั้น
+- ห้ามใส่ secret ลง repo ให้ใช้ `.env` บน VPS
+
+## 📁 Uploads storage & disk safety
+
+**Paths & volumes**
+- Compose mount: `/opt/sakuranew/data/uploads` → `/data/uploads`
+- `UPLOAD_DIR=/data/uploads/statements` จะทำให้ไฟล์สเตทเมนต์และไฟล์อัปโหลดถูกเก็บในโฟลเดอร์นี้
+- หากรัน container แบบ non-root ให้ตรวจสอบสิทธิ์โฟลเดอร์บน host (เช่น `chown -R 1001:1001 /opt/sakuranew/data/uploads`)
+
+**Retention/backup (แนะนำ)**
+- ตั้ง backup ของ `/opt/sakuranew/data/uploads` ตามรอบที่เหมาะสม (เช่น รายวัน/รายสัปดาห์)
+- กำหนดนโยบาย retention เพื่อจำกัดพื้นที่ดิสก์ (เช่น เก็บย้อนหลัง 90 วัน)
+
+**Compression tip**
+- แนะนำให้บีบอัดรูปหรือแปลงเป็น WebP ก่อนอัปโหลด (ถ้า workflow รองรับ)
+
 ## 📝 License
 
 MIT License

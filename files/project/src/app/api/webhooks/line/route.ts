@@ -33,8 +33,10 @@ export async function POST(request: NextRequest) {
     const bodyText = rawBuf.toString("utf8");
     const signature = request.headers.get("x-line-signature") || "";
 
-    // ถ้าไม่มี signature ให้ตอบ 200 กันยิงซ้ำ
-    if (!signature) return NextResponse.json({ ok: true }, { status: 200 });
+    // ถ้าไม่มี signature ให้ตอบ 400 (ไม่มี side-effect ก่อน verify)
+    if (!signature) {
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    }
 
     const settings = await prisma.systemSettings.findFirst({
       where: {
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
     const valid = verifyLineSig(rawBuf, settings.lineChannelSecret, signature);
     if (!valid) {
       console.error("Invalid LINE signature");
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     let payload: any;
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       payload = JSON.parse(bodyText);
     } catch (err) {
       console.error("Invalid JSON body:", err);
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
     const events: LineWebhookEvent[] = Array.isArray(payload?.events) ? payload.events : [];

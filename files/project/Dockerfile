@@ -88,6 +88,12 @@ COPY --from=build /app/node_modules ./node_modules
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
+RUN groupadd -g 1001 app && useradd -m -u 1001 -g app app \
+  && mkdir -p /data/uploads /data/uploads/statements \
+  && chown -R app:app /app /data/uploads
+
+USER app
+
 EXPOSE 3000
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["node", "server.js"]

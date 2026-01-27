@@ -8,6 +8,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { FloatingAssistant } from "@/components/FloatingAssistant";
 import { AccountMenu } from "@/components/account-menu";
 import { DashboardTopNav } from "@/components/dashboard/dashboard-top-nav";
+import { MobileBottomNav } from "@/components/dashboard/mobile-bottom-nav";
 import { SakuraLogo } from "@/components/sakura-logo";
 
 export default function DashboardLayout({
@@ -80,11 +81,12 @@ export default function DashboardLayout({
           )} */}
         </header>
 
-        <main className="dashboard-main flex-1 overflow-y-auto bg-gradient-dark light:bg-gradient-to-br light:from-gray-50 light:to-gray-100">
+        <main className="dashboard-main flex-1 overflow-y-auto bg-gradient-dark light:bg-gradient-to-br light:from-gray-50 light:to-gray-100 pb-20 lg:pb-0">
           <div className="p-4 md:p-8 space-y-4">{children}</div>
         </main>
       </div>
 
+      <MobileBottomNav />
       <FloatingAssistant />
     </div>
   );
