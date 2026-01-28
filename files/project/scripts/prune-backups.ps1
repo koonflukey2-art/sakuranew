@@ -36,6 +36,9 @@ function Ensure-Dir([string]$path) {
 function Parse-Timestamp([string]$name) {
   # NOTE: .NET regex group names are case-insensitive => avoid m/M collision by using mo/mi/s
   $patterns = @(
+    '\.bak\.[^.]+?\.(?<y>\d{4})-(?<mo>\d{2})-(?<d>\d{2})-(?<H>\d{2})(?<mi>\d{2})(?<s>\d{2})',
+    '\.bak\.[^.]+?\.(?<y>\d{4})(?<mo>\d{2})(?<d>\d{2})_(?<H>\d{2})(?<mi>\d{2})(?<s>\d{2})',
+    '\.bak_(?<y>\d{4})(?<mo>\d{2})(?<d>\d{2})-(?<H>\d{2})(?<mi>\d{2})(?<s>\d{2})',
     '(?<y>\d{4})-(?<mo>\d{2})-(?<d>\d{2})-(?<H>\d{2})(?<mi>\d{2})(?<s>\d{2})',
     '(?<y>\d{4})(?<mo>\d{2})(?<d>\d{2})_(?<H>\d{2})(?<mi>\d{2})(?<s>\d{2})'
   )
@@ -57,7 +60,7 @@ function Parse-Timestamp([string]$name) {
 }
 
 function Get-CanonicalKey([string]$fullName) {
-  if ($fullName -match '^(?<base>.+?)\.bak[._].+$') {
+  if ($fullName -match '^(?<base>.+?)(?:\.__bak__\..+|\.bak(?:[._].+)?|\.bak)$') {
     return $Matches["base"]
   }
   return $null
@@ -68,7 +71,8 @@ function Should-ExcludePath([string]$fullName) {
   if ($fullName -match '\\\.next\\') { return $true }
 
   # prevent archive recursion
-  if ($fullName -match '\\_archive\\backups_pruned\\') { return $true }
+  if ($fullName -match '\\_archive\\') { return $true }
+  if ($fullName -match '\\files\\project\\_archive\\') { return $true }
   if ($fullName -match $archiveBaseEsc) { return $true }
 
   return $false
@@ -80,8 +84,9 @@ Write-Host "Archive: $archiveRoot" -ForegroundColor Cyan
 # 1) Backup files
 Write-Host "Scanning for backup files..." -ForegroundColor Cyan
 
-$backupFiles = @(Get-ChildItem -LiteralPath $rootFull -Recurse -File -Force -Include *.bak.*,*.bak_* |
+$backupFiles = @(Get-ChildItem -LiteralPath $rootFull -Recurse -File -Force -Include *.bak,*.bak.*,*.bak_*,*.__bak__.* |
   Where-Object { -not (Should-ExcludePath $_.FullName) } |
+  Where-Object { $_.Name -match '\.bak' -or $_.Name -match '__bak__' } |
   ForEach-Object {
     $ts = Parse-Timestamp $_.Name
     $key = Get-CanonicalKey $_.FullName
@@ -107,7 +112,7 @@ foreach ($g in $groups) {
   if ($sorted.Count -gt 1) { $toRemove += $sorted[1..($sorted.Count - 1)] }
 }
 
-Write-Host "Backup files found: $($backupFiles.Count)" -ForegroundColor Gray
+Write-Host "Backup files found: $($backupFiles.Count) (archive paths excluded)" -ForegroundColor Gray
 Write-Host "Keep newest per file: $($toKeep.Count)" -ForegroundColor Green
 Write-Host "Remove old backups: $($toRemove.Count)" -ForegroundColor Yellow
 
@@ -157,7 +162,7 @@ foreach ($g in $dirGroups) {
   if ($sorted.Count -gt 1) { $dirRemove += $sorted[1..($sorted.Count - 1)] }
 }
 
-Write-Host "Backup dirs found: $($backupDirs.Count)" -ForegroundColor Gray
+Write-Host "Backup dirs found: $($backupDirs.Count) (archive paths excluded)" -ForegroundColor Gray
 Write-Host "Keep newest per parent: $($dirKeep.Count)" -ForegroundColor Green
 Write-Host "Remove old dirs: $($dirRemove.Count)" -ForegroundColor Yellow
 
